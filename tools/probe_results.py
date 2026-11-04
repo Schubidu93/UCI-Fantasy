@@ -26,7 +26,7 @@ def call(path, data, show=3):
     return rows
 
 
-base = {"disciplineId": 10, "take": 3, "skip": 0, "page": 1, "pageSize": 3,
+base = {"disciplineId": 10, "take": 100, "skip": 100, "page": 2, "pageSize": 100,
         "sort[0][field]": "StartDate", "sort[0][dir]": "desc"}
 def flt(rt, cat, season):
     f = {"filter[logic]": "and"}
@@ -35,16 +35,20 @@ def flt(rt, cat, season):
     return f
 
 comps = None
-for rt, cat in [(0, 22), ("", 22), (0, 0), ("", "")]:
+for rt, cat in [(0, 22)]:
     comps = call("/iframe/Competitions/", {**base, **flt(rt, cat, 464)})
     if comps:
         break
 if not comps:
     comps = call("/iframe/Competitions/", base)
 if comps:
-    c = next((x for x in comps if "UWT" in json.dumps(x)), comps[0])
-    races = call("/iframe/Races/", {"disciplineId": 10, "competitionId": c["Id"], "take": 40, "skip": 0, "page": 1, "pageSize": 40}, 5)
+    print("Klassen:", sorted({x["ClassCode"] for x in comps}))
+    c = next((x for x in comps if x["ClassCode"] == "2.UWT"), comps[0])
+    print("Gewählt:", c["CompetitionName"], c["ClassCode"], c["Date"])
+    races = call("/iframe/Races/", {"disciplineId": 10, "competitionId": c["CompetitionId"], "take": 40, "skip": 0, "page": 1, "pageSize": 40}, 5)
     if races:
-        evs = call("/iframe/Events/", {"disciplineId": 10, "raceId": races[-1]["Id"]}, 6)
-        if evs:
-            call("/iframe/Results/", {"disciplineId": 10, "eventId": evs[0]["Id"], "take": 5, "skip": 0, "page": 1, "pageSize": 5}, 5)
+        rid = races[-1].get("Id") or races[-1].get("RaceId")
+        evs = call("/iframe/Events/", {"disciplineId": 10, "raceId": rid}, 6)
+        for ev in (evs or [])[:2]:
+            eid = ev.get("Id") or ev.get("EventId")
+            call("/iframe/Results/", {"disciplineId": 10, "eventId": eid, "take": 5, "skip": 0, "page": 1, "pageSize": 5}, 5)
