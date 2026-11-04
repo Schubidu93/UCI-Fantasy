@@ -22,18 +22,18 @@ def call(method, path, data):
         return None
 
 
-# Welche Disziplin-ID ist Straße?
-for d in [10, 1, 2, 3, 4, 5, 6, 8, 9]:
+# Welche Disziplin-ID ist Straße? Alle durchgehen.
+ROAD = SEASON = None
+for d in range(1, 31):
     seas = call("GET", "/iframe/GetDisciplineSeasons/", {"disciplineId": d}) or []
     s26 = next((x for x in seas if x.get("Year") == 2026), None)
     if not s26:
-        print(d, "keine Saison 2026"); continue
+        continue
     types = call("GET", "/iframe/GetRankingsRaceTypes/", {"disciplineId": d, "disciplineSeasonId": s26["Id"]}) or []
-    print(d, "Saison", s26["Id"], "Renntypen:", [t["Name"] for t in types][:8])
-    if any(t["Name"] in ("Road Race", "Road", "One day race", "Stage race") or "Road" in t["Name"] for t in types):
+    names = [t["Name"] for t in types]
+    print(d, "Saison", s26["Id"], "Renntypen:", names[:10])
+    if ROAD is None and any(n in ("One day race", "Stage race", "Road race") or "Stage" in n for n in names) and "Track Race" not in names:
         ROAD, SEASON = d, s26["Id"]
-        break
-
 print("\nStraße = Disziplin", ROAD, "Saison", SEASON)
 page = s.get(f"{BASE}/iframe/Rankings/{ROAD}/", timeout=30).text
 cats = call("GET", "/iframe/GetRankingsCategories/", {"disciplineId": ROAD, "disciplineSeasonId": SEASON})
