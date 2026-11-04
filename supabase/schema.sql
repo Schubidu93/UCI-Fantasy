@@ -64,6 +64,8 @@ create table if not exists races (
   end_date   date
 );
 
+alter table races add column if not exists uci_class text;   -- z. B. 2.UWT, 1.Pro
+
 create table if not exists results (
   id          bigint generated always as identity primary key,
   rider_slug  text not null references riders (pcs_slug) on delete cascade,

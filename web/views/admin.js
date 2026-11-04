@@ -128,7 +128,7 @@ function OfflineImport({ c }) {
 
   return html`<section class="card stack">
     <h3>Kader aus Offline-Draft eintragen</h3>
-    <p class="muted small">CSV mit den Spalten <code>Manager;Fahrer;Preis</code> (Teamname, Fahrername wie bei PCS oder PCS-Kürzel, Preis optional).
+    <p class="muted small">CSV mit den Spalten <code>Manager;Fahrer;Preis</code> (Teamname, Fahrername wie in der UCI-Rangliste, z. B. „POGAČAR Tadej“, Preis optional).
       Ohne Preis wird 0 gebucht. Geprüft wird: Kadergröße ${c.league.roster_size}, Summe ≤ 100, kein Fahrer doppelt, alle Fahrer im Ranking.</p>
     <div class="row">
       <input type="file" accept=".csv,text/csv,text/plain" onChange=${(e) => e.target.files[0]?.text().then(parseCsv)} />

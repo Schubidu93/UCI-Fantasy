@@ -1,8 +1,8 @@
-name: PCS Ergebnisse abrufen
+name: Ergebnisse abrufen (UCI)
 
 on:
   schedule:
-    - cron: "0 5 * * *"    # täglich 05:00 UTC (06:00 / 07:00 Uhr deutscher Zeit)
+    - cron: "0 5 * * *"    # täglich 05:00 UTC; die UCI rechnet ihr Ranking wöchentlich neu
   workflow_dispatch:        # zusätzlich per Knopfdruck startbar
 
 jobs:

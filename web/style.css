@@ -123,6 +123,10 @@ details[open] summary { margin-bottom: 8px; }
 .danger-zone { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
 .danger-zone summary { color: var(--err); }
 
+button.google { width: 100%; justify-content: center; background: var(--surface); padding: 10px 14px; margin-bottom: 4px; }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .8rem; margin: 12px 0; }
+.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+
 /* Draft */
 .draft { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
 .draft .auction { grid-column: 1 / -1; }

@@ -3,11 +3,21 @@ import { rpc, useLoad, Loading, fmtDate, fmtPts } from '../lib.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
 
-const labelText = (l) => {
+const LABELS = [
+  [/^Final Classification · General Classification$/, 'Gesamtwertung'],
+  [/^Final Classification$/, 'Ergebnis'],
+  [/^Final Classification · /, ''],
+  [/^Stage (\d+) · Stage Classification$/, 'Etappe $1'],
+  [/^Stage (\d+) · Stage General Classification$/, 'Etappe $1 · Gesamtführung'],
+  [/^Prologue · Stage Classification$/, 'Prolog'],
+  [/^Prologue · Stage General Classification$/, 'Prolog · Gesamtführung'],
+  [/General Classification/g, 'Gesamtwertung'], [/Mountains? Classification/g, 'Bergwertung'],
+  [/Points Classification/g, 'Punktewertung'], [/Young Riders? Classification/g, 'Nachwuchswertung'],
+  [/^Stage (\d+)/, 'Etappe $1'], [/^Prologue/, 'Prolog'],
+];
+export const labelText = (l) => {
   if (!l || l === 'result') return 'Ergebnis';
-  const m = l.match(/^stage-(\d+)/);
-  if (m) return `Etappe ${m[1]}`;
-  return { gc: 'Gesamtwertung', points: 'Punktewertung', kom: 'Bergwertung', youth: 'Nachwuchs', prologue: 'Prolog' }[l] || l;
+  return LABELS.reduce((t, [re, rep]) => t.replace(re, rep), l);
 };
 
 export function Results({ c }) {
