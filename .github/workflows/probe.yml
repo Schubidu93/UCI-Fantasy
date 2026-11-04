@@ -1,0 +1,11 @@
+name: Datenquelle testen (einmalig)
+on:
+  push:
+    branches: [claude/dreamy-ride-47psvw]
+    paths: [tools/**, .github/workflows/probe.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install requests && python tools/probe_results.py
