@@ -1,8 +1,8 @@
 """
-Einmaliger Test (Teil 5): komplette Kette bei UCI DataRide
-Saison → Kategorien/Renntypen → Ranglisten → Fahrer → Ergebnisse eines Fahrers.
+Einmaliger Test (Teil 6): Straße finden und Punkte pro Rennen eines Fahrers abrufen.
 """
 import json
+import re
 import time
 import requests
 
@@ -10,63 +10,61 @@ UA = "UCI-Fantasy-Probe/0.1 (private Fantasy-Liga; https://github.com/Schubidu93
 BASE = "https://dataride.uci.ch"
 s = requests.Session()
 s.headers.update({"User-Agent": UA, "X-Requested-With": "XMLHttpRequest"})
-s.get(BASE + "/iframe/Rankings/7/", timeout=30)
 
 
 def call(method, path, data):
-    time.sleep(1.5)
+    time.sleep(1.2)
     r = s.request(method, BASE + path, params=data if method == "GET" else None,
                   data=data if method == "POST" else None, timeout=30)
-    print(f"\n### {method} {path}\n{json.dumps(data)[:300]}\nHTTP {r.status_code} · {len(r.text)} Zeichen")
     try:
         return r.json()
     except Exception:
-        print(r.text[:400]); return None
+        return None
 
 
-def show(obj, n=3):
-    rows = obj.get("data") if isinstance(obj, dict) and "data" in obj else obj
-    if isinstance(obj, dict) and "total" in obj:
-        print("total:", obj["total"])
-    for x in (rows if isinstance(rows, list) else [rows])[:n]:
-        print(json.dumps(x, ensure_ascii=False)[:1800])
-    return rows
+# Welche Disziplin-ID ist Straße?
+for d in [10, 1, 2, 3, 4, 5, 6, 8, 9]:
+    seas = call("GET", "/iframe/GetDisciplineSeasons/", {"disciplineId": d}) or []
+    s26 = next((x for x in seas if x.get("Year") == 2026), None)
+    if not s26:
+        print(d, "keine Saison 2026"); continue
+    types = call("GET", "/iframe/GetRankingsRaceTypes/", {"disciplineId": d, "disciplineSeasonId": s26["Id"]}) or []
+    print(d, "Saison", s26["Id"], "Renntypen:", [t["Name"] for t in types][:8])
+    if any(t["Name"] in ("Road Race", "Road", "One day race", "Stage race") or "Road" in t["Name"] for t in types):
+        ROAD, SEASON = d, s26["Id"]
+        break
 
-
-SEASON = 453  # 2026
-cats = show(call("GET", "/iframe/GetRankingsCategories/", {"disciplineId": 7, "disciplineSeasonId": SEASON}), 10)
-types = show(call("GET", "/iframe/GetRankingsRaceTypes/", {"disciplineId": 7, "disciplineSeasonId": SEASON}), 10)
-
-cat = next((c for c in cats or [] if "Men Elite" in c.get("Name", "")), (cats or [{}])[min(1, len(cats or [1]) - 1)])
-rtype = next((t for t in types or [] if "Road" in t.get("Name", "")), (types or [{}])[0])
-print("\nKategorie:", cat, "\nRenntyp:", rtype)
-
-flt = {"take": 40, "skip": 0, "page": 1, "pageSize": 40, "disciplineId": 7, "filter[logic]": "and",
-       "filter[filters][0][field]": "RaceTypeId", "filter[filters][0][value]": rtype.get("Id"),
-       "filter[filters][1][field]": "CategoryId", "filter[filters][1][value]": cat.get("Id"),
+print("\nStraße = Disziplin", ROAD, "Saison", SEASON)
+page = s.get(f"{BASE}/iframe/Rankings/{ROAD}/", timeout=30).text
+cats = call("GET", "/iframe/GetRankingsCategories/", {"disciplineId": ROAD, "disciplineSeasonId": SEASON})
+print("Kategorien:", [(c["Id"], c["Name"]) for c in cats])
+me = next(c for c in cats if c["Name"] == "Men Elite")
+flt = {"take": 40, "skip": 0, "page": 1, "pageSize": 40, "disciplineId": ROAD, "filter[logic]": "and",
+       "filter[filters][0][field]": "RaceTypeId", "filter[filters][0][value]": 0,
+       "filter[filters][1][field]": "CategoryId", "filter[filters][1][value]": me["Id"],
        "filter[filters][2][field]": "SeasonId", "filter[filters][2][value]": SEASON}
-rd = show(call("POST", "/iframe/RankingsDiscipline/", flt), 4)
+groups = call("POST", "/iframe/RankingsDiscipline/", flt) or []
+for g in groups:
+    for rk in g.get("Rankings", []):
+        print(f"  Rangliste {rk['Id']}: {rk['RankingName']} (Gruppe {rk['GroupId']}, Moment {rk['MomentId']}, Typ {rk['RankingTypeId']}, RaceType {rk['RaceTypeId']})")
 
-rk = None
-for grp in rd or []:
-    for item in grp.get("Rankings", []) or [grp]:
-        if "Individual" in json.dumps(item) and rk is None:
-            rk = item
-print("\nRangliste:", json.dumps(rk, ensure_ascii=False)[:1200])
-if not rk:
-    raise SystemExit
+rk = next(r for g in groups for r in g.get("Rankings", []) if "Individual" in r["RankingName"] or "World" in r["RankingName"])
+print("\nGewählt:", rk["RankingName"])
+objs = call("POST", "/iframe/ObjectRankings/", {"rankingId": rk["Id"], "disciplineId": ROAD, "rankingTypeId": rk["RankingTypeId"],
+            "take": 3, "skip": 0, "page": 1, "pageSize": 3})
+print("Fahrer gesamt:", objs.get("total"))
+o = objs["data"][0]
+print("Erster:", o["DisplayName"], o["TeamName"], o["Points"], "ObjectId", o["ObjectId"], "UciId", o["UciId"])
 
-data = {"rankingId": rk["Id"], "disciplineId": 7, "rankingTypeId": rk.get("RankingTypeId", 1),
-        "take": 3, "skip": 0, "page": 1, "pageSize": 3,
-        "filter[logic]": "and", "filter[filters][0][field]": "RaceTypeId", "filter[filters][0][value]": rtype.get("Id"),
-        "filter[filters][1][field]": "CategoryId", "filter[filters][1][value]": cat.get("Id"),
-        "filter[filters][2][field]": "SeasonId", "filter[filters][2][value]": SEASON,
-        "filter[filters][3][field]": "MomentId", "filter[filters][3][value]": rk.get("MomentId", 0)}
-objs = show(call("POST", "/iframe/ObjectRankings/", data), 3)
-if objs:
-    o = objs[0]
-    rr = {"objectId": o.get("ObjectId"), "groupId": rk.get("GroupId"), "momentId": rk.get("MomentId"),
-          "rankingId": rk["Id"], "rankingTypeId": rk.get("RankingTypeId", 1), "disciplineSeasonId": SEASON,
-          "disciplineId": 7, "categoryId": cat.get("Id"), "raceTypeId": rtype.get("Id"),
+common = {"groupId": rk["GroupId"], "momentId": rk["MomentId"], "rankingId": rk["Id"], "disciplineSeasonId": SEASON,
+          "disciplineId": ROAD, "categoryId": me["Id"], "raceTypeId": rk["RaceTypeId"],
           "take": 40, "skip": 0, "page": 1, "pageSize": 40}
-    show(call("POST", "/iframe/RidersResults/", rr), 10)
+ier = call("POST", "/iframe/IndividualEventRankings/", {**common, "individualId": o["ObjectId"], "baseRankingTypeId": rk["RankingTypeId"],
+                                                        "countryId": 0, "teamId": 0})
+print("\n### IndividualEventRankings: total", (ier or {}).get("total"))
+for x in (ier or {}).get("data", [])[:12]:
+    print(json.dumps(x, ensure_ascii=False)[:700])
+rr = call("POST", "/iframe/RidersResults/", {**common, "objectId": o["ObjectId"], "rankingTypeId": rk["RankingTypeId"]})
+print("\n### RidersResults: total", (rr or {}).get("total"))
+for x in (rr or {}).get("data", [])[:5]:
+    print(json.dumps(x, ensure_ascii=False)[:700])
