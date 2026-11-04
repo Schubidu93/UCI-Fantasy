@@ -94,6 +94,51 @@ class DataRide:
         return (self._call("POST", "/iframe/IndividualEventRankings/", data) or {}).get("data") or []
 
 
+    # ---- Rennkalender und Ergebnislisten -------------------------------
+
+    def competitions(self, gender, season_id, page_size=100):
+        """Alle Rennen der Saison (Straße, Elite) – neueste zuerst."""
+        out = []
+        while True:
+            data = {"disciplineId": ROAD, "take": page_size, "skip": len(out), "page": len(out) // page_size + 1,
+                    "pageSize": page_size, "sort[0][field]": "StartDate", "sort[0][dir]": "desc",
+                    **self._filters(gender, season_id)}
+            rows = (self._call("POST", "/iframe/Competitions/", data) or {}).get("data") or []
+            out += rows
+            if len(rows) < page_size:
+                return out
+
+    def races(self, competition_id):
+        """Etappen bzw. Renntage eines Rennens."""
+        data = {"disciplineId": ROAD, "competitionId": competition_id, "take": 100, "skip": 0, "page": 1, "pageSize": 100}
+        return (self._call("POST", "/iframe/Races/", data) or {}).get("data") or []
+
+    def events(self, race_id):
+        """Wertungen einer Etappe (Etappe, Gesamt, Punkte, Berg, Nachwuchs …)."""
+        return self._call("POST", "/iframe/Events/", {"disciplineId": ROAD, "raceId": race_id}) or []
+
+    def results(self, event_id, keep_top=25, page_size=100):
+        """Ergebnisliste: Top `keep_top` plus alle weiteren Plätze mit UCI-Punkten."""
+        out = []
+        while True:
+            data = {"disciplineId": ROAD, "eventId": event_id, "take": page_size, "skip": len(out),
+                    "page": len(out) // page_size + 1, "pageSize": page_size}
+            rows = (self._call("POST", "/iframe/Results/", data) or {}).get("data") or []
+            out += rows
+            beyond = [r for r in rows if (r.get("SortOrder") or 0) > keep_top]
+            if len(rows) < page_size or (beyond and not any((r.get("PointPcR") or 0) > 0 for r in beyond)):
+                break
+        return [r for r in out if (r.get("SortOrder") or 0) <= keep_top or (r.get("PointPcR") or 0) > 0]
+
+
+def ms_date(value):
+    """'/Date(1787868000000)/' → date (DataRide: Mitternacht Schweizer Zeit)"""
+    m = re.search(r"(-?\d{10,})", value or "")
+    if not m or m.group(1).startswith("-"):
+        return None
+    return datetime.utcfromtimestamp(int(m.group(1)) / 1000 + 12 * 3600).date()
+
+
 # ---- Umwandlung in unsere Tabellen --------------------------------------------
 
 def rider_slug(object_id):
@@ -122,18 +167,29 @@ def parse_date(row):
         return datetime.utcfromtimestamp(int(m.group(1)) / 1000 + 12 * 3600).date()
 
 
-def result_row(row):
+def race_slug(competition_name, year, gender):
+    """Stabile Rennen-ID; Frauenrennen bekommen '/w', weil z. B. die WM gleich heißt."""
+    return f"{slugify(competition_name)}/{year}" + ("/w" if gender == "women" else "")
+
+
+def result_row(row, gender="men"):
     """Ein DataRide-Ergebnis → (race, result) für unsere Tabellen; None wenn es nicht zählt."""
     points = float(row.get("Points") or 0)
     day = parse_date(row)
     if row.get("IsInvalidResult") or points <= 0 or not day:
         return None
     comp = (row.get("CompetitionName") or "Unbekanntes Rennen").strip()
-    race_slug = f"{slugify(comp)}/{day.year}"
+    slug = race_slug(comp, day.year, gender)
     parts = [p.strip() for p in (row.get("RaceName"), row.get("EventName")) if p and p.strip()]
     label = " · ".join(dict.fromkeys(parts)) or "Ergebnis"
     return (
-        {"pcs_slug": race_slug, "name": comp, "uci_class": row.get("ClassCode"), "date": day},
-        {"race_slug": race_slug, "label": label[:200], "result_date": day.isoformat(),
+        {"pcs_slug": slug, "name": comp, "uci_class": row.get("ClassCode"), "date": day},
+        {"race_slug": slug, "label": label[:200], "result_date": day.isoformat(),
          "rank": row.get("Rank") if isinstance(row.get("Rank"), int) else None, "uci_points": points},
     )
+
+
+def normalize_name(name):
+    """'POGAČAR Tadej' und 'Pogacar  Tadej' → 'pogacar tadej' (Wortreihenfolge egal)."""
+    t = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    return " ".join(sorted(re.findall(r"[a-z0-9]+", t)))

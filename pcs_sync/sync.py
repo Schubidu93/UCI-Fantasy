@@ -87,7 +87,7 @@ def main():
             continue
         fetched.add(slug)
         for row in rows:
-            conv = result_row(row)
+            conv = result_row(row, g)
             if not conv:
                 continue
             race, res = conv

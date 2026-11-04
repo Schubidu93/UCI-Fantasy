@@ -1,0 +1,35 @@
+name: Rennergebnisse laden (UCI)
+
+# Rennkalender und Ergebnislisten (Rang, Zeit, UCI-Punkte) aller Rennen der Saison.
+# Der erste Lauf baut die ganze Saison auf (einige Stunden), danach nur Neues.
+
+on:
+  schedule:
+    - cron: "15 6 * * 3"    # mittwochs nach dem wöchentlichen UCI-Ranking
+  workflow_dispatch:
+    inputs:
+      neu_laden:
+        description: "Auch schon geladene Rennen neu holen"
+        type: boolean
+        default: false
+
+concurrency:
+  group: race-results
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pcs_sync/requirements.txt
+      - run: python race_results.py
+        working-directory: pcs_sync
+        env:
+          REFRESH: ${{ inputs.neu_laden && '1' || '' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

@@ -65,6 +65,38 @@ create table if not exists races (
 );
 
 alter table races add column if not exists uci_class text;   -- z. B. 2.UWT, 1.Pro
+alter table races add column if not exists country text;      -- ISO3, z. B. FRA
+alter table races add column if not exists dataride_id int;   -- CompetitionId bei UCI DataRide
+alter table races add column if not exists loaded_at timestamptz;
+create unique index if not exists races_dataride on races (dataride_id, gender) where dataride_id is not null;
+
+-- Etappen bzw. Wertungen eines Rennens (z. B. "Stage 3 · Stage Classification")
+create table if not exists race_events (
+  id         int primary key,                 -- EventId bei UCI DataRide
+  race_slug  text not null references races (pcs_slug) on delete cascade,
+  stage_name text,                            -- RaceName: "Stage 3", "Final Classification", …
+  stage_no   int,                             -- Reihenfolge der Etappen
+  event_name text not null,                   -- "Stage Classification", "General Classification", …
+  event_date date,
+  winner     text
+);
+create index if not exists race_events_race on race_events (race_slug);
+
+-- Ergebnisliste je Wertung (Top 25 und alle Plätze mit UCI-Punkten)
+create table if not exists event_results (
+  event_id    int not null references race_events (id) on delete cascade,
+  sort_order  int not null,
+  rank        int,
+  rank_text   text,                           -- "1", "DNF", …
+  rider_name  text not null,
+  rider_slug  text,                           -- verknüpft mit riders, falls bekannt
+  team        text,
+  nation      text,
+  result      text,                           -- Zeit bzw. Wert, z. B. "4:04:18" oder "+0:12"
+  uci_points  numeric,
+  primary key (event_id, sort_order)
+);
+create index if not exists event_results_rider on event_results (rider_slug);
 
 create table if not exists results (
   id          bigint generated always as identity primary key,
@@ -113,9 +145,12 @@ create table if not exists leagues (
   season_end      date not null,
   status          text not null default 'setup' check (status in ('setup', 'drafting', 'active', 'finished')),
   last_waiver_run timestamptz,
+  draft_at        timestamptz,                -- geplanter Draft-Start
   created_at      timestamptz not null default now(),
   check (season_end > season_start)
 );
+
+alter table leagues add column if not exists draft_at timestamptz;
 
 create table if not exists managers (
   id             uuid primary key default gen_random_uuid(),
@@ -610,9 +645,41 @@ end $$;
 
 create or replace function start_draft(p_league uuid) returns void
 language plpgsql security definer set search_path = public as $$
-declare l leagues;
 begin
   perform _require_admin(p_league);
+  perform _start_draft(p_league);
+  perform _log(p_league, 'start_draft', null);
+end $$;
+
+-- Geplanten Draft starten, sobald die Zeit erreicht ist (darf jedes Mitglied auslösen)
+create or replace function start_scheduled_draft(p_league uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare l leagues;
+begin
+  if not is_member(p_league) then raise exception 'Keine Berechtigung.'; end if;
+  select * into l from leagues where id = p_league for update;
+  if l.status <> 'setup' or l.draft_mode = 'offline' or l.draft_at is null or l.draft_at > now() then
+    return false;
+  end if;
+  perform _start_draft(p_league);
+  insert into admin_log (league_id, user_id, action, details) values (p_league, null, 'start_draft', '{"geplant": true}');
+  return true;
+end $$;
+
+create or replace function schedule_draft(p_league uuid, p_at timestamptz) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _require_admin(p_league);
+  if (select status from leagues where id = p_league) <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
+  if p_at is not null and p_at < now() - interval '1 minute' then raise exception 'Der Zeitpunkt liegt in der Vergangenheit.'; end if;
+  update leagues set draft_at = p_at where id = p_league;
+  perform _log(p_league, 'schedule_draft', jsonb_build_object('at', p_at));
+end $$;
+
+create or replace function _start_draft(p_league uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare l leagues;
+begin
   select * into l from leagues where id = p_league for update;
   if l.status <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
   if l.draft_mode = 'offline' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
@@ -630,7 +697,6 @@ begin
    where league_id = p_league;
   update leagues set status = 'drafting' where id = p_league;
   perform _draft_next(p_league);
-  perform _log(p_league, 'start_draft', null);
 end $$;
 
 create or replace function pause_draft(p_league uuid, p_pause boolean) returns void
@@ -1392,12 +1458,14 @@ alter table trades          enable row level security;
 alter table point_overrides enable row level security;
 alter table score_snapshot  enable row level security;
 alter table admin_log       enable row level security;
+alter table race_events     enable row level security;
+alter table event_results   enable row level security;
 
 do $$
 declare t text;
 begin
   -- öffentliche Stammdaten: lesbar für angemeldete Nutzer
-  foreach t in array array['riders', 'races', 'results', 'sync_status'] loop
+  foreach t in array array['riders', 'races', 'results', 'sync_status', 'race_events', 'event_results'] loop
     execute format('drop policy if exists read_all on %I', t);
     execute format('create policy read_all on %I for select to authenticated using (true)', t);
   end loop;
@@ -1428,7 +1496,7 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

@@ -1,11 +1,14 @@
-name: Datenquelle testen (einmalig)
+name: Test Rennergebnisse (einmalig)
 on:
   push:
     branches: [claude/dreamy-ride-47psvw]
-    paths: [tools/**, .github/workflows/probe.yml]
+    paths: [pcs_sync/**, .github/workflows/probe.yml]
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install requests && python tools/probe_results.py
+      - run: pip install -r pcs_sync/requirements.txt && cd pcs_sync && python race_results.py
+        env:
+          DRY_RUN: "1"
+          LIMIT: "3"

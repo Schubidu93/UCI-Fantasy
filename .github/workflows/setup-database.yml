@@ -1,18 +1,38 @@
 name: Datenbank einrichten
 
-# Spielt supabase/schema.sql in die Datenbank ein. Alternativ: Inhalt der Datei
-# im Supabase SQL-Editor einfügen und "Run" klicken – das Ergebnis ist dasselbe.
+# Spielt supabase/schema.sql in die Datenbank ein – automatisch bei jeder Änderung
+# des Schemas auf main, zusätzlich per Knopfdruck. Das Skript ist wiederholbar.
 # Braucht das Secret SUPABASE_DB_URL (Supabase → Connect → Session pooler, mit Passwort).
 
 on:
+  push:
+    branches: [main]
+    paths: [supabase/schema.sql]
   workflow_dispatch:
+
+concurrency:
+  group: database
+  cancel-in-progress: false
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get install -y postgresql-client
-      - run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
+      - name: Prüfen, ob der Zugang hinterlegt ist
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Secret SUPABASE_DB_URL fehlt (Supabase → Connect → Session pooler)."
+            exit 1
+          fi
+      - run: sudo apt-get install -y -qq postgresql-client
+      - name: Schema einspielen
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: Schema-Cache der API neu laden
+        run: psql "$SUPABASE_DB_URL" -q -c "notify pgrst, 'reload schema';"
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
