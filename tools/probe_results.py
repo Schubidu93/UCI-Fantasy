@@ -1,4 +1,4 @@
-"""Einmaliger Test: richtige Parameter für /iframe/Competitions/ finden."""
+"""Einmaliger Test: Parameter von iframeCompetitionsSource und Aufrufstelle, dann Probeabruf."""
 import json
 import re
 import time
@@ -8,16 +8,10 @@ UA = "UCI-Fantasy-Probe/0.1 (private Fantasy-Liga; https://github.com/Schubidu93
 BASE = "https://dataride.uci.ch"
 s = requests.Session()
 s.headers.update({"User-Agent": UA, "X-Requested-With": "XMLHttpRequest"})
-
-page = s.get(BASE + "/iframe/Rankings/10/", timeout=30).text
-i = page.find("var iframeCompetitionsSource")
-print(page[i:i + 2500])
-for path in ["/iframe/Results/10/", "/iframe/Competitions/10/", "/iframe/results/10", "/iframe/Calendar/10"]:
-    time.sleep(1)
-    r = s.get(BASE + path, timeout=30)
-    print(f"\n### GET {path}: HTTP {r.status_code} · {len(r.text)} Zeichen")
-    if r.status_code == 200 and len(r.text) > 5000:
-        t = r.text
-        for key in ["iframeCompetitionsSource(", "filter({", "filters:", "kendoDropDownList(", "GetCompetition"]:
-            for m in list(re.finditer(re.escape(key), t))[:3]:
-                print(f"--- {key} @ {m.start()}\n" + t[max(0, m.start() - 400): m.start() + 900])
+t = s.get(BASE + "/iframe/Results/10/", timeout=30).text
+i = t.find("var iframeCompetitionsSource")
+print("=== DEFINITION ===\n" + re.sub(r"\s+", " ", t[i:i + 2200]))
+for m in list(re.finditer(r"iframeCompetitionsSource\(", t))[1:3]:
+    print("\n=== AUFRUF ===\n" + re.sub(r"\s+", " ", t[max(0, m.start() - 1500): m.start() + 300]))
+for m in list(re.finditer(r"filterCompetitions\s*=\s*function|\.filter\(\{", t))[:3]:
+    print("\n=== FILTER ===\n" + re.sub(r"\s+", " ", t[m.start(): m.start() + 900]))
