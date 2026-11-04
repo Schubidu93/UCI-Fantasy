@@ -1,68 +1,48 @@
 """
-Fahrerliste mit UCI-Rang aus ProCyclingStats in die Tabelle riders laden.
-Der Rang (uci_rank) bestimmt beim Live-Draft die Reihenfolge, in der die Fahrer
-aufgerufen werden, und hilft beim Filtern freier Fahrer.
+Fahrerliste aus der UCI-Weltrangliste (UCI DataRide) in die Tabelle riders laden.
+Rang (uci_rank) bestimmt beim Live-Draft die Aufruf-Reihenfolge und hilft beim
+Filtern freier Fahrer. Neue Fahrer im Ranking sind damit automatisch frei.
 
-Läuft wöchentlich automatisch; vor dem Draft zusätzlich per Knopfdruck starten.
-Neue Fahrer im Ranking sind damit automatisch freie Fahrer.
+DRY_RUN=1 → nur anzeigen, nichts speichern.
 """
-import time
+import os
 from datetime import datetime, timezone
 
-from procyclingstats import Ranking
+from dataride import DataRide, rider_slug
 
-import db
-
-RANKINGS = {"men": "me", "women": "we"}   # PCS-Kürzel: me = Männer, we = Frauen
-MAX_RIDERS = 600                           # reicht für 10 Teams à 30 Fahrer mit Puffer
-PAUSE = 1.5                                # Sekunden zwischen Abrufen (PCS schonen)
-
-
-def ranking_rows(prefix):
-    base = f"rankings/{prefix}/uci-individual"
-    first = Ranking(base)
-    rows = first.individual_ranking()
-    try:
-        pages = [p["value"] for p in first.pages_select()]
-    except Exception:
-        pages = []
-    for value in pages[1:]:
-        if len(rows) >= MAX_RIDERS:
-            break
-        time.sleep(PAUSE)
-        try:
-            rows += Ranking(value).individual_ranking()
-        except Exception as e:
-            print(f"  Seite {value} übersprungen: {e}")
-    return rows[:MAX_RIDERS]
+DRY_RUN = os.environ.get("DRY_RUN") == "1"
+MAX_RIDERS = 1000           # reicht für 20 Teams à 30 Fahrer plus Pool freier Fahrer
+GENDERS = os.environ.get("GENDERS", "men,women").split(",")
 
 
 def main():
+    dr = DataRide()
+    season = dr.season()
+    print(f"Saison {season['Name']} (ID {season['Id']})")
     now = datetime.now(timezone.utc).isoformat()
-    for gender, prefix in RANKINGS.items():
-        print(f"Lade UCI-Ranking {gender} …")
-        rows = ranking_rows(prefix)
-        riders = [
-            {
-                "pcs_slug": r["rider_url"].removeprefix("rider/"),
-                "name": r["rider_name"],
-                "gender": gender,
-                "nation": r.get("nationality"),
-                "team": r.get("team_name"),
-                "uci_rank": r.get("rank"),
-                "ranking_points": r.get("points"),
-                "updated_at": now,
-            }
-            for r in rows if r.get("rider_url")
-        ]
-        if not riders:
-            print("  Keine Fahrer erhalten – bestehende Liste bleibt unverändert.")
+    for gender in GENDERS:
+        rk = dr.world_ranking(gender, season["Id"])
+        rows = dr.ranking_riders(rk, gender, season["Id"], MAX_RIDERS)
+        riders = [{
+            "pcs_slug": rider_slug(r["ObjectId"]),
+            "name": (r.get("DisplayName") or r.get("IndividualFullName") or "").strip(),
+            "gender": gender,
+            "nation": (r.get("NationName") or "").strip() or None,
+            "team": (r.get("TeamName") or "").strip() or None,
+            "uci_rank": r.get("Rank"),
+            "ranking_points": r.get("Points"),
+            "updated_at": now,
+        } for r in rows if r.get("ObjectId") and r.get("DisplayName")]
+        print(f"{gender}: {rk['RankingName']} – {len(riders)} Fahrer")
+        for r in riders[:5]:
+            print(f"  #{r['uci_rank']:>4} {r['name']:<28} {r['team'] or '':<32} {r['nation'] or ''} {r['ranking_points']}")
+        if DRY_RUN or not riders:
             continue
+        import db
         db.upsert("riders", riders, "pcs_slug")
-        # Fahrer, die aus den Top-Plätzen gefallen sind, behalten ihren Eintrag ohne Rang
+        # aus den Top-Plätzen gefallene Fahrer behalten ihren Eintrag ohne Rang
         db.update("riders", {"gender": f"eq.{gender}", "updated_at": f"lt.{now}"}, {"uci_rank": None})
-        print(f"  {len(riders)} Fahrer gespeichert.")
-        time.sleep(PAUSE)
+        print("  gespeichert.")
 
 
 if __name__ == "__main__":

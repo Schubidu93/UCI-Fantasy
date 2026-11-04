@@ -3,16 +3,25 @@ name: Datenquellen testen (einmalig)
 on:
   push:
     branches: [claude/dreamy-ride-47psvw]
-    paths: [tools/probe_sources.py, .github/workflows/probe-sources.yml]
+    paths: [pcs_sync/**, .github/workflows/probe-sources.yml]
   workflow_dispatch:
 
 jobs:
   probe:
     runs-on: ubuntu-latest
+    env:
+      DRY_RUN: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install requests
-      - run: python tools/probe_sources.py
+      - run: pip install -r pcs_sync/requirements.txt
+      - name: Fahrerliste (Testlauf)
+        run: python import_riders.py
+        working-directory: pcs_sync
+      - name: Ergebnisse Pogačar + Vingegaard (Testlauf)
+        run: python sync.py
+        working-directory: pcs_sync
+        env:
+          TEST_RIDERS: uci-149727,uci-0
