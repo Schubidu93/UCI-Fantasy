@@ -1,6 +1,6 @@
 // Rennen der Saison mit Ergebnislisten (Rang, Fahrer, Team, Zeit, UCI-Punkte)
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, all, useLoad, Loading, fmtDate, fmtPts, openRider, normName } from '../lib.js';
+import { sb, q, all, useLoad, Loading, fmtDate, fmtPts, openRider, normName, flag, withFlag } from '../lib.js';
 import { labelText } from './results.js';
 
 // Standard: WorldTour (Männer/Frauen), WM, EM
@@ -44,7 +44,7 @@ function RaceList({ c, races }) {
     <div class="filters">
       <input type="search" placeholder="Rennen suchen" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${group} onChange=${(e) => setGroup(e.target.value)}>${CLASS_GROUPS.map(([k, l]) => html`<option value=${k}>${l}</option>`)}</select>
-      <select value=${country} onChange=${(e) => setCountry(e.target.value)}><option value="">Alle Länder</option>${countries.map((x) => html`<option>${x}</option>`)}</select>
+      <select value=${country} onChange=${(e) => setCountry(e.target.value)}><option value="">Alle Länder</option>${countries.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
       <select value=${month} onChange=${(e) => setMonth(e.target.value)}><option value="">Alle Monate</option>
         ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
     </div>
@@ -52,7 +52,7 @@ function RaceList({ c, races }) {
     <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug}>
       <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.pcs_slug)}`}>
         <strong>${r.name}</strong>
-        <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${r.country}` : ''}</span>
+        <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${withFlag(r.country)}` : ''}</span>
       </a>
       <span class="tag">${r.uci_class}</span></li>`)}</ul>`}
   </section>`;
@@ -83,7 +83,7 @@ function RaceDetail({ c, slug }) {
     <a href=${`#/league/${c.league.id}/races`} class="muted small-link">← Alle Rennen</a>
     <section class="card">
       <div class="row between"><h2>${race?.name}</h2><span class="tag">${race?.uci_class}</span></div>
-      <p class="muted small">${fmtDate(race?.start_date)}${race?.end_date !== race?.start_date ? ` – ${fmtDate(race?.end_date)}` : ''}${race?.country ? ` · ${race.country}` : ''}</p>
+      <p class="muted small">${fmtDate(race?.start_date)}${race?.end_date !== race?.start_date ? ` – ${fmtDate(race?.end_date)}` : ''}${race?.country ? ` · ${withFlag(race.country)}` : ''}</p>
       ${stages.length > 1 && html`<label class="inline">Etappe
         <select value=${current ? stages.findIndex((s) => s.events.includes(current)) : 0}
           onChange=${(e) => setEventId(preferred(stages[+e.target.value]).id)}>
@@ -110,17 +110,17 @@ function ResultTable({ c, event }) {
   const rows = useLoad(() => q(sb.from('event_results').select('*').eq('event_id', event.id).order('sort_order')), [event.id]);
   if (!rows.data) return html`<${Loading} error=${rows.error} />`;
   return html`<section class="card"><div class="scroll-x"><table class="tbl">
-    <thead><tr><th class="num">Rang</th><th>Fahrer</th><th>Team</th><th class="num">Zeit</th><th class="num">UCI-Punkte</th><th>Im Kader</th></tr></thead>
+    <thead><tr><th class="num">Rang</th><th>Fahrer</th><th class="hide-sm">Team</th><th class="num">Zeit</th><th class="num">Pkt.</th><th class="hide-sm">Kader</th></tr></thead>
     <tbody>${rows.data.map((r) => {
       const m = r.rider_slug && c.managerMap[c.owner[r.rider_slug]];
       return html`<tr key=${r.sort_order} class=${m && m.id === c.me?.id ? 'me' : ''}>
         <td class="num">${r.rank_text || r.rank || ''}</td>
         <td>${r.rider_slug ? html`<button class="linkish" onClick=${() => openRider(r.rider_slug)}>${r.rider_name}</button>` : r.rider_name}
-          ${r.nation ? html` <span class="muted small">${r.nation}</span>` : ''}</td>
-        <td class="small">${r.team || ''}</td>
+          ${r.nation ? html` <span class="muted small" title=${r.nation}>${flag(r.nation) || r.nation}</span>` : ''}</td>
+        <td class="small hide-sm">${r.team || ''}</td>
         <td class="num">${r.result || ''}</td>
         <td class="num">${r.uci_points ? html`<strong>${fmtPts(r.uci_points)}</strong>` : ''}</td>
-        <td class="small">${m ? m.team_name : ''}</td></tr>`;
+        <td class="small hide-sm">${m ? m.team_name : ''}</td></tr>`;
     })}</tbody></table></div>
     ${rows.data.length === 0 && html`<p class="muted">Keine Ergebnisse.</p>`}
     <p class="muted small">Top 25 und alle weiteren Plätze mit UCI-Punkten. Quelle: UCI DataRide.</p>

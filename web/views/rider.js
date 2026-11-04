@@ -1,6 +1,6 @@
 // Fahrer-Fenster: Stammdaten und alle Ergebnisse mit UCI-Punkten eines Jahres
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, fmtDate, fmtPts } from '../lib.js';
+import { sb, q, fmtDate, fmtPts, flag, withFlag } from '../lib.js';
 import { labelText } from './results.js';
 
 export function RiderModal() {
@@ -51,8 +51,8 @@ export function RiderModal() {
     <div class="modal card" role="dialog" aria-modal="true" aria-label="Fahrer" onClick=${(e) => e.stopPropagation()}>
       <div class="row between modal-head">
         <div>
-          <h2>${r?.name || '…'}</h2>
-          ${r && html`<div class="muted small">${[r.team, r.nation, r.uci_rank && `UCI-Rang ${r.uci_rank}`,
+          <h2>${r?.nation ? flag(r.nation) + ' ' : ''}${r?.name || '…'}</h2>
+          ${r && html`<div class="muted small">${[r.team, r.nation && withFlag(r.nation), r.uci_rank && `UCI-Rang ${r.uci_rank}`,
             r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte`].filter(Boolean).join(' · ')}</div>`}
         </div>
         <button class="ghost small" onClick=${() => setSlug(null)} aria-label="Schließen">✕</button>

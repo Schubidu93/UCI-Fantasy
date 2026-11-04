@@ -167,6 +167,8 @@ a.race-link:hover strong { color: var(--accent); }
 .legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
 
 @media (max-width: 720px) {
+  .hide-sm { display: none; }
+  .tbl th, .tbl td { padding: 7px 5px; }
   .draft { grid-template-columns: 1fr; }
   .lot-rider .rider-name { font-size: 1.2rem; }
   .clock { font-size: 2.2rem; }

@@ -1,5 +1,5 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDateTime, normName } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDateTime, normName, withFlag } from '../lib.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };
 
@@ -88,7 +88,7 @@ function FreeAgents({ c, onPick }) {
     <div class="filters">
       <input type="search" placeholder="Name" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${team} onChange=${(e) => setTeam(e.target.value)}><option value="">Alle Teams</option>${teams.map((x) => html`<option>${x}</option>`)}</select>
-      <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option>${x}</option>`)}</select>
+      <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
     </div>
     <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug}>
       <${RiderCell} r=${r} />

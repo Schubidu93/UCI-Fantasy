@@ -1,6 +1,6 @@
 // Fahrer-Übersicht: alle Fahrer der Wertung mit UCI-Punkten der Saison und Besitzer in der Liga
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, RiderCell, normName, fmtPts } from '../lib.js';
+import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag } from '../lib.js';
 
 export function Riders({ c }) {
   const year = new Date().getFullYear();
@@ -32,7 +32,7 @@ export function Riders({ c }) {
     <div class="filters">
       <input type="search" placeholder="Name" value=${term} onInput=${(e) => { setTerm(e.target.value); setLimit(100); }} />
       <select value=${team} onChange=${(e) => setTeam(e.target.value)}><option value="">Alle Teams</option>${teams.map((x) => html`<option>${x}</option>`)}</select>
-      <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option>${x}</option>`)}</select>
+      <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
       <select value=${owner} onChange=${(e) => setOwner(e.target.value)}>
         <option value="">Alle Fahrer</option><option value="free">Nur freie</option>
         ${c.me && html`<option value="mine">Mein Kader</option>`}
@@ -43,15 +43,15 @@ export function Riders({ c }) {
       </select>
     </div>
     <div class="scroll-x"><table class="tbl">
-      <thead><tr><th class="num">#</th><th>Fahrer</th><th>Im Kader</th><th class="num">Ergebnisse</th><th class="num">Punkte ${year}</th></tr></thead>
+      <thead><tr><th class="num hide-sm">#</th><th>Fahrer</th><th>Kader</th><th class="num hide-sm">Ergebnisse</th><th class="num">Pkt. ${year}</th></tr></thead>
       <tbody>${list.slice(0, limit).map((r, i) => {
         const m = c.managerMap[c.owner[r.pcs_slug]];
         const p = pmap[r.pcs_slug];
         return html`<tr key=${r.pcs_slug} class=${m && m.id === c.me?.id ? 'me' : ''}>
-          <td class="num muted">${i + 1}</td>
+          <td class="num muted hide-sm">${i + 1}</td>
           <td><${RiderCell} r=${r} /></td>
           <td>${m ? m.team_name : html`<span class="tag ok">frei</span>`}</td>
-          <td class="num">${p?.results || 0}</td>
+          <td class="num hide-sm">${p?.results || 0}</td>
           <td class="num"><strong>${fmtPts(p?.points || 0)}</strong></td></tr>`;
       })}</tbody>
     </table></div>

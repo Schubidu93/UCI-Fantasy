@@ -49,6 +49,32 @@ export function normName(s) {
 
 export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 'Waiver', trade: 'Tausch', admin: 'Admin' };
 
+// ---- Flaggen ---------------------------------------------------------------
+// UCI nutzt bei Fahrern IOC-Codes (SLO, GER, NED …), bei Rennen ISO-3-Codes (SVN, DEU …).
+const ISO2 = {
+  ALB:'AL',ALG:'DZ',DZA:'DZ',AND:'AD',ARG:'AR',ARM:'AM',AUS:'AU',AUT:'AT',AZE:'AZ',BAH:'BS',BHS:'BS',BHR:'BH',BRN:'BH',
+  BLR:'BY',BEL:'BE',BEN:'BJ',BER:'BM',BMU:'BM',BOL:'BO',BIH:'BA',BOT:'BW',BWA:'BW',BRA:'BR',BRU:'BN',BRN2:'BN',BUL:'BG',
+  BGR:'BG',BUR:'BF',BFA:'BF',CAM:'KH',KHM:'KH',CMR:'CM',CAN:'CA',CHI:'CL',CHL:'CL',CHN:'CN',COL:'CO',CRC:'CR',CRI:'CR',
+  CRO:'HR',HRV:'HR',CUB:'CU',CYP:'CY',CZE:'CZ',DEN:'DK',DNK:'DK',DOM:'DO',ECU:'EC',EGY:'EG',ERI:'ER',ESA:'SV',SLV:'SV',
+  ESP:'ES',EST:'EE',ETH:'ET',FIN:'FI',FRA:'FR',GAB:'GA',GEO:'GE',GER:'DE',DEU:'DE',GBR:'GB',GRE:'GR',GRC:'GR',GUA:'GT',
+  GTM:'GT',HKG:'HK',HUN:'HU',INA:'ID',IDN:'ID',IND:'IN',IRI:'IR',IRN:'IR',IRL:'IE',ISL:'IS',ISR:'IL',ITA:'IT',JPN:'JP',
+  KAZ:'KZ',KEN:'KE',KGZ:'KG',KOR:'KR',KOS:'XK',KSA:'SA',SAU:'SA',KUW:'KW',KWT:'KW',LAT:'LV',LVA:'LV',LBN:'LB',LIB:'LB',
+  LIE:'LI',LTU:'LT',LUX:'LU',MAC:'MO',MAR:'MA',MAS:'MY',MYS:'MY',MDA:'MD',MEX:'MX',MGL:'MN',MNG:'MN',MKD:'MK',MLT:'MT',
+  MNE:'ME',MON:'MC',MCO:'MC',NAM:'NA',NED:'NL',NLD:'NL',NZL:'NZ',NCA:'NI',NIC:'NI',NGR:'NG',NGA:'NG',NOR:'NO',OMA:'OM',
+  OMN:'OM',PAN:'PA',PAR:'PY',PRY:'PY',PER:'PE',PHI:'PH',PHL:'PH',POL:'PL',POR:'PT',PRT:'PT',PUR:'PR',PRI:'PR',QAT:'QA',
+  ROU:'RO',RSA:'ZA',ZAF:'ZA',RUS:'RU',RWA:'RW',SMR:'SM',SRB:'RS',SGP:'SG',SIN:'SG',SLO:'SI',SVN:'SI',SVK:'SK',SUI:'CH',
+  CHE:'CH',SWE:'SE',SYR:'SY',TPE:'TW',TWN:'TW',THA:'TH',TUN:'TN',TUR:'TR',UAE:'AE',ARE:'AE',UGA:'UG',UKR:'UA',URU:'UY',
+  URY:'UY',USA:'US',UZB:'UZ',VEN:'VE',VIE:'VN',VNM:'VN',ZIM:'ZW',ZWE:'ZW',BEN2:'BJ',MRI:'MU',MUS:'MU',TJK:'TJ',TKM:'TM',
+  LAO:'LA',NEP:'NP',NPL:'NP',PAK:'PK',SRI:'LK',LKA:'LK',BAN:'BD',BGD:'BD',JOR:'JO',IRQ:'IQ',ANG:'AO',AGO:'AO',CIV:'CI',
+  SEN:'SN',MLI:'ML',GHA:'GH',TAN:'TZ',TZA:'TZ',BDI:'BI',SUD:'SD',SDN:'SD',LBA:'LY',LBY:'LY',FIJ:'FJ',FJI:'FJ',
+};
+export function flag(code) {
+  const iso = ISO2[(code || '').trim().toUpperCase()];
+  if (!iso || iso === 'XK') return iso === 'XK' ? '🇽🇰' : '';
+  return String.fromCodePoint(...[...iso].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+}
+export const withFlag = (code) => (code ? `${flag(code)} ${code.trim()}`.trim() : '');
+
 // ---- Hooks ---------------------------------------------------------------
 
 // Lädt Daten und bietet reload(); zeigt Fehler an
@@ -103,7 +129,7 @@ export function RiderCell({ r }) {
   return html`<span class="rider">
     <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
       onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>${r.inactive ? html` <span class="tag warn">inaktiv</span>` : ''}
-    <span class="rider-meta">${[r.team, r.nation, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
+    <span class="rider-meta">${[r.nation && withFlag(r.nation), r.team, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
   </span>`;
 }
 
