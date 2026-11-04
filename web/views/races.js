@@ -87,7 +87,7 @@ function RaceDetail({ c, slug }) {
       ${stages.length > 1 && html`<label class="inline">Etappe
         <select value=${current ? stages.findIndex((s) => s.events.includes(current)) : 0}
           onChange=${(e) => setEventId(preferred(stages[+e.target.value]).id)}>
-          ${stages.map((s, i) => html`<option value=${i}>${/final/i.test(s.name || '') ? 'Schlusswertung' : labelText(s.name || '')}${s.date ? ` · ${fmtDate(s.date)}` : ''}</option>`)}
+          ${stages.map((s, i) => html`<option value=${i}>${/final/i.test(s.name || '') ? 'GC' : labelText(s.name || '')}${s.date ? ` · ${fmtDate(s.date)}` : ''}</option>`)}
         </select></label>`}
       ${current && html`<div class="seg small wrap-seg">${stages.find((s) => s.events.includes(current)).events.map((e) =>
         html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${eventLabel(e.event_name)}</button>`)}</div>`}
@@ -97,7 +97,7 @@ function RaceDetail({ c, slug }) {
 }
 
 const EVENT_LABELS = [
-  [/^Stage Classification$/, 'Etappe'], [/^Stage General Classification$/, 'Gesamt'], [/^General Classification$/, 'Gesamt'],
+  [/^Stage Classification$/, 'Etappe'], [/^Stage General Classification$/, 'GC'], [/^General Classification$/, 'GC'],
   [/^Final Classification$/, 'Ergebnis'], [/Points Classification/, 'Punkte'], [/Mountains? Classification/, 'Berg'],
   [/Youth Classification|Young Riders?/, 'Nachwuchs'], [/Team/, 'Team'], [/^Overall /, ''],
 ];
