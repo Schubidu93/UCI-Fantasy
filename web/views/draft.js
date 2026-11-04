@@ -30,6 +30,7 @@ function DraftLobby({ c }) {
           beste freie Fahrer nach UCI-Rang gewählt. Die Reihenfolge wird beim Start ausgelost.</p>`
       : html`<p>Live-Auktion mit ${c.league.budget} Budgetpunkten pro Manager. Jedes Gebot setzt die Uhr auf
           ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`}
+    ${!offline && html`<${DraftSchedule} c=${c} />`}
     <h3>Manager (${c.managers.length}/${c.league.max_managers})</h3>
     <ul class="list">${c.managers.map((m) => html`<li key=${m.id}>${m.team_name}
       ${m.user_id ? '' : html`<span class="tag">Platzhalter</span>`}</li>`)}</ul>
@@ -42,6 +43,49 @@ function DraftLobby({ c }) {
     <${Msg} msg=${a.msg} />
     <${AutoReload} c=${c} />
   </section>`;
+}
+
+// Geplanter Draft: Admin setzt Datum/Uhrzeit, alle sehen den Countdown; bei 0 startet der Draft automatisch
+function DraftSchedule({ c }) {
+  const at = c.league.draft_at ? new Date(c.league.draft_at) : null;
+  const toLocal = (d) => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16); };
+  const [val, setVal] = useState(at ? toLocal(at) : '');
+  const [now, setNow] = useState(serverNow());
+  const a = useAction();
+  const starting = useRef(false);
+  useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); syncClock().catch(() => {}); return () => clearInterval(t); }, []);
+  const left = at ? Math.max(0, Math.floor((at.getTime() - now) / 1000)) : null;
+  // Bei 0 alle 2 s versuchen (Uhren von Gerät und Server weichen minimal ab; nur der erste Aufruf wirkt)
+  useEffect(() => {
+    if (!at || left !== 0) return;
+    const tryStart = () => {
+      if (starting.current) return;
+      starting.current = true;
+      rpc('start_scheduled_draft', { p_league: c.league.id }).then((ok) => { if (ok) c.reload(); })
+        .catch(() => {}).finally(() => { starting.current = false; });
+    };
+    tryStart();
+    const t = setInterval(tryStart, 2000);
+    return () => clearInterval(t);
+  }, [left === 0, c.league.draft_at]);
+  const fmt = (sec) => {
+    const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return (d ? `${d} T ` : '') + [h, m, s].map((x) => String(x).padStart(2, '0')).join(':');
+  };
+  return html`<div class="schedule">
+    ${at ? html`<div class="row between">
+        <div><div class="muted small">Draft-Start</div><strong>${at.toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' })}</strong></div>
+        <div class="countdown">${left > 0 ? fmt(left) : 'startet …'}</div></div>`
+      : html`<p class="muted small">Noch kein Termin für den Draft festgelegt.</p>`}
+    ${c.isAdmin && html`<div class="row">
+      <input type="datetime-local" value=${val} onInput=${(e) => setVal(e.target.value)} />
+      <button disabled=${a.busy || !val} onClick=${() => a.run(async () => {
+        await rpc('schedule_draft', { p_league: c.league.id, p_at: new Date(val).toISOString() }); c.reload(); }, 'Termin gespeichert.')}>Termin speichern</button>
+      ${at && html`<button class="ghost" disabled=${a.busy} onClick=${() => a.run(async () => {
+        await rpc('schedule_draft', { p_league: c.league.id, p_at: null }); setVal(''); c.reload(); })}>Termin löschen</button>`}
+    </div>`}
+    <${Msg} msg=${a.msg} />
+  </div>`;
 }
 
 // Prüft im Hintergrund, ob jemand beigetreten ist oder der Draft gestartet wurde
@@ -228,7 +272,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
         </div>
       </div>
       ${(myTurn || c.isAdmin) && d.status === 'running'
-        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Als Admin kannst du für ${picker?.team_name} wählen.`}{" "}
+        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Als Admin kannst du für ${picker?.team_name} wählen.`}${" "}
             Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</p>
           <${RiderPicker} riders=${free} limit=${40} action="Wählen" onPick=${pick} />`
         : html`<p class="muted">Warte auf den Pick von ${picker?.team_name} …</p>`}

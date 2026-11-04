@@ -11,6 +11,7 @@ import { Table } from './views/table.js';
 import { Admin } from './views/admin.js';
 import { RiderModal } from './views/rider.js';
 import { Riders } from './views/riders.js';
+import { Races } from './views/races.js';
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
@@ -58,7 +59,7 @@ async function loadLeague(id, userId) {
 }
 
 const TABS = [
-  ['draft', 'Draft'], ['team', 'Team'], ['riders', 'Fahrer'], ['waiver', 'Waiver'],
+  ['draft', 'Draft'], ['team', 'Team'], ['riders', 'Fahrer'], ['races', 'Rennen'], ['waiver', 'Waiver'],
   ['results', 'Ergebnisse'], ['table', 'Tabelle'], ['admin', 'Admin'],
 ];
 
@@ -68,7 +69,7 @@ function LeagueShell({ id, tab, sub, session }) {
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'setup' || c.league.status === 'drafting' ? 'draft' : 'table';
   const t = tab || defaultTab;
-  const View = { draft: Draft, team: Team, riders: Riders, waiver: Waiver, results: Results, table: Table, admin: Admin }[t] || Table;
+  const View = { draft: Draft, team: Team, riders: Riders, races: Races, waiver: Waiver, results: Results, table: Table, admin: Admin }[t] || Table;
   return html`
     <header class="league-head">
       <div class="wrap row between">
