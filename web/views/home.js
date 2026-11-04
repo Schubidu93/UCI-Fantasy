@@ -12,7 +12,7 @@ export function Home({ session }) {
 
   return html`<main class="wrap">
     <div class="row between">
-      <div class="brand"><span class="logo" aria-hidden="true">◎</span> UCI Fantasy</div>
+      <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> UCI Fantasy</div>
       <button class="ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button>
     </div>
     <h2>Meine Ligen</h2>
@@ -51,7 +51,9 @@ function CreateLeague({ onCancel }) {
     gender: 'men', season_start: `${y}-01-01`, season_end: `${y}-10-31`,
   });
   const a = useAction();
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  // Beim Wechsel auf Snake-Draft eine sinnvolle Pick-Zeit vorschlagen
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value,
+    ...(k === 'draft_mode' && e.target.value === 'snake' && +f.bid_seconds === 15 ? { bid_seconds: 60 } : {}) });
 
   const submit = (e) => {
     e.preventDefault();
@@ -98,8 +100,10 @@ export function LeagueSettingsFields({ f, set, locked }) {
     ${f.scoring_mode === 'lineup' && html`<label>Wertende Fahrer<input type="number" min="1" max=${f.roster_size} value=${f.lineup_size ?? ''} onInput=${set('lineup_size')} /></label>`}
     <label>Draft-Modus
       <select value=${f.draft_mode} onChange=${set('draft_mode')} disabled=${locked}>
-        <option value="live">Live-Auktion</option><option value="offline">Offline-Import</option>
+        <option value="live">Live-Auktion</option><option value="snake">Snake-Draft</option><option value="offline">Offline-Import</option>
       </select></label>
+    ${f.draft_mode === 'snake' && html`
+      <label>Sekunden pro Pick<input type="number" min="5" max="600" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
     ${f.draft_mode === 'live' && html`
       <label>Reihenfolge
         <select value=${f.draft_order} onChange=${set('draft_order')} disabled=${locked}>
@@ -113,7 +117,7 @@ export function LeagueSettingsFields({ f, set, locked }) {
     <label>Saisonstart<input type="date" value=${f.season_start} onInput=${set('season_start')} disabled=${locked} /></label>
     <label>Saisonende<input type="date" value=${f.season_end} onInput=${set('season_end')} /></label>
   </fieldset>
-  <p class="muted small">Budget 100 pro Manager, Mindestgebot 1 (fest).</p>`;
+  <p class="muted small">${f.draft_mode === 'snake' ? 'Im Snake-Draft kosten Fahrer nichts; das Budget von 100 bleibt für FAAB-Waiver.' : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
 }
 
 export function Join({ code, session }) {

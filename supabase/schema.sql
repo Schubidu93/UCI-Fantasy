@@ -104,9 +104,9 @@ create table if not exists leagues (
   budget          int  not null default 100 check (budget = 100),
   min_bid         int  not null default 1   check (min_bid = 1),
   max_per_team    int  check (max_per_team is null or max_per_team between 1 and roster_size),
-  draft_mode      text not null default 'live' check (draft_mode in ('live', 'offline')),
+  draft_mode      text not null default 'live' check (draft_mode in ('live', 'snake', 'offline')),
   draft_order     text not null default 'ranking' check (draft_order in ('ranking', 'nominate')),
-  bid_seconds     int  not null default 15  check (bid_seconds between 5 and 120),
+  bid_seconds     int  not null default 15  check (bid_seconds between 5 and 600),  -- Sekunden pro Gebot bzw. Pick
   waiver_mode     text not null default 'priority' check (waiver_mode in ('priority', 'faab')),
   gender          text not null default 'men' check (gender in ('men', 'women')),
   season_start    date not null,
@@ -136,7 +136,7 @@ create table if not exists managers (
 create table if not exists draft_state (
   league_id        uuid primary key references leagues (id) on delete cascade,
   status           text not null default 'pending' check (status in ('pending', 'running', 'paused', 'done')),
-  phase            text not null default 'auction' check (phase in ('auction', 'fill')),
+  phase            text not null default 'auction' check (phase in ('auction', 'fill', 'snake')),
   lot_no           int  not null default 0,
   current_rider    text references riders (pcs_slug),
   current_bid      int  not null default 0,
@@ -146,6 +146,17 @@ create table if not exists draft_state (
   nominator        uuid references managers (id) on delete set null,
   updated_at       timestamptz not null default now()
 );
+
+-- Snake-Draft nachrüsten (bestehende Datenbanken)
+do $$
+begin
+  alter table leagues drop constraint if exists leagues_draft_mode_check;
+  alter table leagues add constraint leagues_draft_mode_check check (draft_mode in ('live', 'snake', 'offline'));
+  alter table leagues drop constraint if exists leagues_bid_seconds_check;
+  alter table leagues add constraint leagues_bid_seconds_check check (bid_seconds between 5 and 600);
+  alter table draft_state drop constraint if exists draft_state_phase_check;
+  alter table draft_state add constraint draft_state_phase_check check (phase in ('auction', 'fill', 'snake'));
+end $$;
 
 create table if not exists draft_lots (
   id         bigint generated always as identity primary key,
@@ -544,6 +555,7 @@ end $$;
 create or replace function _draft_next(p_league uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare l leagues; d draft_state; v_rider text; v_cur_pos int; v_next uuid;
+        v_n int; v_pick int; v_round int; v_idx int; v_pos int;
 begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league;
@@ -553,6 +565,21 @@ begin
                            deadline = null, nominator = null, updated_at = now()
      where league_id = p_league;
     update leagues set status = 'active', last_waiver_run = now() where id = p_league;
+    return;
+  end if;
+
+  if l.draft_mode = 'snake' then
+    -- Schlangenreihenfolge: Runde 1 vorwärts, Runde 2 rückwärts, …
+    select count(*) into v_n from managers where league_id = p_league;
+    v_pick := d.lot_no + 1;
+    v_round := (v_pick - 1) / v_n;
+    v_idx := (v_pick - 1) % v_n;
+    v_pos := case when v_round % 2 = 0 then v_idx + 1 else v_n - v_idx end;
+    select id into v_next from managers where league_id = p_league
+     order by draft_position, id offset v_pos - 1 limit 1;
+    update draft_state set phase = 'snake', lot_no = v_pick, current_rider = null, current_bid = 0, current_bidder = null,
+                           nominator = v_next, deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
+     where league_id = p_league;
     return;
   end if;
 
@@ -588,7 +615,7 @@ begin
   perform _require_admin(p_league);
   select * into l from leagues where id = p_league for update;
   if l.status <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
-  if l.draft_mode <> 'live' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
+  if l.draft_mode = 'offline' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
   if (select count(*) from managers where league_id = p_league) < 2 then raise exception 'Mindestens 2 Manager nötig.'; end if;
   if not exists (select 1 from riders where gender = l.gender and uci_rank is not null) then
     raise exception 'Noch keine Fahrer importiert (Workflow "Fahrerliste importieren").';
@@ -659,6 +686,11 @@ begin
   if d.status <> 'running' or d.deadline is null or now() < d.deadline then return; end if;
   select * into l from leagues where id = p_league;
 
+  if d.phase = 'snake' then
+    perform _snake_pick(p_league, null);
+    return;
+  end if;
+
   if d.current_rider is not null then
     if d.current_bid > 0 and d.current_bidder is not null then
       insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
@@ -672,6 +704,41 @@ begin
     end if;
   end if;
   perform _draft_next(p_league);
+end $$;
+
+-- Snake-Draft: Pick ausführen (p_rider null = automatisch bester freier Fahrer nach UCI-Rang)
+create or replace function _snake_pick(p_league uuid, p_rider text) returns void
+language plpgsql security definer set search_path = public as $$
+declare d draft_state; l leagues; v_rider text := p_rider;
+begin
+  select * into l from leagues where id = p_league;
+  select * into d from draft_state where league_id = p_league;
+  if v_rider is null then
+    select r.pcs_slug into v_rider from riders r
+     where r.gender = l.gender and r.uci_rank is not null and not r.inactive
+       and _rider_free(p_league, r.pcs_slug, 'infinity') and _team_limit_ok(d.nominator, r.pcs_slug)
+     order by r.uci_rank, r.pcs_slug limit 1;
+    if v_rider is null then raise exception 'Kein freier Fahrer mehr verfügbar.'; end if;
+  end if;
+  insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+  values (p_league, d.nominator, v_rider, 0, 'draft', l.season_start);
+  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
+  values (p_league, d.lot_no, v_rider, d.nominator, 0)
+  on conflict (league_id, rider_slug) do update set manager_id = excluded.manager_id, price = 0, lot_no = excluded.lot_no;
+  perform _draft_next(p_league);
+end $$;
+
+create or replace function draft_snake_pick(p_league uuid, p_rider text) returns void
+language plpgsql security definer set search_path = public as $$
+declare d draft_state; v_me uuid;
+begin
+  v_me := _require_member(p_league);
+  select * into d from draft_state where league_id = p_league for update;
+  if d.status <> 'running' or d.phase <> 'snake' then raise exception 'Der Snake-Draft läuft gerade nicht.'; end if;
+  if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
+  if not _rider_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
+  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  perform _snake_pick(p_league, p_rider);
 end $$;
 
 -- Modus "reihum nominieren": der Nominierende bringt einen Fahrer mit Gebot 1 ein
@@ -966,6 +1033,17 @@ begin
   if not (is_member(p_league) or _is_service()) then raise exception 'Keine Berechtigung.'; end if;
   return query select * from _waiver_order(p_league);
 end $$;
+
+-- UCI-Punkte pro Fahrer in einem Jahr (für die Fahrerliste der App)
+create or replace function rider_points(p_gender text, p_year int)
+returns table (rider_slug text, points numeric, results int)
+language sql stable security definer set search_path = public as $$
+  select r.rider_slug, sum(r.uci_points), count(*)::int
+    from results r join riders x on x.pcs_slug = r.rider_slug
+   where x.gender = p_gender
+     and r.result_date >= make_date(p_year, 1, 1) and r.result_date <= make_date(p_year, 12, 31)
+   group by r.rider_slug;
+$$;
 
 -- Herkunft der Punkte (einzelne Rennergebnisse)
 create or replace function league_point_details(p_league uuid, p_matchday uuid default null)
@@ -1350,7 +1428,7 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_score_rows(uuid)',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

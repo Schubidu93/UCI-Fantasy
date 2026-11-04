@@ -19,10 +19,15 @@ export function Draft({ c }) {
 function DraftLobby({ c }) {
   const a = useAction();
   const offline = c.league.draft_mode === 'offline';
+  const snake = c.league.draft_mode === 'snake';
   return html`<section class="card stack">
     <h2>Draft</h2>
     ${offline
       ? html`<p>Diese Liga nutzt einen <strong>Offline-Draft</strong>. Der Admin trägt die Kader unter „Admin“ ein.</p>`
+      : snake
+      ? html`<p><strong>Snake-Draft:</strong> Die Manager wählen reihum je einen Fahrer, in jeder Runde dreht sich die
+          Reihenfolge um (1–2–3 … 3–2–1). Pro Pick gibt es ${c.league.bid_seconds} Sekunden – danach wird automatisch der
+          beste freie Fahrer nach UCI-Rang gewählt. Die Reihenfolge wird beim Start ausgelost.</p>`
       : html`<p>Live-Auktion mit ${c.league.budget} Budgetpunkten pro Manager. Jedes Gebot setzt die Uhr auf
           ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`}
     <h3>Manager (${c.managers.length}/${c.league.max_managers})</h3>
@@ -100,6 +105,7 @@ function DraftRoom({ c }) {
 
   if (!d) return html`<p class="muted">Lädt …</p>`;
   if (d.status === 'done') return html`<${DraftSummary} c=${c} lots=${lots} />`;
+  if (d.phase === 'snake') return html`<${SnakeRoom} c=${c} d=${d} lots=${lots} remaining=${remaining} load=${load} />`;
 
   const me = c.me;
   const open = (m) => c.league.roster_size - c.active.filter((r) => r.manager_id === m.id).length;
@@ -178,6 +184,74 @@ function DraftRoom({ c }) {
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
         <span>${c.riderMap[l.rider_slug]?.name || l.rider_slug}</span>
         <span class="muted">${l.manager_id ? `${c.managerMap[l.manager_id]?.team_name} · ${l.price}` : 'übersprungen'}</span></li>`)}</ul>
+    </section>
+  </div>`;
+}
+
+// Snake-Draft: Reihenfolge 1…n, dann n…1, usw.
+function snakeManager(order, pick) {
+  const n = order.length;
+  const round = Math.floor((pick - 1) / n), idx = (pick - 1) % n;
+  return order[round % 2 === 0 ? idx : n - 1 - idx];
+}
+
+function SnakeRoom({ c, d, lots, remaining, load }) {
+  const a = useAction();
+  const L = c.league.id;
+  const me = c.me;
+  const order = [...c.managers].sort((x, y) => (x.draft_position ?? 99) - (y.draft_position ?? 99));
+  const n = order.length;
+  const total = n * c.league.roster_size;
+  const round = Math.floor((d.lot_no - 1) / n) + 1;
+  const myTurn = me && d.nominator === me.id;
+  const picker = c.managerMap[d.nominator];
+  const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive && r.uci_rank);
+  const next = [];
+  for (let p = d.lot_no + 1; p <= Math.min(total, d.lot_no + 6); p++) next.push([p, snakeManager(order, p)]);
+  const pick = (r) => a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: r.pcs_slug }); await load(); });
+
+  return html`<div class="draft">
+    <section class="card auction">
+      <div class="row between">
+        <span class="tag">${d.status === 'paused' ? 'Pausiert' : `Pick ${d.lot_no} von ${total} · Runde ${round}`}</span>
+        ${c.isAdmin && html`<button class="small ghost" disabled=${a.busy}
+          onClick=${() => a.run(async () => { await rpc('pause_draft', { p_league: L, p_pause: d.status === 'running' }); load(); })}>
+          ${d.status === 'running' ? 'Pausieren' : 'Fortsetzen'}</button>`}
+      </div>
+      <div class="lot">
+        <div>
+          <div class="muted small">An der Reihe</div>
+          <div class="big">${picker?.team_name}${myTurn ? ' – du!' : ''}</div>
+        </div>
+        <div class=${`clock ${remaining !== null && remaining < 10 ? 'hot' : ''}`} aria-live="off">
+          ${d.status === 'paused' ? '⏸' : remaining !== null ? Math.ceil(remaining) : ''}
+        </div>
+      </div>
+      ${(myTurn || c.isAdmin) && d.status === 'running'
+        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Als Admin kannst du für ${picker?.team_name} wählen.`}{" "}
+            Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</p>
+          <${RiderPicker} riders=${free} limit=${40} action="Wählen" onPick=${pick} />`
+        : html`<p class="muted">Warte auf den Pick von ${picker?.team_name} …</p>`}
+      <${Msg} msg=${a.msg} />
+    </section>
+
+    <section class="card">
+      <h3>Nächste Picks</h3>
+      <ol class="list compact">${next.map(([p, m]) => html`<li key=${p}><span>${m?.team_name}${m?.id === me?.id ? ' (du)' : ''}</span>
+        <span class="muted">Pick ${p}</span></li>`)}</ol>
+      ${next.length === 0 && html`<p class="muted small">Letzter Pick.</p>`}
+    </section>
+
+    ${me && html`<section class="card">
+      <h3>Mein Kader (${c.active.filter((r) => r.manager_id === me.id).length}/${c.league.roster_size})</h3>
+      <${RosterMini} c=${c} managerId=${me.id} />
+    </section>`}
+
+    <section class="card">
+      <h3>Letzte Picks</h3>
+      <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
+        <span>${l.lot_no}. ${c.riderMap[l.rider_slug]?.name || l.rider_slug}</span>
+        <span class="muted">${c.managerMap[l.manager_id]?.team_name}</span></li>`)}</ul>
     </section>
   </div>`;
 }

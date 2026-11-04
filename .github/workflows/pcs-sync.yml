@@ -2,12 +2,20 @@ name: Ergebnisse abrufen (UCI)
 
 on:
   schedule:
-    - cron: "0 5 * * *"    # täglich 05:00 UTC; die UCI rechnet ihr Ranking wöchentlich neu
-  workflow_dispatch:        # zusätzlich per Knopfdruck startbar
+    - cron: "0 5 * * *"     # täglich 05:00 UTC: Fahrer in Kadern
+    - cron: "30 5 * * 3"    # mittwochs 05:30 UTC: alle Fahrer der Weltrangliste (nach dem Fahrerimport)
+  workflow_dispatch:
+    inputs:
+      umfang:
+        description: "Welche Fahrer?"
+        type: choice
+        options: [kader, alle]
+        default: kader
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,5 +25,6 @@ jobs:
       - run: python sync.py
         working-directory: pcs_sync
         env:
+          MODE: ${{ (github.event.schedule == '30 5 * * 3' || inputs.umfang == 'alle') && 'alle' || 'kader' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

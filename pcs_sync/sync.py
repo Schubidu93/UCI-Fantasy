@@ -8,6 +8,8 @@ Danach rechnet die Datenbank Stichtage ab und schließt/friert Spieltage ein.
 Hinweis: Die UCI rechnet das Ranking wöchentlich neu – neue Punkte erscheinen
 also mit bis zu einer Woche Verzögerung.
 
+MODE=alle → Ergebnisse aller Fahrer der Weltrangliste (dauert ca. 40 Minuten,
+läuft wöchentlich), sonst nur Fahrer in Kadern (täglich).
 DRY_RUN=1 → nur anzeigen, nichts speichern (TEST_RIDERS=uci-149727,… zum Testen).
 """
 import os
@@ -27,11 +29,33 @@ def owned_riders(today):
     return sorted({r["rider_slug"] for r in rows if r["rider_slug"].startswith("uci-")})
 
 
+def ranked_riders():
+    """Alle Fahrer mit aktuellem UCI-Rang (seitenweise, die API liefert max. 1000 Zeilen)."""
+    import db
+    out = []
+    while True:
+        rows = db.select("riders", {"select": "pcs_slug,gender", "uci_rank": "not.is.null", "order": "pcs_slug",
+                                    "limit": 1000, "offset": len(out)})
+        out += rows
+        if len(rows) < 1000:
+            return out
+
+
 def main():
     today = date.today()
     if DRY_RUN:
         slugs = [s for s in os.environ.get("TEST_RIDERS", "").split(",") if s]
         genders = {s: os.environ.get("TEST_GENDER", "men") for s in slugs}
+    elif os.environ.get("MODE") == "alle":
+        import db
+        riders = [r for r in ranked_riders() if r["pcs_slug"].startswith("uci-")]
+        slugs = sorted(set(owned_riders(today)) | {r["pcs_slug"] for r in riders})
+        genders = {r["pcs_slug"]: r["gender"] for r in riders}
+        missing = [x for x in slugs if x not in genders]
+        for i in range(0, len(missing), 100):
+            chunk = missing[i:i + 100]
+            genders.update({r["pcs_slug"]: r["gender"] for r in db.select(
+                "riders", {"select": "pcs_slug,gender", "pcs_slug": f"in.({','.join(chunk)})"})})
     else:
         import db
         slugs = owned_riders(today)
@@ -40,7 +64,7 @@ def main():
             chunk = slugs[i:i + 100]
             genders.update({r["pcs_slug"]: r["gender"] for r in db.select(
                 "riders", {"select": "pcs_slug,gender", "pcs_slug": f"in.({','.join(chunk)})"})})
-    print(f"{len(slugs)} Fahrer in Kadern.")
+    print(f"{len(slugs)} Fahrer {'insgesamt' if os.environ.get('MODE') == 'alle' else 'in Kadern'}.")
     if not slugs:
         if not DRY_RUN:
             db.rpc("run_maintenance")
@@ -52,7 +76,9 @@ def main():
     print(f"Saison {season['Name']}, Ranglisten-Stand: " + ", ".join(f"{g} Moment {r['MomentId']}" for g, r in rankings.items()))
 
     races, results, fetched = {}, [], set()
-    for slug in slugs:
+    for n, slug in enumerate(slugs, 1):
+        if n % 200 == 0:
+            print(f"  … {n}/{len(slugs)} Fahrer abgefragt")
         g = genders.get(slug, "men")
         try:
             rows = dr.rider_results(rankings[g], g, season["Id"], object_id(slug))
@@ -89,9 +115,9 @@ def main():
     since = (today - timedelta(days=LOESCH_FENSTER)).isoformat()
     stale = []
     fetched = sorted(fetched)
-    for i in range(0, len(fetched), 100):
+    for i in range(0, len(fetched), 10):   # 10 Fahrer pro Abfrage bleiben sicher unter 1000 Zeilen
         for row in db.select("results", {"select": "id,rider_slug,race_slug,label",
-                                         "rider_slug": f"in.({','.join(fetched[i:i + 100])})",
+                                         "rider_slug": f"in.({','.join(fetched[i:i + 10])})",
                                          "result_date": f"gte.{since}"}):
             if (row["rider_slug"], row["race_slug"], row["label"]) not in current:
                 stale.append(row["id"])

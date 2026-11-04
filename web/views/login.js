@@ -30,7 +30,7 @@ export function Login() {
   };
 
   return html`<main class="wrap narrow">
-    <div class="brand"><span class="logo" aria-hidden="true">◎</span> UCI Fantasy</div>
+    <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> UCI Fantasy</div>
     <div class="card">
       <div class="seg" role="tablist">
         ${[['login', 'Anmelden'], ['signup', 'Registrieren'], ['magic', 'Magic Link']].map(([k, l]) =>

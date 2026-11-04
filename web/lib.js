@@ -95,10 +95,14 @@ export const Msg = ({ msg }) =>
 export const Loading = ({ error }) =>
   error ? html`<p class="note err">${error}</p>` : html`<p class="muted">Lädt …</p>`;
 
+// Fahrer-Fenster öffnen (Ergebnisse und Punkte der Saison), siehe views/rider.js
+export const openRider = (slug) => dispatchEvent(new CustomEvent('rider:open', { detail: slug }));
+
 export function RiderCell({ r }) {
   if (!r) return html`<span class="muted">unbekannt</span>`;
   return html`<span class="rider">
-    <span class="rider-name">${r.name}${r.inactive ? html` <span class="tag warn">inaktiv</span>` : ''}</span>
+    <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
+      onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>${r.inactive ? html` <span class="tag warn">inaktiv</span>` : ''}
     <span class="rider-meta">${[r.team, r.nation, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
   </span>`;
 }
