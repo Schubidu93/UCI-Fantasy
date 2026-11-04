@@ -1,8 +1,10 @@
 """Kleine Hilfsfunktionen für den Zugriff auf Supabase (REST-Schnittstelle)."""
 import os
+import re
 import requests
 
-URL = os.environ["SUPABASE_URL"].rstrip("/")
+# Projekt-Adresse ohne Zusätze – falls das Secret z. B. ".../rest/v1" enthält
+URL = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
 KEY = os.environ["SUPABASE_SERVICE_KEY"]
 HEADERS = {
     "apikey": KEY,

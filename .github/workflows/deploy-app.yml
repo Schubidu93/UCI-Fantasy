@@ -32,7 +32,9 @@ jobs:
             echo "::error::Secret SUPABASE_ANON_KEY fehlt (Supabase → Project Settings → API → anon public)."
             exit 1
           fi
-          printf 'export default {\n  url: "%s",\n  anonKey: "%s",\n};\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > web/config.js
+          URL="$(echo "$SUPABASE_URL" | tr -d '[:space:]')"
+          URL="${URL%/}"; URL="${URL%/rest/v1}"; URL="${URL%/auth/v1}"
+          printf 'export default {\n  url: "%s",\n  anonKey: "%s",\n};\n' "$URL" "$(echo "$SUPABASE_ANON_KEY" | tr -d '[:space:]')" > web/config.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
