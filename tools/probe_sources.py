@@ -40,7 +40,11 @@ for g in groups:
 rk = next(r for g in groups for r in g.get("Rankings", []) if r["RankingTypeId"] == 1)
 print("\nGewählt:", rk["RankingName"])
 objs = call("POST", "/iframe/ObjectRankings/", {"rankingId": rk["Id"], "disciplineId": ROAD, "rankingTypeId": rk["RankingTypeId"],
-            "take": 3, "skip": 0, "page": 1, "pageSize": 3})
+            "take": 3, "skip": 0, "page": 1, "pageSize": 3, "filter[logic]": "and",
+            "filter[filters][0][field]": "RaceTypeId", "filter[filters][0][value]": 0,
+            "filter[filters][1][field]": "CategoryId", "filter[filters][1][value]": me["Id"],
+            "filter[filters][2][field]": "SeasonId", "filter[filters][2][value]": SEASON,
+            "filter[filters][3][field]": "MomentId", "filter[filters][3][value]": rk["MomentId"]})
 print("Fahrer gesamt:", objs.get("total"))
 o = objs["data"][0]
 print("Erster:", o["DisplayName"], o["TeamName"], o["Points"], "ObjectId", o["ObjectId"], "UciId", o["UciId"])
