@@ -194,6 +194,7 @@ function DraftRoom({ c }) {
   const bid = (v) => a.run(async () => { await rpc('draft_bid', { p_league: L, p_amount: v }); setAmount(''); await load(); });
   const nominatorName = c.managerMap[d.nominator]?.team_name;
   const myTurn = me && d.nominator === me.id;
+  const asAdmin = (r, verb) => myTurn || adminConfirm(r, nominatorName, verb);
   const drafted = new Set(lots.map((l) => l.rider_slug));
   const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive);
 
@@ -232,12 +233,12 @@ function DraftRoom({ c }) {
         <p>Die Rangliste ist durch. Restplätze werden reihum mit freien Fahrern zum Preis 1 gefüllt.</p>
         <p>An der Reihe: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
         ${(myTurn || c.isAdmin) && html`<${RiderPicker} riders=${free} action="Für 1 holen"
-          onPick=${(r) => a.run(async () => { await rpc('draft_fill_pick', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
+          onPick=${(r) => asAdmin(r, 'holen') && a.run(async () => { await rpc('draft_fill_pick', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
       ` : html`
         <p>An der Reihe zum Nominieren: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
         ${(myTurn || c.isAdmin) && html`<p class="muted small">Der nominierte Fahrer startet mit deinem Gebot 1.</p>
           <${RiderPicker} riders=${free.filter((r) => !drafted.has(r.pcs_slug))} action="Nominieren"
-          onPick=${(r) => a.run(async () => { await rpc('draft_nominate', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
+          onPick=${(r) => asAdmin(r, 'nominieren') && a.run(async () => { await rpc('draft_nominate', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
       `}
       <${Msg} msg=${a.msg} />
     </section>
@@ -265,6 +266,11 @@ function DraftRoom({ c }) {
   </div>`;
 }
 
+// Admin wählt für einen anderen Manager: erst nachfragen, damit das nicht versehentlich passiert
+function adminConfirm(r, team, verb) {
+  return confirm(`Du bist im Admin-Modus und gerade nicht an der Reihe.\n\nWillst du wirklich ${r.name} für ${team || 'einen anderen Manager'} ${verb}?`);
+}
+
 // Snake-Draft: Reihenfolge 1…n, dann n…1, usw.
 function snakeManager(order, pick) {
   const n = order.length;
@@ -285,7 +291,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
   const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive && r.uci_rank);
   const next = [];
   for (let p = d.lot_no + 1; p <= Math.min(total, d.lot_no + 6); p++) next.push([p, snakeManager(order, p)]);
-  const pick = (r) => a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: r.pcs_slug }); await load(); });
+  const pick = (r) => (myTurn || adminConfirm(r, picker?.team_name, 'draften')) && a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: r.pcs_slug }); await load(); });
 
   return html`<div class="draft">
     <section class="card auction">
@@ -305,7 +311,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
         </div>
       </div>
       ${(myTurn || c.isAdmin) && d.status === 'running'
-        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Als Admin kannst du für ${picker?.team_name} wählen.`}${" "}
+        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Admin-Modus: Du bist nicht dran – ein Pick hier geht an ${picker?.team_name}.`}${" "}
             Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</p>
           <${RiderPicker} riders=${free} limit=${40} action="Wählen" onPick=${pick} />`
         : html`<p class="muted">Warte auf den Pick von ${picker?.team_name} …</p>`}

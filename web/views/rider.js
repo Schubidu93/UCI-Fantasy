@@ -3,6 +3,9 @@ import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { sb, q, all, fmtDate, fmtPts, flag, withFlag } from '../lib.js';
 import { describeEvent } from './races.js';
 
+// Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
+const FIRST_YEAR = 2025;
+
 const leagueId = () => (location.hash.match(/^#\/league\/([^/]+)/) || [])[1];
 
 async function loadRider(slug) {
@@ -49,7 +52,7 @@ export function RiderModal() {
   const r = data?.rider;
   const yearOf = (x) => +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
   const withPoints = (data?.results || []).filter((x) => Number(x.uci_points) > 0);
-  const years = [...new Set(withPoints.map(yearOf))].filter(Boolean).sort();
+  const years = [...new Set(withPoints.map(yearOf))].filter((yy) => yy >= FIRST_YEAR).sort();
   const thisYear = new Date().getFullYear();
   const y = year || (years.includes(thisYear) ? thisYear : years[years.length - 1]);
   const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y)
