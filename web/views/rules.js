@@ -91,16 +91,27 @@ export function Rules({ c }) {
 
     <section class="card">
       <h3>Daten</h3>
-      <p class="small">Fahrer, Rennen, Ergebnisse und die Weltrangliste stammen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</p>
       <ul class="small">
-        <li><strong>Rennergebnisse:</strong> täglich um 20 Uhr – neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage.
-          Mittwochs werden alle Rennen der letzten 3 Wochen neu abgeglichen, damit Korrekturen der UCI ankommen.</li>
-        <li><strong>Kalender:</strong> wird beim selben Abruf aktualisiert, inklusive der nächsten Saison. Termine, die die UCI noch nicht
-          eingetragen hat, stehen als „vorläufig“ im Kalender und werden automatisch ersetzt.</li>
-        <li><strong>Fahrer und Weltrangliste:</strong> täglich um 6 Uhr für alle Fahrer in einem Kader, mittwochs für alle Fahrer
-          (inkl. neuer Fahrer, Teamwechsel und Geburtsdaten). Die Weltrangliste dient nur zur Kontrolle – Punkte kommen aus den Rennergebnissen.</li>
-        <li>Ergebnisse werden ab der Saison 2025 gespeichert.</li>
-        <li>Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
+        <li><strong>Quelle:</strong> Fahrer, Rennen, Ergebnisse und Weltrangliste kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
+        <li><strong>Rennergebnisse:</strong>
+          <ul>
+            <li>täglich um 20 Uhr: neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage</li>
+            <li>mittwochs: alle Rennen der letzten 3 Wochen neu – so kommen Korrekturen der UCI an</li>
+            <li>erscheinen, sobald die UCI sie veröffentlicht – bei großen Rennen meist am selben Abend, bei kleinen manchmal 1–2 Tage später</li>
+          </ul></li>
+        <li><strong>Kalender:</strong>
+          <ul>
+            <li>wird beim selben Abruf aktualisiert, inklusive der nächsten Saison</li>
+            <li>noch nicht von der UCI eingetragene Termine stehen als „vorläufig“ drin und werden automatisch ersetzt</li>
+          </ul></li>
+        <li><strong>Fahrer und Weltrangliste:</strong>
+          <ul>
+            <li>täglich um 6 Uhr für alle Fahrer in einem Kader</li>
+            <li>mittwochs für alle Fahrer (neue Fahrer, Teamwechsel, Geburtsdaten)</li>
+            <li>nur zur Kontrolle – die Punkte kommen aus den Rennergebnissen</li>
+          </ul></li>
+        <li><strong>Zeitraum:</strong> Ergebnisse werden ab der Saison 2025 gespeichert.</li>
+        <li><strong>Korrekturen:</strong> Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
       </ul>
     </section>
   </div>`;

@@ -113,8 +113,10 @@ function RaceDetail({ c, slug, initialEvent }) {
     </section>
     ${current ? html`<${ResultTable} c=${c} event=${current} />`
       : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)
-        ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem nächsten Abruf (mittwochs).'
-        : 'Noch keine Ergebnisse geladen.'}</p>`}
+        ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem Rennen beim täglichen Abruf um 20 Uhr.'
+        : race?.loaded_at
+          ? 'Die UCI hat für dieses Rennen keine Ergebnisliste veröffentlicht.'
+          : 'Noch keine Ergebnisse geladen – sie kommen beim nächsten Abruf (täglich 20 Uhr), sobald die UCI sie veröffentlicht hat.'}</p>`}
   </div>`;
 }
 
