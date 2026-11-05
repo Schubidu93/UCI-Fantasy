@@ -17,7 +17,7 @@ function leagueStatus(l, mds) {
 
 export function Home({ session }) {
   const leagues = useLoad(() => q(sb.from('managers')
-    .select('team_name, leagues(id, name, status, season_start, season_end, gender, draft_at, admin_user)')
+    .select('team_name, leagues!managers_league_id_fkey(id, name, status, season_start, season_end, gender, draft_at, admin_user)')
     .eq('user_id', session.user.id)), [session.user.id]);
   const ids = (leagues.data || []).map((m) => m.leagues?.id).filter(Boolean);
   const mds = useLoad(() => (ids.length ? q(sb.from('matchdays').select('league_id,name,starts_on,ends_on').in('league_id', ids).order('starts_on'))
