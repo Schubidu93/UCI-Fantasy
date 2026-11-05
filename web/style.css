@@ -95,12 +95,21 @@ button.small { padding: 4px 10px; font-size: .85rem; }
 .subnav a { padding: 5px 12px; border-radius: 99px; color: var(--muted); font-weight: 600; font-size: .9rem; background: var(--surface-2); white-space: nowrap; }
 .subnav a.active { background: var(--accent); color: var(--accent-text); }
 @media (max-width: 720px) {
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-  .mainnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface);
-    border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .mainnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(14px); backdrop-filter: saturate(180%) blur(14px);
+    border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(0,0,0,.06);
+    padding-bottom: env(safe-area-inset-bottom); }
   .mainnav-inner { justify-content: space-around; padding: 0 4px; gap: 0; }
-  .mainnav a { flex: 1; flex-direction: column; gap: 2px; padding: 8px 0 6px; font-size: .7rem; border-bottom: 0; border-top: 2px solid transparent; }
-  .mainnav a.active { border-color: transparent; }
+  .mainnav a { flex: 1; flex-direction: column; gap: 3px; padding: 7px 0 6px; font-size: .74rem; font-weight: 600;
+    border-bottom: 0; -webkit-tap-highlight-color: transparent; }
+  .mainnav a.active { border-color: transparent; font-weight: 700; }
+  /* Symbol in einer Pille; die aktive Pille ist farbig hinterlegt */
+  .mainnav svg { width: 26px; height: 26px; box-sizing: content-box; padding: 4px 18px; border-radius: 99px;
+    transition: background-color .15s, transform .15s; }
+  .mainnav a.active svg { background: var(--accent-soft); stroke-width: 2.3; }
+  .mainnav a:active svg { transform: scale(.92); }
 }
 
 .note { padding: 8px 12px; border-radius: 8px; margin: 0; }
