@@ -23,10 +23,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: pcs_sync
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r pcs_sync/requirements.txt
+          cache: pip
+          cache-dependency-path: pcs_sync/requirements.txt
+      - run: pip install -q -r pcs_sync/requirements.txt
       - run: python send_push.py
         working-directory: pcs_sync
         env:

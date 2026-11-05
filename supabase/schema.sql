@@ -382,6 +382,7 @@ create table if not exists notifications (
   created_at timestamptz not null default now(),
   sent_at    timestamptz
 );
+alter table notifications add column if not exists expires_at timestamptz;   -- danach nicht mehr senden (z. B. „Du bist dran“)
 create index if not exists notifications_unsent on notifications (created_at) where sent_at is null;
 
 -- =====================================================================
@@ -433,6 +434,24 @@ language sql security definer set search_path = public as $$
   select user_id, p_title, p_body, p_url from managers where id = p_manager and user_id is not null
     and exists (select 1 from push_subscriptions s where s.user_id = managers.user_id);
 $$;
+
+-- „Du bist dran“ im Draft: sofort senden (Ablauf direkt anstoßen), verfällt mit der Pick-Uhr
+create or replace function _notify_turn(p_league uuid, p_manager uuid, p_prev uuid, p_text text, p_expires timestamptz)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_manager is null or p_manager is not distinct from p_prev then return; end if;   -- gleicher Manager wie eben
+  insert into notifications (user_id, title, body, url, expires_at)
+  select m.user_id, '⏰ Du bist dran!', l.name || ': ' || p_text, '#/league/' || p_league || '/draft', p_expires
+    from managers m join leagues l on l.id = m.league_id
+   where m.id = p_manager and m.user_id is not null
+     and exists (select 1 from push_subscriptions s where s.user_id = m.user_id);
+  if found then
+    begin
+      perform dispatch_workflow('push.yml');
+    exception when others then null;    -- ohne Token: Versand beim nächsten Zeitplaner-Lauf
+    end;
+  end if;
+end $$;
 
 create or replace function _rname(p_slug text) returns text
 language sql stable security definer set search_path = public as $$
@@ -764,6 +783,8 @@ begin
     update draft_state set phase = 'snake', lot_no = v_pick, current_rider = null, current_bid = 0, current_bidder = null,
                            nominator = v_next, deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
      where league_id = p_league;
+    perform _notify_turn(p_league, v_next, d.nominator, 'Dein Pick (Nr. ' || v_pick || ') – du hast ' || l.bid_seconds || ' Sekunden.',
+                         now() + make_interval(secs => l.bid_seconds));
     return;
   end if;
 
@@ -790,6 +811,9 @@ begin
   update draft_state set current_rider = null, current_bid = 0, current_bidder = null, deadline = null,
                          nominator = v_next, updated_at = now()
    where league_id = p_league;
+  perform _notify_turn(p_league, v_next, d.nominator,
+    case when d.phase = 'fill' or (d.phase = 'auction' and l.draft_order = 'ranking') then 'Wähle einen Fahrer zum Auffüllen.'
+         else 'Du nominierst den nächsten Fahrer.' end, null);
 end $$;
 
 create or replace function start_draft(p_league uuid) returns void
@@ -1764,7 +1788,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

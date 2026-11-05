@@ -180,6 +180,20 @@ function DraftRoom({ c }) {
     }
   }, [remaining === 0, d?.deadline]);
 
+  // Du bist dran: Vibration, Tab-Titel und – wenn die App im Hintergrund ist – eine Benachrichtigung
+  const myTurnNow = !!(c.me && d?.status === 'running' && d.nominator === c.me.id && !d.current_rider);
+  useEffect(() => {
+    if (!myTurnNow) return;
+    const title = document.title;
+    document.title = '⏰ Du bist dran! – ' + title;
+    try { navigator.vibrate?.([200, 100, 200]); } catch (_) {}
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      navigator.serviceWorker?.getRegistration().then((reg) => reg?.showNotification('⏰ Du bist dran!',
+        { body: `${c.league.name}: Dein Pick im Draft.`, tag: 'draft-turn', data: { url: location.hash } })).catch(() => {});
+    }
+    return () => { document.title = title; };
+  }, [myTurnNow, d?.lot_no]);
+
   if (!d) return html`<p class="muted">Lädt …</p>`;
   if (d.status === 'done') return html`<${DraftSummary} c=${c} lots=${lots} />`;
   if (d.phase === 'snake') return html`<${SnakeRoom} c=${c} d=${d} lots=${lots} remaining=${remaining} load=${load} />`;
@@ -231,10 +245,12 @@ function DraftRoom({ c }) {
         </div>`}
       ` : d.phase === 'fill' ? html`
         <p>Die Rangliste ist durch. Restplätze werden reihum mit freien Fahrern zum Preis 1 gefüllt.</p>
+        ${myTurn && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         <p>An der Reihe: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
         ${(myTurn || c.isAdmin) && html`<${RiderPicker} riders=${free} action="Für 1 holen"
           onPick=${(r) => asAdmin(r, 'holen') && a.run(async () => { await rpc('draft_fill_pick', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
       ` : html`
+        ${myTurn && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         <p>An der Reihe zum Nominieren: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
         ${(myTurn || c.isAdmin) && html`<p class="muted small">Der nominierte Fahrer startet mit deinem Gebot 1.</p>
           <${RiderPicker} riders=${free.filter((r) => !drafted.has(r.pcs_slug))} action="Nominieren"
@@ -305,6 +321,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
         <div>
           <div class="muted small">An der Reihe</div>
           <div class="big">${picker?.team_name}${myTurn ? ' – du!' : ''}</div>
+          ${myTurn && d.status === 'running' && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         </div>
         <div class=${`clock ${remaining !== null && remaining < 10 ? 'hot' : ''}`} aria-live="off">
           ${d.status === 'paused' ? '⏸' : remaining !== null ? Math.ceil(remaining) : ''}

@@ -63,6 +63,10 @@ def main():
     sent, gone, done = 0, set(), []
     now = datetime.now(timezone.utc)
     for n in pending:
+        expires = n.get("expires_at")
+        if expires and datetime.fromisoformat(expires.replace("Z", "+00:00")) < now:
+            done.append(n["id"])          # z. B. „Du bist dran“, der Pick ist längst vorbei
+            continue
         payload = json.dumps({"title": n["title"], "body": n.get("body") or "", "url": n.get("url") or ""})
         delivered = False
         for s in by_user.get(n["user_id"], []):

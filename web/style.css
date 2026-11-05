@@ -187,6 +187,10 @@ a.race-link:hover strong { color: var(--accent); }
 /* Draft */
 .draft { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
 .draft .auction { grid-column: 1 / -1; }
+.your-turn { display: inline-block; margin-top: 6px; padding: 4px 12px; border-radius: 99px; font-weight: 700;
+  background: var(--accent); color: var(--accent-text); animation: turn-pulse 1.2s ease-in-out infinite; }
+@keyframes turn-pulse { 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .your-turn { animation: none; } }
 .lot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 12px 0; }
 .lot-rider .rider-name { font-size: 1.5rem; }
 .lot-rider .rider-meta { font-size: .95rem; }
