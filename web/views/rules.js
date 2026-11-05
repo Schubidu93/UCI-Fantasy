@@ -12,6 +12,9 @@ export function Rules({ c }) {
   const l = c.league;
   const two = l.transfer_mode === 'waiver_free';
   const lineup = l.scoring_mode === 'lineup';
+  const extras = html`<li>Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</li>
+        ${l.draft_mode !== 'offline' && html`<li>Bist du an der Reihe${l.draft_mode === 'live' ? ' (Nominieren oder Auffüllen)' : ''}, bekommst du eine Push-Nachricht „Du bist dran“.</li>`}
+        <li>Nach dem Draft gibt es einen <strong>Draft-Report</strong>: Note A+ bis F, Prognose-Platz, Steal und Reach – bewertet nach den Punkten des Vorjahres.</li>`;
   const row = (k, v) => html`<tr><td>${k}</td><td><strong>${v}</strong></td></tr>`;
   return html`<div class="stack rules">
     <section class="card">
@@ -45,18 +48,16 @@ export function Rules({ c }) {
           <li>Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr auf ${l.bid_seconds} Sekunden zurück. Läuft sie ab, gewinnt das Höchstgebot.</li>
           <li>Höchstgebot = Restbudget − (offene Kaderplätze − 1), damit jeder Kader füllbar bleibt.</li>
           <li>Bietet niemand, wird der Fahrer übersprungen und ist danach frei. Ist die Rangliste durch, füllen alle ihre Restplätze reihum für je 1 Punkt.</li>
+          ${extras}
         </ul>`
       : l.draft_mode === 'snake' ? html`<ul>
           <li>Die Manager wählen reihum je einen Fahrer; in jeder Runde dreht sich die Reihenfolge um (1–2–3 … 3–2–1). Die Reihenfolge wird beim Start ausgelost.</li>
           <li>Pro Pick gibt es ${l.bid_seconds} Sekunden. Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</li>
           <li>Fahrer kosten im Snake-Draft nichts${l.waiver_mode === 'faab' ? `; die ${l.budget} Budgetpunkte bleiben für FAAB-Waiver` : ''}.</li>
+          ${extras}
         </ul>`
-      : html`<p>Der Draft findet offline statt. Der Admin trägt danach die Kader samt Preisen ein (oder lädt eine CSV hoch).</p>`}
-      <ul class="small">
-        <li>Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</li>
-        ${l.draft_mode !== 'offline' && html`<li>Bist du an der Reihe${l.draft_mode === 'live' ? ' (Nominieren oder Auffüllen)' : ''}, bekommst du eine Push-Nachricht „Du bist dran“.</li>`}
-        <li>Nach dem Draft gibt es einen <strong>Draft-Report</strong>: Note A+ bis F, Prognose-Platz, Steal und Reach – bewertet nach den Punkten des Vorjahres.</li>
-      </ul>
+      : html`<ul><li>Der Draft findet offline statt. Der Admin trägt danach die Kader samt Preisen ein (oder lädt eine CSV hoch).</li>${extras}</ul>`}
+
     </section>
 
     <section class="card">
@@ -119,7 +120,7 @@ export function Rules({ c }) {
 
     <section class="card">
       <h3>Daten</h3>
-      <ul class="small">
+      <ul>
         <li><strong>Quelle:</strong> Fahrer, Rennen und Ergebnisse kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
         <li><strong>Rennergebnisse:</strong>
           <ul>
