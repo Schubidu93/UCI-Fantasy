@@ -20,11 +20,19 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-/* Installierte App (iPhone): Inhalt nicht unter Statusleiste/Notch legen */
-body { padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-/* Seite füllt immer den ganzen Bildschirm – sonst sitzt die feste Menüleiste auf iOS bei kurzen Seiten zu hoch */
-html { min-height: 100%; }
-body { min-height: 100vh; min-height: 100dvh; }
+/* ---- Installierte App auf dem iPhone ----------------------------------------------------
+   --top: Höhe von Statusleiste plus dem Unschärfe-Verlauf, den iOS darunter zeichnet.
+   Ist die Statusleiste undurchsichtig, ist die Einrückung 0 und damit auch --top. */
+:root { --top: calc(env(safe-area-inset-top, 0px) * 1.4); --cover: var(--bg); }
+html:has(.league-head) { --cover: var(--surface); }
+body { padding-top: var(--top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+/* Feste, undurchsichtige Fläche oben: darunter gescrollter Inhalt wird verdeckt statt verschwommen gezeigt */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--top); background: var(--cover); z-index: 60; pointer-events: none; }
+/* iOS 26 macht den Bildschirm bei kurzen Seiten um die Statusleiste zu kurz (WebKit-Fehler 301108) –
+   dann sitzt die feste Menüleiste zu hoch. Seite deshalb mindestens bildschirmhoch machen. */
+@media (display-mode: standalone) {
+  html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top, 0px))); }
+}
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 a { color: var(--accent); text-decoration: none; }
 h1 { font-size: 1.35rem; margin: .1rem 0 .4rem; }
@@ -100,12 +108,13 @@ button.small { padding: 4px 10px; font-size: .85rem; }
 .subnav a { padding: 5px 12px; border-radius: 99px; color: var(--muted); font-weight: 600; font-size: .9rem; background: var(--surface-2); white-space: nowrap; }
 .subnav a.active { background: var(--accent); color: var(--accent-text); }
 @media (max-width: 720px) {
-  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: calc(76px + var(--nav-bottom)); }
+  :root { --nav-bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px)); }
   .mainnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     background: color-mix(in srgb, var(--surface) 88%, transparent);
     -webkit-backdrop-filter: saturate(180%) blur(14px); backdrop-filter: saturate(180%) blur(14px);
     border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(0,0,0,.06);
-    padding-bottom: env(safe-area-inset-bottom); }
+    padding-bottom: var(--nav-bottom); }
   .mainnav-inner { justify-content: space-around; padding: 0 4px; gap: 0; }
   .mainnav a { flex: 1; flex-direction: column; gap: 3px; padding: 7px 0 6px; font-size: .74rem; font-weight: 600;
     border-bottom: 0; -webkit-tap-highlight-color: transparent; }
@@ -172,7 +181,7 @@ button.linkish:hover, button.linkish:focus-visible { color: var(--accent); text-
 .list li.clickable { cursor: pointer; }
 .list li.clickable:hover { background: var(--surface-2); }
 .modal-body { display: flex; flex-direction: column; gap: 12px; }
-@media (max-width: 720px) { .modal-back { padding: calc(12px + env(safe-area-inset-top)) 8px calc(12px + env(safe-area-inset-bottom)); } }
+@media (max-width: 720px) { .modal-back { padding: calc(12px + var(--top)) 8px calc(12px + env(safe-area-inset-bottom)); } }
 .card.link .tag { align-self: flex-start; }
 
 .league-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
