@@ -56,6 +56,6 @@ export function Riders({ c }) {
       })}</tbody>
     </table></div>
     ${list.length > limit && html`<div class="row"><button onClick=${() => setLimit(limit + 200)}>Mehr anzeigen (${list.length - limit} weitere)</button></div>`}
-    ${(pts.data || []).length === 0 && html`<p class="muted small">Noch keine Ergebnisse geladen – der wöchentliche Abruf aller Fahrer läuft mittwochs (oder per Knopfdruck).</p>`}
+    ${(pts.data || []).length === 0 && html`<p class="muted small">Noch keine Ergebnisse für dieses Jahr – Rennergebnisse werden täglich um 20 Uhr abgerufen.</p>`}
   </section>`;
 }

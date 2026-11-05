@@ -1,5 +1,5 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtDateTime, fmtPts, SOURCE_LABEL , budgetRelevant } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtPts, SOURCE_LABEL, budgetRelevant } from '../lib.js';
 
 import { NextDeadline, fmtDeadline } from './deadline.js';
 

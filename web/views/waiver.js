@@ -1,5 +1,5 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDateTime, normName, withFlag } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, normName, withFlag } from '../lib.js';
 import { NextDeadline, transferPhase, fmtDeadline } from './deadline.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };

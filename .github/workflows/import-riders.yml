@@ -1,7 +1,9 @@
 name: Fahrerliste importieren
 
+# Alle Fahrer mit UCI-Punkten (Männer und Frauen): Rang, Team, Nation, Geburtsdatum.
+# Täglich um 6 Uhr (gestartet vom Zeitplaner in der Datenbank) und per Knopfdruck.
 on:
-  workflow_dispatch:        # zusätzlich per Knopfdruck, z. B. direkt vor dem Draft
+  workflow_dispatch:
 
 jobs:
   import:
@@ -11,9 +13,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install --upgrade -r pcs_sync/requirements.txt
+      - run: pip install --upgrade -r datasync/requirements.txt
       - run: python import_riders.py
-        working-directory: pcs_sync
+        working-directory: datasync
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

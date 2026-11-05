@@ -2,10 +2,8 @@
 Zugriff auf UCI DataRide (dataride.uci.ch) – die offizielle Quelle des UCI-Weltrankings.
 
 Die Website lädt ihre Tabellen über dieselben Abfragen, die hier verwendet werden:
-  1. GetDisciplineSeasons      → Saison-ID (Straße = Disziplin 10)
-  2. RankingsDiscipline        → die UCI-Weltrangliste der Kategorie (Männer/Frauen Elite)
-  3. ObjectRankings            → Fahrer der Rangliste mit Rang, Team, Nation, Punkten
-  4. IndividualEventRankings   → pro Fahrer jedes Ergebnis mit UCI-Punkten und Datum
+  Fahrer:   GetDisciplineSeasons → RankingsDiscipline → ObjectRankings (Rang, Team, Nation, Geburtsdatum)
+  Rennen:   Competitions → Races (Etappen) → Events (Wertungen) → Results (Rang, Zeit, UCI-Punkte)
 
 Abrufe bewusst sparsam und mit ehrlicher Kennung (keine Browser-Tarnung).
 """
@@ -84,15 +82,6 @@ class DataRide:
                 break
         return out[:limit]
 
-    def rider_results(self, rk, gender, season_id, object_id):
-        """Alle Ergebnisse eines Fahrers, die in der Weltrangliste Punkte bringen."""
-        data = {"individualId": object_id, "rankingId": rk["Id"], "momentId": rk["MomentId"],
-                "groupId": rk["GroupId"], "baseRankingTypeId": rk["RankingTypeId"],
-                "disciplineSeasonId": season_id, "disciplineId": ROAD, "categoryId": CATEGORY[gender],
-                "raceTypeId": 0, "countryId": 0, "teamId": 0,
-                "take": 1000, "skip": 0, "page": 1, "pageSize": 1000}
-        return (self._call("POST", "/iframe/IndividualEventRankings/", data) or {}).get("data") or []
-
 
     # ---- Rennkalender und Ergebnislisten -------------------------------
 
@@ -146,47 +135,14 @@ def rider_slug(object_id):
     return f"uci-{object_id}"
 
 
-def object_id(slug):
-    return int(slug.split("-", 1)[1])
-
-
 def slugify(text):
     t = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode().lower()
     return re.sub(r"[^a-z0-9]+", "-", t).strip("-")
 
 
-def parse_date(row):
-    """'28 Aug 2026' bzw. '/Date(1787868000000)/' → date"""
-    try:
-        return datetime.strptime(row.get("Date", ""), "%d %b %Y").date()
-    except ValueError:
-        m = re.search(r"(\d{10,})", row.get("StartDate") or "")
-        if not m:
-            return None
-        # DataRide liefert Mitternacht Schweizer Zeit; +12 h landet sicher auf dem richtigen Tag
-        return datetime.utcfromtimestamp(int(m.group(1)) / 1000 + 12 * 3600).date()
-
-
 def race_slug(competition_name, year, gender):
     """Stabile Rennen-ID; Frauenrennen bekommen '/w', weil z. B. die WM gleich heißt."""
     return f"{slugify(competition_name)}/{year}" + ("/w" if gender == "women" else "")
-
-
-def result_row(row, gender="men"):
-    """Ein DataRide-Ergebnis → (race, result) für unsere Tabellen; None wenn es nicht zählt."""
-    points = float(row.get("Points") or 0)
-    day = parse_date(row)
-    if row.get("IsInvalidResult") or points <= 0 or not day:
-        return None
-    comp = (row.get("CompetitionName") or "Unbekanntes Rennen").strip()
-    slug = race_slug(comp, day.year, gender)
-    parts = [p.strip() for p in (row.get("RaceName"), row.get("EventName")) if p and p.strip()]
-    label = " · ".join(dict.fromkeys(parts)) or "Ergebnis"
-    return (
-        {"pcs_slug": slug, "name": comp, "uci_class": row.get("ClassCode"), "date": day},
-        {"race_slug": slug, "label": label[:200], "result_date": day.isoformat(),
-         "rank": row.get("Rank") if isinstance(row.get("Rank"), int) else None, "uci_points": points},
-    )
 
 
 def normalize_name(name):

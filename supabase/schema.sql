@@ -1150,6 +1150,8 @@ begin
   return least(v, v_lock);
 end $$;
 
+-- alte Signatur ohne Waiver-Frist entfernen (sonst ist der Aufruf mehrdeutig)
+drop function if exists upsert_matchday(uuid, uuid, text, date, date, timestamptz);
 create or replace function upsert_matchday(p_league uuid, p_id uuid, p_name text, p_start date, p_end date,
                                            p_deadline timestamptz default null, p_waiver_deadline timestamptz default null)
 returns uuid language plpgsql security definer set search_path = public as $$
@@ -1915,17 +1917,15 @@ end $$;
 create or replace function scheduler_tick() returns void
 language plpgsql security definer set search_path = public as $$
 declare t timestamp := now() at time zone 'Europe/Berlin';
-        h int := extract(hour from t); m int := extract(minute from t); dow int := extract(isodow from t);
+        h int := extract(hour from t); m int := extract(minute from t);
 begin
   begin
     perform process_due(null);                     -- Stichtage (Waiver, Tausch) pünktlich abarbeiten
   exception when others then raise warning 'process_due: %', sqlerrm;
   end;
   if m < 15 then
-    if h = 6 then perform dispatch_workflow('pcs-sync.yml', '{"umfang": "kader"}'); end if;      -- Fahrerpunkte (Kader)
-    if h = 20 then perform dispatch_workflow('race-results.yml'); end if;                         -- Rennergebnisse
-    if dow = 3 and h = 5 then perform dispatch_workflow('import-riders.yml'); end if;             -- Fahrerliste (Mi)
-    if dow = 3 and h = 7 then perform dispatch_workflow('pcs-sync.yml', '{"umfang": "alle"}'); end if;  -- Komplettabgleich (Mi)
+    if h = 6 then perform dispatch_workflow('import-riders.yml'); end if;    -- Fahrer: Rang, Team, Geburtsdatum
+    if h = 20 then perform dispatch_workflow('race-results.yml'); end if;    -- Rennergebnisse, Kalender, Punkte
   end if;
   if exists (select 1 from notifications where sent_at is null) then
     perform dispatch_workflow('push.yml');

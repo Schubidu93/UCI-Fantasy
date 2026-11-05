@@ -52,7 +52,11 @@ export function Rules({ c }) {
           <li>Fahrer kosten im Snake-Draft nichts${l.waiver_mode === 'faab' ? `; die ${l.budget} Budgetpunkte bleiben für FAAB-Waiver` : ''}.</li>
         </ul>`
       : html`<p>Der Draft findet offline statt. Der Admin trägt danach die Kader samt Preisen ein (oder lädt eine CSV hoch).</p>`}
-      <p class="muted small">Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</p>
+      <ul class="small">
+        <li>Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</li>
+        ${l.draft_mode !== 'offline' && html`<li>Bist du an der Reihe${l.draft_mode === 'live' ? ' (Nominieren oder Auffüllen)' : ''}, bekommst du eine Push-Nachricht „Du bist dran“.</li>`}
+        <li>Nach dem Draft gibt es einen <strong>Draft-Report</strong>: Note A+ bis F, Prognose-Platz, Steal und Reach – bewertet nach den Punkten des Vorjahres.</li>
+      </ul>
     </section>
 
     <section class="card">
@@ -66,7 +70,7 @@ export function Rules({ c }) {
               Bis zum Stichtag kannst du sie ändern, danach ist sie für diesen Spieltag fest.
               Stellst du nicht neu auf, gilt die Aufstellung vom vorigen Spieltag (beim ersten Spieltag: deine teuersten Fahrer).</li>`
           : html`<li>Es zählen <strong>alle Fahrer deines Kaders</strong>.</li>`}
-        <li>Punkte zählen nur innerhalb eines Spieltags und nur, solange der Fahrer in deinem Team ist (ab dem Tag der Aufnahme bis zum Tag der Abgabe).</li>
+        <li>Punkte zählen nur innerhalb eines Spieltags – für die Spieltage, in denen der Fahrer in deinem Kader steht.</li>
         <li>Die Punkte werden <strong>direkt mit dem Ergebnis</strong> gutgeschrieben – Abruf täglich um 20 Uhr, bei Rundfahrten Etappe für Etappe.</li>
         <li>Korrigiert die UCI ein Ergebnis (z. B. Aberkennung wegen Doping), wird das automatisch übernommen, solange der Spieltag nicht eingefroren ist.</li>
       </ul>
@@ -98,7 +102,8 @@ export function Rules({ c }) {
     <section class="card">
       <h3>Waiver und Tausch</h3>
       <ul>
-        <li>Freie Fahrer holst du per <strong>Waiver-Antrag</strong>: freien Fahrer wählen, eigenen Fahrer abgeben (der Kader bleibt voll). Mehrere Anträge in Wunschreihenfolge sind möglich.</li>
+        <li>Freie Fahrer holst du per <strong>Waiver-Antrag</strong>: freien Fahrer wählen, eigenen Fahrer abgeben (der Kader bleibt immer voll). Mehrere Anträge in Wunschreihenfolge sind möglich.</li>
+        ${two && html`<li>In der <strong>freien Phase</strong> tauschst du sofort ohne Antrag – wer zuerst kommt, bekommt den Fahrer.</li>`}
         <li>${l.waiver_mode === 'faab'
           ? html`<strong>FAAB:</strong> Du bietest verdeckt mit deinem Restbudget; das Höchstgebot gewinnt, bei Gleichstand der schlechter Platzierte.`
           : html`<strong>Priorität:</strong> Der Tabellenletzte wählt zuerst, dann der Vorletzte … Pro Runde bekommt jeder höchstens einen Fahrer. Vor dem ersten Spieltag gilt die umgekehrte Draft-Reihenfolge.`}</li>
@@ -125,11 +130,7 @@ export function Rules({ c }) {
             <li>wird beim selben Abruf aktualisiert, inklusive der nächsten Saison</li>
             <li>noch nicht von der UCI eingetragene Termine stehen als „vorläufig“ drin und werden automatisch ersetzt</li>
           </ul></li>
-        <li><strong>Fahrer:</strong>
-          <ul>
-            <li>täglich um 6 Uhr für alle Fahrer in einem Kader (Team, UCI-Rang)</li>
-            <li>mittwochs für alle Fahrer (neue Fahrer, Teamwechsel, Geburtsdaten)</li>
-          </ul></li>
+        <li><strong>Fahrer:</strong> täglich um 6 Uhr alle Fahrer mit UCI-Punkten – Rang, Team, Nation, Geburtsdatum; neue Fahrer sind automatisch frei.</li>
         <li><strong>Zeitraum:</strong> Ergebnisse werden ab der Saison 2025 gespeichert.</li>
         <li><strong>Korrekturen:</strong> Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
       </ul>

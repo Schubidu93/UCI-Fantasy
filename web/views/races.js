@@ -66,7 +66,7 @@ function RaceList({ c, races }) {
       <select value=${month} onChange=${(e) => setMonth(e.target.value)}><option value="">Alle Monate</option>
         ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
     </div>
-    ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf „Rennergebnisse laden“ läuft bzw. startet mittwochs.</p>` : html`
+    ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf läuft täglich um 20 Uhr.</p>` : html`
     <ul class="list race-list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
       <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.pcs_slug)}`}>
         <strong>${r.name}</strong>

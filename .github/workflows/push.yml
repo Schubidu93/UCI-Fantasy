@@ -4,7 +4,7 @@ name: Benachrichtigungen senden
 # Erzeugt beim ersten Lauf das VAPID-Schlüsselpaar.
 on:
   workflow_run:
-    workflows: ["Ergebnisse abrufen (UCI)", "Rennergebnisse laden (UCI)"]
+    workflows: ["Rennergebnisse laden (UCI)"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -24,15 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: pcs_sync
+          sparse-checkout: datasync
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: pcs_sync/requirements.txt
-      - run: pip install -q -r pcs_sync/requirements.txt
+          cache-dependency-path: datasync/requirements.txt
+      - run: pip install -q -r datasync/requirements.txt
       - run: python send_push.py
-        working-directory: pcs_sync
+        working-directory: datasync
         env:
           TEST: ${{ inputs.test && '1' || '' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

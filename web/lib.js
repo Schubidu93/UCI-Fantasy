@@ -34,11 +34,6 @@ export const fmtDateTime = (d) =>
 export const fmtPts = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString('de-DE');
 export const today = () => new Date().toISOString().slice(0, 10);
 
-export function riderName(r) {
-  if (!r) return '?';
-  return r.name;
-}
-
 // Namen vergleichbar machen: "POGAČAR Tadej" == "tadej pogacar"
 export function normName(s) {
   return (s || '')

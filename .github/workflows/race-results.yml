@@ -33,9 +33,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r pcs_sync/requirements.txt
+      - run: pip install -r datasync/requirements.txt
       - run: python race_results.py
-        working-directory: pcs_sync
+        working-directory: datasync
         env:
           REFRESH: ${{ inputs.neu_laden && '1' || '' }}
           CLASSES: ${{ inputs.klassen }}

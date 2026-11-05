@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker, draftCosts } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
 import { DraftReport } from './report.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft

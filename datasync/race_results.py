@@ -18,10 +18,10 @@ Umgebung:
 import os
 import re
 import time
+from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 from dataride import DataRide, ms_date, normalize_name, race_slug
-from sync import notify_points
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 GENDERS = os.environ.get("GENDERS", "men,women").split(",")
@@ -52,6 +52,78 @@ def replace_provisional(gender, cal, today):
         db.delete("races", {"pcs_slug": f"eq.{slug}", "provisional": "is.true"})
     if gone:
         print(f"  {len(gone)} vorläufige Kalendereinträge durch DataRide ersetzt bzw. entfernt")
+
+
+def save_points(slug, race_name, events, rows, today):
+    """UCI-Punkte der geladenen Wertungen in die Fantasy-Wertung (Tabelle results) übernehmen.
+    Ergebnisse dieses Rennens, die es im neu geladenen Zeitraum nicht mehr gibt (z. B. aberkannt),
+    werden entfernt; eingefrorene Spieltage sind davon nicht betroffen (eigener Schnappschuss)."""
+    import db
+    ev_by_id = {e["id"]: e for e in events}
+    points = {}
+    for r in rows:
+        ev = ev_by_id[r["event_id"]]
+        if not r["rider_slug"] or not r["uci_points"] or float(r["uci_points"]) <= 0 or not ev["event_date"]:
+            continue
+        parts = [p.strip() for p in (ev["stage_name"], ev["event_name"]) if p and p.strip()]
+        label = (" · ".join(dict.fromkeys(parts)) or "Ergebnis")[:200]
+        points[(r["rider_slug"], label)] = {"rider_slug": r["rider_slug"], "race_slug": slug, "label": label,
+                                            "result_date": ev["event_date"], "rank": r["rank"],
+                                            "uci_points": float(r["uci_points"])}
+    dates = [e["event_date"] for e in events if e["event_date"]]
+    if not dates:
+        return
+    existing = db.select("results", {"select": "id,rider_slug,label,result_date,uci_points", "race_slug": f"eq.{slug}",
+                                     "result_date": f"gte.{min(dates)}", "limit": 5000})
+    stale = [r["id"] for r in existing if (r["rider_slug"], r["label"]) not in points]
+    for i in range(0, len(stale), 200):
+        db.delete("results", {"id": f"in.({','.join(map(str, stale[i:i + 200]))})"})
+    if points:
+        db.upsert("results", list(points.values()), "rider_slug,race_slug,label")
+    # Benachrichtigung nur für wirklich neue Punkte der letzten 10 Tage
+    seen = {(r["rider_slug"], r["result_date"], float(r["uci_points"])) for r in existing}
+    recent = (today - timedelta(days=10)).isoformat()
+    fresh = [r for r in points.values() if r["result_date"] >= recent
+             and (r["rider_slug"], r["result_date"], r["uci_points"]) not in seen]
+    if fresh:
+        try:
+            notify_points(fresh, race_name)
+        except Exception as e:     # Benachrichtigungen dürfen das Laden nie stoppen
+            print(f"  Benachrichtigungen übersprungen: {e}")
+
+
+def notify_points(fresh, race_name):
+    """Neue Punkte an die Besitzer der Fahrer melden (eine Nachricht pro Nutzer und Liga)."""
+    import db
+    slugs = sorted({r["rider_slug"] for r in fresh})
+    owners = db.select("roster_entries", {"select": "league_id,manager_id,rider_slug",
+                                          "rider_slug": f"in.({','.join(slugs)})", "released_on": "is.null"})
+    if not owners:
+        return
+    managers = {m["id"]: m for m in db.select("managers", {
+        "select": "id,user_id", "id": f"in.({','.join(sorted({o['manager_id'] for o in owners}))})"})}
+    users = sorted({m["user_id"] for m in managers.values() if m.get("user_id")})
+    if not users:
+        return
+    subscribed = {s["user_id"] for s in db.select("push_subscriptions", {"select": "user_id", "user_id": f"in.({','.join(users)})"})}
+    names = {r["pcs_slug"]: r["name"] for r in db.select("riders", {"select": "pcs_slug,name", "pcs_slug": f"in.({','.join(slugs)})"})}
+    msgs = defaultdict(list)          # (Nutzer, Liga) → Ergebnisse
+    for o in owners:
+        user = managers.get(o["manager_id"], {}).get("user_id")
+        if user in subscribed:
+            msgs[(user, o["league_id"])] += [r for r in fresh if r["rider_slug"] == o["rider_slug"]]
+    out = []
+    for (user, league), rows in msgs.items():
+        total = sum(r["uci_points"] for r in rows)
+        top = sorted(rows, key=lambda r: -r["uci_points"])[:3]
+        body = ", ".join(f"{names.get(r['rider_slug'], r['rider_slug']).split(' ')[0].title()} +{r['uci_points']:g}" for r in top)
+        if len(rows) > 3:
+            body += f" und {len(rows) - 3} weitere"
+        out.append({"user_id": user, "title": f"🏆 +{total:g} UCI-Punkte · {race_name}", "body": body,
+                    "url": f"#/league/{league}/team"})
+    if out:
+        db.insert("notifications", out)
+        print(f"  {len(out)} Punkte-Benachrichtigungen vorgemerkt.")
 
 
 def rank_int(text):
@@ -211,38 +283,7 @@ def main():
                 # gleiche Sortierposition zweimal (sollte nicht vorkommen) → letzte gewinnt
                 uniq = list({(r["event_id"], r["sort_order"]): r for r in results}.values())
                 db.upsert("event_results", uniq, "event_id,sort_order")
-                # Punkte sofort in die Fantasy-Wertung übernehmen (gleiche Schlüssel wie beim Ranking-Abruf,
-                # das wöchentliche Ranking bleibt die Kontrolle und korrigiert ggf.)
-                ev_by_id = {e["id"]: e for e in events}
-                points = {}
-                for r in uniq:
-                    if not r["rider_slug"] or not r["uci_points"] or float(r["uci_points"]) <= 0:
-                        continue
-                    ev = ev_by_id[r["event_id"]]
-                    if not ev["event_date"]:
-                        continue
-                    parts = [p.strip() for p in (ev["stage_name"], ev["event_name"]) if p and p.strip()]
-                    label = (" · ".join(dict.fromkeys(parts)) or "Ergebnis")[:200]
-                    points[(r["rider_slug"], label)] = {"rider_slug": r["rider_slug"], "race_slug": slug, "label": label,
-                                                        "result_date": ev["event_date"], "rank": r["rank"],
-                                                        "uci_points": float(r["uci_points"])}
-                if points:
-                    existing = db.select("results", {"select": "rider_slug,label,result_date,uci_points",
-                                                     "race_slug": f"eq.{slug}", "limit": 5000})
-                    known = {(r["rider_slug"], r["label"]) for r in existing}
-                    # Sicherheitsnetz gegen Doppelzählung: gleiches Ergebnis (Fahrer, Tag, Punkte) unter anderem Namen
-                    same = {(r["rider_slug"], r["result_date"], float(r["uci_points"])) for r in existing}
-                    points = {k: r for k, r in points.items()
-                              if k in known or (r["rider_slug"], r["result_date"], r["uci_points"]) not in same}
-                if points:
-                    db.upsert("results", list(points.values()), "rider_slug,race_slug,label")
-                    recent = (today - timedelta(days=10)).isoformat()
-                    fresh = [r for k, r in points.items() if k not in known and r["result_date"] >= recent]
-                    if fresh:
-                        try:
-                            notify_points(fresh, {slug: {"name": race_row["name"]}})
-                        except Exception as e:     # Benachrichtigungen dürfen das Laden nie stoppen
-                            print(f"  Benachrichtigungen übersprungen: {e}")
+                save_points(slug, race_row["name"], events, uniq, today)
             db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
     if not DRY_RUN:

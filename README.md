@@ -1,61 +1,78 @@
 # UCI Fantasy
 
-Fantasy-Radsport mit echten UCI-Punkten: Auktions-Draft mit 100 Budgetpunkten, Waiver,
-Tausch, frei setzbare Spieltage und Liga-Tabelle. Punkte = die UCI-Punkte, die ein Fahrer
-für jedes Ergebnis in der UCI-Weltrangliste erhält, solange er im Kader steht.
-Datenquelle ist UCI DataRide (dataride.uci.ch), die offizielle Seite des UCI-Rankings.
+Fantasy-Radsport mit echten UCI-Punkten: Draft (Live-Auktion, Snake oder offline), Waiver und
+freie Transferphase, Tausch, frei setzbare Spieltage, Aufstellung und Liga-Tabelle.
+Gewertet werden genau die UCI-Punkte aus den Rennergebnissen (z. B. Platz 7 einer Etappe) –
+direkt mit dem Ergebnis, ohne auf die Weltrangliste zu warten.
+Datenquelle ist **UCI DataRide** (dataride.uci.ch), die offizielle Datenquelle der UCI.
+
+**App:** https://schubidu93.github.io/UCI-Fantasy/ (installierbar als Web-App auf dem Handy)
+
+## Wo läuft was?
+
+| Teil | Ort |
+|---|---|
+| App (statische Web-App, Preact) | **GitHub Pages** – veröffentlicht von *App veröffentlichen* |
+| Datenbank, Login, Spiellogik, Zeitplaner | **Supabase** (Postgres, Auth, Realtime, pg_cron) |
+| Datenabruf und Push-Nachrichten | **GitHub Actions** – gestartet vom Zeitplaner in der Datenbank |
 
 ## Aufbau
 
 | Ordner | Inhalt |
 |---|---|
-| `web/` | Die App (läuft im Browser, wird über GitHub Pages veröffentlicht) |
-| `supabase/schema.sql` | Datenbank: Tabellen, Zugriffsrechte und die komplette Spiellogik (Auktion, Waiver, Tausch, Wertung) |
-| `pcs_sync/` | Python-Skripte, die Fahrer und Ergebnisse von UCI DataRide holen (`dataride.py`) |
+| `web/` | Die App: `app.js` (Rahmen, Navigation), `lib.js` (Helfer), `views/` (Bereiche), `sw.js` (Push) |
+| `supabase/schema.sql` | Datenbank komplett und idempotent: Tabellen, Rechte und die gesamte Spiellogik (Draft, Waiver, freie Phase, Tausch, Wertung, Zeitplaner) |
+| `datasync/` | Python-Skripte für UCI DataRide (`dataride.py`), Fahrerliste, Rennergebnisse und Push-Versand |
 | `.github/workflows/` | Automatische Abläufe (siehe unten) |
 
-Die Spielregeln werden in der Datenbank geprüft (Budget, 15-Sekunden-Uhr, Kadergröße,
-Waiver-Reihenfolge …), nicht in der App – so kann niemand mogeln, auch nicht mit einem
-manipulierten Browser.
+Die Spielregeln werden in der Datenbank geprüft (Budget, Uhr, Kadergröße, Fristen,
+Waiver-Reihenfolge …), nicht in der App – so kann niemand mogeln.
 
 ## Automatische Abläufe
 
+Der Zeitplaner läuft in der Datenbank (pg_cron, alle 15 Minuten, `scheduler_tick`): Er arbeitet
+fällige Fristen ab und startet die Workflows über die GitHub-API.
+
 | Workflow | Wann | Was |
 |---|---|---|
-| Ergebnisse abrufen (UCI) | täglich 05:00 UTC | Ergebnisse aller Kaderfahrer holen, aberkannte entfernen, Stichtage abrechnen, Spieltage abschließen und 7 Tage danach einfrieren |
-| Fahrerliste importieren | mittwochs + per Knopfdruck | UCI-Weltrangliste Männer/Frauen (je 1000 Fahrer); neue Fahrer sind automatisch frei |
-| App veröffentlichen | bei Änderungen in `web/` auf `main` | App auf GitHub Pages stellen |
-| Datenbank einrichten | nur per Knopfdruck | `supabase/schema.sql` einspielen (optional, braucht `SUPABASE_DB_URL`) |
+| Fahrerliste importieren | täglich 6 Uhr | alle Fahrer mit UCI-Punkten (Rang, Team, Nation, Geburtsdatum) |
+| Rennergebnisse laden (UCI) | täglich 20 Uhr | Kalender (inkl. nächster Saison), Ergebnislisten und Punkte: neue Rennen, laufende Rundfahrten, letzte 3 Tage; mittwochs 3 Wochen (Korrekturen) |
+| Benachrichtigungen senden | nach jedem Ergebnisabruf und bei neuen Nachrichten | Web-Push (Waiver, Draft, „Du bist dran“, neue Punkte …) |
+| App veröffentlichen | bei Änderungen auf `main` | App auf GitHub Pages |
+| Datenbank einrichten | bei Änderungen an `schema.sql` auf `main` | Schema einspielen |
+| Datenstand prüfen / Datenbank abfragen | per Knopfdruck | Diagnose (nur lesend) |
+
+Fristen ohne Workflow (Waiver-Auswertung, Stichtag, Spieltage abschließen und nach 7 Tagen
+einfrieren) erledigt die Datenbank selbst.
+
+## Secrets (GitHub → Settings → Secrets and variables → Actions)
+
+| Secret | Wofür |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | App (der anon-Key darf öffentlich sein) |
+| `SUPABASE_SERVICE_KEY` | Datenabruf und Push-Versand |
+| `SUPABASE_DB_URL` | Schema einspielen, Diagnose |
+| `GH_DISPATCH_TOKEN` | Zeitplaner darf Workflows starten (wird in den Supabase-Vault übernommen) |
 
 ## Einrichtung (einmalig)
 
-1. **Datenbank:** Inhalt von `supabase/schema.sql` im Supabase SQL-Editor einfügen und *Run*.
-   Das Skript ersetzt die Ligatabellen des ersten Entwurfs (nur solange noch keine Liga existiert),
-   behält `profiles`, `riders`, `races`, `results` und kann gefahrlos erneut ausgeführt werden.
-2. **Secret `SUPABASE_ANON_KEY`** in GitHub anlegen (Repository → Settings → Secrets and variables → Actions).
-   Wert: Supabase → Project Settings → API → *anon public*. Dieser Schlüssel darf öffentlich sein;
-   `SUPABASE_URL` und `SUPABASE_SERVICE_KEY` sind schon vorhanden.
-3. **GitHub Pages aktivieren:** Settings → Pages → Source: *GitHub Actions*.
-4. **Fahrer laden:** Actions → *Fahrerliste importieren* → *Run workflow*.
-5. **Auf `main` bringen** (Pull Request mergen) – dann veröffentlicht *App veröffentlichen* die App
-   unter `https://<benutzer>.github.io/<repo>/`.
-6. **Login-Weiterleitung:** Supabase → Authentication → URL Configuration → *Site URL* auf diese
-   Adresse setzen (sonst führen Bestätigungs- und Magic-Links ins Leere).
-7. **Google-Login (optional):** In der Google Cloud Console einen OAuth-Client (Typ *Webanwendung*)
-   anlegen, als *Autorisierte Weiterleitungs-URI* `https://<projekt>.supabase.co/auth/v1/callback`
-   eintragen, dann Client-ID und Secret in Supabase → Authentication → Sign In / Providers → Google
-   eintragen und aktivieren.
+1. Secrets anlegen (siehe oben), **GitHub Pages** aktivieren: Settings → Pages → Source: *GitHub Actions*.
+2. Auf `main` mergen – *Datenbank einrichten* und *App veröffentlichen* laufen automatisch.
+3. **Fahrer laden:** Actions → *Fahrerliste importieren* → *Run workflow*; danach *Rennergebnisse laden*.
+4. **Login-Weiterleitung:** Supabase → Authentication → URL Configuration → *Site URL* auf die App-Adresse.
+5. **Google-Login (optional):** OAuth-Client (Webanwendung) in der Google Cloud Console mit Weiterleitung
+   `https://<projekt>.supabase.co/auth/v1/callback`, Client-ID und Secret in Supabase → Authentication → Providers → Google.
 
 ## Lokal testen
 
-`web/config.example.js` als `web/config.js` kopieren, URL und anon-Key eintragen, dann z. B.
-`python3 -m http.server -d web` und `http://localhost:8000` öffnen.
+`web/config.example.js` als `web/config.js` kopieren (nicht einchecken), URL und anon-Key eintragen,
+dann `python3 -m http.server -d web` und `http://localhost:8000` öffnen.
 
 ## Hinweise
 
-- Die UCI rechnet ihr Ranking einmal pro Woche neu – neue Punkte erscheinen deshalb mit bis zu
-  einer Woche Verzögerung. Spieltage bleiben 7 Tage nach Abschluss für Korrekturen offen.
-- Aberkannte Ergebnisse (bei der UCI als ungültig markiert) werden automatisch abgezogen.
-- DataRide hat keine dokumentierte API; der Abruf nutzt die Abfragen der Website, mit ehrlicher
-  Kennung und Pausen. ProCyclingStats blockiert automatische Abrufe und wird nicht verwendet.
+- DataRide hat keine dokumentierte API; der Abruf nutzt die Abfragen der Website mit ehrlicher
+  Kennung und Pausen zwischen den Abfragen. Andere Quellen (z. B. ProCyclingStats) werden nicht verwendet.
+- Fahrer-IDs heißen aus historischen Gründen `pcs_slug` (Format `uci-<DataRide-ID>`).
+- Ergebnisse werden ab der Saison 2025 gespeichert.
 - Live-Updates im Draft-Raum laufen über Supabase Realtime; fällt das aus, fragt die App alle 1,5 s nach.
+- Die Spielregeln stehen in der App unter *Mehr → Regeln* und passen sich den Liga-Einstellungen an.
