@@ -1106,7 +1106,8 @@ returns uuid language plpgsql security definer set search_path = public as $$
 declare v uuid; m matchdays; v_deadline timestamptz;
 begin
   perform _require_admin(p_league);
-  v_deadline := coalesce(p_deadline, p_start::timestamp at time zone 'Europe/Berlin');
+  -- Standard-Stichtag: Vortag des Spieltags, 20:00 Uhr (Berliner Zeit)
+  v_deadline := coalesce(p_deadline, (p_start - 1 + time '20:00')::timestamp at time zone 'Europe/Berlin');
   if p_end < p_start then raise exception 'Das Enddatum liegt vor dem Startdatum.'; end if;
   if p_id is null then
     insert into matchdays (league_id, name, starts_on, ends_on, deadline)
@@ -1371,6 +1372,12 @@ select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true fr
 where not exists (select 1 from races r where r.gender = v.gender and r.dataride_id is not null
                     and r.uci_class = v.cls and abs(r.start_date - v.s::date) <= 3)
 on conflict (pcs_slug) do nothing;
+
+-- Einmalig: künftige Spieltage mit dem alten Standard-Stichtag (Start 00:00) auf den neuen (Vortag 20:00) umstellen
+update matchdays set deadline = ((starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin'
+ where status = 'planned' and not waivers_done
+   and deadline = starts_on::timestamp at time zone 'Europe/Berlin'
+   and ((starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin' > now();
 
 -- Platz eines Fahrers in der Saisonwertung eines Jahres (Summe der UCI-Punkte aus den Rennergebnissen)
 create index if not exists race_events_date on race_events (event_date);

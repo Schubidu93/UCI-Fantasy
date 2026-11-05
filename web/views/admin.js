@@ -276,7 +276,7 @@ function Matchdays({ c }) {
   return html`<section class="card stack">
     <h3>Spieltage</h3>
     <p class="muted small">Zeiträume dürfen unterschiedlich lang sein, aber sich nicht überlappen. Lücken sind erlaubt (Punkte darin verfallen).
-      Stichtag für Waiver und Aufstellung ist standardmäßig der Start um 00:00 Uhr. Laufende und abgeschlossene Spieltage sind gesperrt.</p>
+      Stichtag für Waiver und Aufstellung ist standardmäßig der Vortag des Spieltags um 20:00 Uhr. Laufende und abgeschlossene Spieltage sind gesperrt.</p>
     ${c.matchdays.length ? html`<table class="tbl">
       <thead><tr><th>Name</th><th>Zeitraum</th><th>Stichtag</th><th>Status</th><th></th></tr></thead>
       <tbody>${c.matchdays.map((m) => html`<tr key=${m.id}>

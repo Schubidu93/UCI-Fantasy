@@ -74,7 +74,7 @@ export function Rules({ c }) {
       <ul>
         <li>Der Admin legt Spieltage als Zeiträume fest (z. B. Klassiker, Giro, Tour, Vuelta). Punkte zwischen zwei Spieltagen verfallen.
           Alle Spieltage stehen im Spielplan unter Liga → Spieltage.</li>
-        <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Start um 00:00 Uhr). Bis dahin stellst du Waiver-Anträge${l.scoring_mode === 'lineup' ? ' und die Aufstellung' : ''} für diesen Spieltag;
+        <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Vortag des Spieltags, 20:00 Uhr). Bis dahin stellst du Waiver-Anträge${l.scoring_mode === 'lineup' ? ' und die Aufstellung' : ''} für diesen Spieltag;
           am Stichtag werden Waiver und Tausche ausgeführt${l.scoring_mode === 'lineup' ? ' und die Aufstellung wird fest' : ''}.</li>
         <li>Der <strong>Waiver-Zeitraum</strong> für einen Spieltag reicht vom Stichtag des vorigen Spieltags bis zu seinem eigenen Stichtag. Später gestellte Anträge gelten für den folgenden Spieltag.
           Den nächsten Stichtag mit Countdown siehst du unter Team und Waiver, alle Zeiträume im Spielplan.</li>
