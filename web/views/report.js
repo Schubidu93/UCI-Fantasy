@@ -18,7 +18,7 @@ const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
 const hash = (s) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7);
 
 // Berechnet Board und Report aus den Draft-Picks und den Vorjahrespunkten
-export function buildReport(c, lots, pts) {
+export function buildReport(c, lots, pts, proj = null) {
   const picks = lots.filter((l) => l.manager_id).sort((a, b) => a.lot_no - b.lot_no || a.id - b.id);
   const value = (slug) => Number(pts[slug] || 0);
   // erwartete Pick-Position nach Vorjahrespunkten (1 = wertvollster gezogener Fahrer)
@@ -35,7 +35,9 @@ export function buildReport(c, lots, pts) {
   });
   const teams = c.managers.map((m) => {
     const mine = picks.filter((p) => p.manager_id === m.id);
-    return { m, picks: mine, total: mine.reduce((s, p) => s + p.value, 0), spent: mine.reduce((s, p) => s + (p.price || 0), 0) };
+    // Bewertung: bestmögliche Aufstellung je Spieltag im Vorjahr (aus der Datenbank), sonst Summe der Punkte
+    const sum = mine.reduce((s, p) => s + p.value, 0);
+    return { m, picks: mine, total: proj ? Number(proj[m.id] || 0) : sum, sum, spent: mine.reduce((s, p) => s + (p.price || 0), 0) };
   });
   const avg = teams.reduce((s, t) => s + t.total, 0) / Math.max(1, teams.length) || 1;
   teams.sort((a, b) => b.total - a.total);
@@ -53,7 +55,9 @@ export function buildReport(c, lots, pts) {
     const round = (p) => Math.ceil(p.pickNo / Math.max(1, c.managers.length));
     const seed = hash(t.m.id);
     const parts = [pick(INTRO[t.grade[0]], seed)];
-    parts.push(`Mit ${fmtPts(t.total)} Punkten aus dem Vorjahr reicht es für Prognose-Platz ${t.rank} von ${teams.length}.`);
+    parts.push(proj
+      ? `Mit der besten Aufstellung hätte dieser Kader im Vorjahr ${fmtPts(t.total)} Punkte geholt – Prognose-Platz ${t.rank} von ${teams.length}.`
+      : `Mit ${fmtPts(t.total)} Punkten aus dem Vorjahr reicht es für Prognose-Platz ${t.rank} von ${teams.length}.`);
     if (t.steal && t.steal.value > 0) {
       parts.push(auction
         ? `Bester Einkauf: ${name(t.steal)} für ${t.steal.price} – ${fmtPts(t.steal.value)} Vorjahrespunkte.`
@@ -78,16 +82,20 @@ export function DraftReport({ c }) {
     let pts = Object.fromEntries((await rpcAll('rider_points', { p_gender: c.league.gender, p_year: prevYear }))
       .map((r) => [r.rider_slug, Number(r.points)]));
     let basis = `Punkte ${prevYear}`;
+    // bestmögliche Punkte je Kader (Top x aus y je Spieltag im Vorjahr) – serverseitig zwischengespeichert
+    const rows = await rpc('draft_projection', { p_league: L }).catch(() => []);
+    let proj = rows.some((r) => Number(r.points) > 0) ? Object.fromEntries(rows.map((r) => [r.manager_id, Number(r.points)])) : null;
     // Ohne Vorjahresdaten: aktuelle UCI-Ranglistenpunkte (52 Wochen) als Maßstab
     if (!lots.some((l) => pts[l.rider_slug])) {
       pts = Object.fromEntries(c.riders.map((r) => [r.pcs_slug, Number(r.ranking_points || 0)]));
       basis = 'UCI-Ranglistenpunkte';
+      proj = null;
     }
-    return { lots, pts, basis };
+    return { lots, pts, basis, proj };
   }, [L, prevYear]);
   const [view, setView] = useState('report');
   if (!data.data) return html`<${Loading} error=${data.error} />`;
-  const { picks, teams } = buildReport(c, data.data.lots, data.data.pts);
+  const { picks, teams } = buildReport(c, data.data.lots, data.data.pts, data.data.proj);
   const auction = draftCosts(c.league);
   const name = (slug) => c.riderMap[slug];
   const n = Math.max(1, c.managers.length);
@@ -100,7 +108,9 @@ export function DraftReport({ c }) {
           <button class=${view === 'board' ? 'active' : ''} onClick=${() => setView('board')}>Draft-Board</button>
           <button class=${view === 'teams' ? 'active' : ''} onClick=${() => setView('teams')}>Kader</button>
         </div></div>
-      <p class="muted small">Bewertet nach ${data.data.basis} der gezogenen Fahrer – eine Prognose, keine Garantie.</p>
+      <p class="muted small">${data.data.proj
+        ? `Bewertet nach den Punkten ${prevYear}: je Spieltag (gleicher Zeitraum im Vorjahr) zählen die besten ${c.league.scoring_mode === 'lineup' ? c.league.lineup_size : c.league.roster_size} der ${c.league.roster_size} Fahrer jedes Kaders.`
+        : `Bewertet nach ${data.data.basis} der gezogenen Fahrer.`} Eine Prognose, keine Garantie.</p>
     </section>
 
     ${view === 'report' && teams.map((t) => html`<section class=${`card report ${t.m.id === c.me?.id ? 'mine' : ''}`} key=${t.m.id}>
@@ -108,7 +118,7 @@ export function DraftReport({ c }) {
         <div class=${`grade ${gradeClass(t.grade)}`}>${t.grade}</div>
         <div class="report-title">
           <h3>${t.m.team_name}</h3>
-          <div class="muted small">Prognose: Platz ${t.rank} · ${fmtPts(t.total)} ${data.data.basis}${auction ? ` · ${t.spent} Budget` : ''}</div>
+          <div class="muted small">Prognose: Platz ${t.rank} · ${fmtPts(t.total)} ${data.data.proj ? `Pkt. (beste Aufstellung ${prevYear})` : data.data.basis}${auction ? ` · ${t.spent} Budget` : ''}</div>
         </div>
       </div>
       <p>${t.text}</p>

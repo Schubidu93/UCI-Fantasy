@@ -16,6 +16,9 @@ const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g
   : g === 'champ' ? ['CM', 'CC', 'NC'].includes(r.uci_class) || /champ/i.test(r.name)
   : g === 'pro' ? /\.Pro$/i.test(r.uci_class || '') : (r.uci_class || '').endsWith('.' + g);
 
+// Rennklassen mit vollständigen Ergebnislisten (siehe datasync/race_results.py)
+const FULL = ['1.UWT', '2.UWT', '1.WWT', '2.WWT', '1.Pro', '2.Pro', 'CM'];
+
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
 export function Races({ c, sub, sub2 }) {
@@ -114,7 +117,7 @@ function RaceDetail({ c, slug, initialEvent }) {
       ${current && stageEvents.length > 1 && html`<div class="seg small wrap-seg">${stageEvents.map((e) =>
         html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${label(e.event_name)}</button>`)}</div>`}
     </section>
-    ${current ? html`<${ResultTable} c=${c} event=${current} />`
+    ${current ? html`<${ResultTable} c=${c} event=${current} race=${race} />`
       : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)
         ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem Rennen beim täglichen Abruf um 20 Uhr.'
         : race?.loaded_at
@@ -161,7 +164,7 @@ export function describeEvent(stage, event) {
 
 const eventOrder = (n) => (EVENT_LABELS.find(([re]) => re.test(n || ''))?.[2] ?? 9);
 
-function ResultTable({ c, event }) {
+function ResultTable({ c, event, race }) {
   const rows = useLoad(() => q(sb.from('event_results').select('*').eq('event_id', event.id).order('sort_order')), [event.id]);
   if (!rows.data) return html`<${Loading} error=${rows.error} />`;
   return html`<section class="card"><div class="scroll-x"><table class="tbl">
@@ -178,6 +181,7 @@ function ResultTable({ c, event }) {
         <td class="small hide-sm">${m ? m.team_name : ''}</td></tr>`;
     })}</tbody></table></div>
     ${rows.data.length === 0 && html`<p class="muted">Für diese Wertung hat die UCI keine Ergebnisliste veröffentlicht.</p>`}
-    <p class="muted small">Top 25 und alle weiteren Plätze mit UCI-Punkten. Quelle: UCI DataRide.</p>
+    <p class="muted small">${FULL.includes(race?.uci_class) && !/Points|Mountain|Young|Youth|Team|Sprint|Combativ/i.test(event.event_name || '')
+      ? 'Vollständige Ergebnisliste.' : 'Top 25 und alle weiteren Plätze mit UCI-Punkten.'} Quelle: UCI DataRide.</p>
   </section>`;
 }

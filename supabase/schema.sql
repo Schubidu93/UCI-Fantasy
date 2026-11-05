@@ -1134,7 +1134,7 @@ language sql stable security definer set search_path = public as $$
               else (p_start - 1 + time '20:00')::timestamp at time zone 'Europe/Berlin' end;
 $$;
 
--- Standard-Waiver-Auswertung im zweiteiligen Modus: 7 Tage vor Start, 20:00 Uhr.
+-- Standard-Waiver-Auswertung im zweiteiligen Modus: Ende des 7. Tags vor Start (0:00 Uhr des 6. Tags vor Start).
 -- Ist der vorige Spieltag kürzer als 14 Tage: nach der Hälfte seiner Dauer. Nie vor dem vorigen Stichtag.
 create or replace function _default_waiver_deadline(p_league uuid, p_start date, p_except uuid default null) returns timestamptz
 language plpgsql stable security definer set search_path = public as $$
@@ -1144,12 +1144,12 @@ begin
   select * into prev from matchdays where league_id = p_league and starts_on < p_start
      and id is distinct from p_except order by starts_on desc limit 1;
   if found and prev.ends_on - prev.starts_on + 1 < 14 then
-    v := (prev.starts_on + (prev.ends_on - prev.starts_on + 1) / 2 + time '20:00')::timestamp at time zone 'Europe/Berlin';
+    v := (prev.starts_on + (prev.ends_on - prev.starts_on + 1) / 2 + 1)::timestamp at time zone 'Europe/Berlin';
   else
-    v := (p_start - 7 + time '20:00')::timestamp at time zone 'Europe/Berlin';
+    v := (p_start - 6)::timestamp at time zone 'Europe/Berlin';
   end if;
   if prev.id is not null and v <= prev.deadline then
-    v := (((prev.deadline + (v_lock - prev.deadline) / 2) at time zone 'Europe/Berlin')::date + time '20:00')
+    v := (((prev.deadline + (v_lock - prev.deadline) / 2) at time zone 'Europe/Berlin')::date + 1)
          ::timestamp at time zone 'Europe/Berlin';
     if v <= prev.deadline or v >= v_lock then v := prev.deadline + (v_lock - prev.deadline) / 2; end if;
   end if;
@@ -2000,6 +2000,60 @@ end $$;
 
 -- läuft alle 15 Minuten
 -- Wochen-Zusammenfassung (montags): Punkte der letzten 7 Tage, Tabellenplatz, bester Fahrer – je Manager mit Push
+-- Draft-Report: bestmögliche Punkte jedes Kaders im Vorjahr – je Spieltag (Zeitraum ein Jahr früher) die besten
+-- x der y gedrafteten Fahrer (x = wertende Fahrer laut Einstellung, y = Kadergröße). Ergebnis wird zwischengespeichert.
+create table if not exists draft_projection (
+  league_id  uuid not null references leagues (id) on delete cascade,
+  manager_id uuid not null references managers (id) on delete cascade,
+  points     numeric not null,
+  per_md     jsonb not null default '{}',
+  signature  text not null,          -- Spieltage + Wertungsmodus; ändert sich etwas, wird neu gerechnet
+  computed_at timestamptz not null default now(),
+  primary key (league_id, manager_id)
+);
+alter table draft_projection enable row level security;
+drop policy if exists draft_projection_read on draft_projection;
+create policy draft_projection_read on draft_projection for select using (is_member(league_id));
+
+create or replace function draft_projection(p_league uuid)
+returns table (manager_id uuid, points numeric, per_md jsonb)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+declare l leagues; v_x int; v_sig text;
+begin
+  if not is_member(p_league) then raise exception 'Keine Berechtigung.'; end if;
+  select * into l from leagues where id = p_league;
+  v_x := case when l.scoring_mode = 'lineup' then coalesce(l.lineup_size, l.roster_size) else l.roster_size end;
+  v_sig := v_x || '|' || coalesce((select string_agg(starts_on || '-' || ends_on, ',' order by starts_on)
+                                   from matchdays where league_id = p_league), 'jahr')
+           || '|' || (select count(*) from draft_lots dl where dl.league_id = p_league and dl.manager_id is not null);
+  if not exists (select 1 from draft_projection d where d.league_id = p_league and d.signature = v_sig) then
+    delete from draft_projection d where d.league_id = p_league;
+    insert into draft_projection (league_id, manager_id, points, per_md, signature)
+    with team as (
+      select distinct d.manager_id, d.rider_slug from draft_lots d where d.league_id = p_league and d.manager_id is not null),
+    mds as (   -- Spieltage ein Jahr früher; ohne Spieltage: die ganze Vorsaison als ein Block
+      select m.name, (m.starts_on - interval '1 year')::date s, (m.ends_on - interval '1 year')::date e
+        from matchdays m where m.league_id = p_league
+      union all
+      select 'Vorjahr', make_date(extract(year from l.season_start)::int - 1, 1, 1), make_date(extract(year from l.season_start)::int - 1, 12, 31)
+       where not exists (select 1 from matchdays where league_id = p_league)),
+    rp as (
+      select t.manager_id, md.name, t.rider_slug, sum(r.uci_points) p
+        from team t cross join mds md
+        join results r on r.rider_slug = t.rider_slug and r.result_date between md.s and md.e
+       group by 1, 2, 3),
+    best as (
+      select rp.manager_id, rp.name, sum(rp.p) p from (
+        select rp.*, row_number() over (partition by rp.manager_id, rp.name order by rp.p desc) rn from rp) rp
+       where rn <= v_x group by 1, 2)
+    select p_league, mg.id, coalesce(sum(b.p), 0), coalesce(jsonb_object_agg(b.name, round(b.p, 1)) filter (where b.name is not null), '{}'), v_sig
+      from managers mg left join best b on b.manager_id = mg.id
+     where mg.league_id = p_league group by mg.id;
+  end if;
+  return query select d.manager_id, d.points, d.per_md from draft_projection d where d.league_id = p_league;
+end $$;
+
 create or replace function weekly_summary() returns int
 language plpgsql security definer set search_path = public as $$
 declare lg leagues; n int := 0; k int;
@@ -2149,6 +2203,7 @@ do $$ declare lg uuid; begin
   for lg in select distinct m.league_id from matchdays m join leagues l on l.id = m.league_id
              where l.transfer_mode = 'waiver_free' and m.status = 'planned'
                and (m.waiver_deadline is null
+                    or (m.waiver_deadline at time zone 'Europe/Berlin')::time = time '20:00'
                     or m.deadline = ((m.starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin')
                and not m.waivers_done and m.deadline > now() loop
     perform _reset_default_deadlines(lg, 'waiver');

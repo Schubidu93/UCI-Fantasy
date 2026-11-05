@@ -1,9 +1,8 @@
 // Fristen transparent: wann ist der nächste Stichtag, was passiert dort, was muss man bis dahin tun
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { fmtDate } from '../lib.js';
+import { fmtDate, fmtUntil } from '../lib.js';
 
-export const fmtDeadline = (d) => new Date(d).toLocaleString('de-DE',
-  { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+export const fmtDeadline = (d) => fmtUntil(d, { weekday: true });
 
 // „in 3 Tagen 4 Std.“ / „in 45 Min.“
 export function untilText(d) {
@@ -44,18 +43,18 @@ export function NextDeadline({ c, compact }) {
   const next = two && phase === 'waiver' ? wd : lock;
   const steps = two ? [
     ['Waiver-Runde', `bis ${fmtDeadline(wd)}`, 'Anträge stellen – ausgewertet in Waiver-Reihenfolge', phase === 'waiver'],
-    ['Freie Phase', `${fmtDeadline(wd)} – ${fmtDeadline(lock)}`, 'freie Fahrer sofort holen und abgeben, wer zuerst kommt', phase === 'free'],
-    ['Stichtag', fmtDeadline(lock), `Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
+    ['Freie Phase', `bis ${fmtDeadline(lock)}`, 'freie Fahrer sofort holen und abgeben, wer zuerst kommt', phase === 'free'],
+    ['Stichtag', `danach`, `Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
   ] : [
     ['Waiver', `bis ${fmtDeadline(lock)}`, `Anträge stellen${lineup ? ', Aufstellung festlegen' : ''}`, true],
-    ['Stichtag', fmtDeadline(lock), `Waiver werden ausgewertet, Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
+    ['Stichtag', `danach`, `Waiver werden ausgewertet, Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
   ];
   return html`<section class="card deadline">
     <div class="deadline-head">
       <span class="deadline-icon" aria-hidden="true">⏰</span>
       <div>
         <div class="muted small">${two && phase === 'free' ? 'Freie Phase läuft' : two ? 'Waiver-Runde läuft' : 'Nächster Stichtag'} · für ${md.name} (${fmtDate(md.starts_on)} – ${fmtDate(md.ends_on)})</div>
-        <div class="deadline-time">${two && phase === 'waiver' ? 'Waiver bis ' : two ? 'Frei bis ' : ''}${fmtDeadline(next)} <span class="tag warn">${untilText(next)}</span></div>
+        <div class="deadline-time">${two && phase === 'waiver' ? 'Waiver bis ' : two ? 'Frei bis ' : 'bis '}${fmtDeadline(next)} <span class="tag warn">${untilText(next)}</span></div>
       </div>
     </div>
     ${!compact && html`<ol class="small phase-list">${steps.map(([t, when, what, active]) => html`<li class=${active ? 'active' : ''}>

@@ -52,7 +52,7 @@ export function Riders({ c }) {
           <td><${RiderCell} r=${r} /></td>
           <td class="col-owner">${m ? m.team_name : html`<span class="tag ok">frei</span>`}</td>
           <td class="num hide-sm">${p?.results || 0}</td>
-          <td class="num"><strong>${fmtPts(p?.points || 0)}</strong></td></tr>`;
+          <td class="num"><strong>${Math.round(Number(p?.points) || 0).toLocaleString('de-DE')}</strong></td></tr>`;
       })}</tbody>
     </table></div>
     ${list.length > limit && html`<div class="row"><button onClick=${() => setLimit(limit + 200)}>Mehr anzeigen (${list.length - limit} weitere)</button></div>`}

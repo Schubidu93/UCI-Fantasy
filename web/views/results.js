@@ -1,5 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts } from '../lib.js';
+import { fmtUntil } from '../lib.js';
 import { NextDeadline, windowStart } from './deadline.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
@@ -79,8 +80,8 @@ function Schedule({ c, current }) {
       <span class="md-what"><strong>${m.name}</strong>
         <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
         ${c.league.transfer_mode === 'waiver_free'
-          ? html`<small>Waiver bis ${fmtDateTime(m.waiver_deadline || m.deadline)} · frei bis ${fmtDateTime(m.deadline)}</small>`
-          : html`<small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''}: ${windowStart(c, m) ? `${fmtDateTime(windowStart(c, m))} – ` : 'bis '}${fmtDateTime(m.deadline)}</small>`}</span>
+          ? html`<small>Waiver bis ${fmtUntil(m.waiver_deadline || m.deadline)} · frei bis ${fmtUntil(m.deadline)}</small>`
+          : html`<small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''} bis ${fmtUntil(m.deadline)}</small>`}</span>
       ${tag(m)}</li>`)}</ul>
   </section>`;
 }

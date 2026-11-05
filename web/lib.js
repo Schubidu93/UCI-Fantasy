@@ -50,6 +50,17 @@ export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : 
 export const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
 export const fmtPts = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString('de-DE');
+// Fristende anzeigen: 0:00 Uhr heißt „bis Ende des Vortags“ → nur das Datum des Vortags; sonst Datum mit Uhrzeit
+export function fmtUntil(ts, { weekday = false } = {}) {
+  if (!ts) return '–';
+  const tz = { timeZone: 'Europe/Berlin' };                  // Fristen gelten in deutscher Zeit
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString('de-DE', { ...tz, hour: '2-digit', minute: '2-digit' });
+  const midnight = time === '00:00';
+  const day = midnight ? new Date(d.getTime() - 60000) : d;
+  const date = day.toLocaleDateString('de-DE', { ...tz, day: '2-digit', month: '2-digit', year: '2-digit', ...(weekday ? { weekday: 'short' } : {}) });
+  return midnight ? date : `${date}, ${time} Uhr`;
+}
 export const today = () => new Date().toISOString().slice(0, 10);
 
 // Namen vergleichbar machen: "POGAČAR Tadej" == "tadej pogacar"

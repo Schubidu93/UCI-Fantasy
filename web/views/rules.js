@@ -13,8 +13,7 @@ export function Rules({ c }) {
   const two = l.transfer_mode === 'waiver_free';
   const lineup = l.scoring_mode === 'lineup';
   const extras = html`<li>Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</li>
-        ${l.draft_mode !== 'offline' && html`<li>Bist du an der Reihe${l.draft_mode === 'live' ? ' (Nominieren oder Auffüllen)' : ''}, bekommst du eine Push-Nachricht „Du bist dran“.</li>`}
-        <li>Nach dem Draft gibt es einen <strong>Draft-Report</strong>: Note A+ bis F, Prognose-Platz, Steal und Reach – bewertet nach den Punkten des Vorjahres.</li>`;
+        ${l.draft_mode !== 'offline' && html`<li>Bist du an der Reihe${l.draft_mode === 'live' ? ' (Nominieren oder Auffüllen)' : ''}, bekommst du eine Push-Nachricht „Du bist dran“.</li>`}`;
   const row = (k, v) => html`<tr><td>${k}</td><td><strong>${v}</strong></td></tr>`;
   return html`<div class="stack rules">
     <section class="card">
@@ -85,9 +84,9 @@ export function Rules({ c }) {
         ${two ? html`
         <li>Vor jedem Spieltag gibt es zwei Transferphasen:
           <ul>
-            <li><strong>Waiver-Runde</strong> bis zur Waiver-Auswertung (Standard: 7 Tage vor Spieltagstart, 20 Uhr; ist der vorige Spieltag kürzer als 14 Tage, nach seiner Hälfte).</li>
+            <li><strong>Waiver-Runde</strong> bis eine Woche vor Spieltagstart (bis Tagesende; ist der vorige Spieltag kürzer als 14 Tage, bis zu seiner Hälfte). Danach werden die Anträge ausgewertet.</li>
             <li><strong>Freie Phase</strong> danach bis zum Stichtag: freie Fahrer sofort holen und abgeben, so oft du willst – wer zuerst kommt.</li>
-            <li><strong>Stichtag</strong> (Standard: 0:00 Uhr am Starttag): Tausche werden ausgeführt, Kader${lineup ? ' und Aufstellung' : ''} sind für den Spieltag fest.</li>
+            <li><strong>Stichtag</strong> (Standard: Ende des Vortags, also mit Spieltagstart): Tausche werden ausgeführt, Kader${lineup ? ' und Aufstellung' : ''} sind für den Spieltag fest.</li>
           </ul></li>`
         : html`
         <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Vortag des Spieltags, 20:00 Uhr). Bis dahin stellst du Waiver-Anträge${lineup ? ' und die Aufstellung' : ''} für diesen Spieltag;
@@ -128,7 +127,7 @@ export function Rules({ c }) {
             <li>täglich um 20 Uhr: neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage</li>
             <li>mittwochs: alle Rennen der letzten 3 Wochen neu – so kommen Korrekturen der UCI an</li>
             <li>erscheinen, sobald die UCI sie veröffentlicht – bei großen Rennen meist am selben Abend, bei kleinen manchmal 1–2 Tage später</li>
-            <li>WorldTour, ProSeries und WM mit vollständigen Ergebnislisten, alle anderen Rennen mit den Top 25 und allen Plätzen mit Punkten</li>
+            <li>Ergebnislisten: WorldTour, ProSeries und WM vollständig (Etappe, Gesamt, Tagesergebnis), Nebenwertungen und alle anderen Rennen mit den Top 25 und allen Plätzen mit Punkten</li>
           </ul></li>
         <li><strong>Kalender:</strong>
           <ul>

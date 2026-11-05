@@ -1,5 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { sb, q, all, rpc, useLoad, useAction, Msg, Loading, RiderPicker, fmtDate, fmtDateTime, normName } from '../lib.js';
+import { fmtUntil } from '../lib.js';
 import { LeagueSettingsFields } from './home.js';
 
 const SECTIONS = [['settings', 'Einstellungen'], ['members', 'Mitglieder'], ['import', 'Offline-Draft'],
@@ -281,7 +282,7 @@ function Matchdays({ c }) {
     <ul class="small muted md-help">
       <li>Zeiträume dürfen unterschiedlich lang sein, aber sich nicht überlappen. Lücken sind erlaubt (Punkte darin verfallen).</li>
       <li>${two
-        ? 'Standard: Waiver-Auswertung 7 Tage vor Start um 20 Uhr (ist der vorige Spieltag kürzer als 14 Tage: nach seiner Hälfte), danach freie Phase bis zum Stichtag um 0:00 Uhr am Starttag.'
+        ? 'Standard: Waiver bis eine Woche vor Start (Tagesende; ist der vorige Spieltag kürzer als 14 Tage: bis zu seiner Hälfte), danach freie Phase bis zum Vortag des Spieltags (Tagesende). Eigene Uhrzeiten sind möglich.'
         : 'Standard-Stichtag für Waiver und Aufstellung: Vortag des Spieltags um 20:00 Uhr.'}</li>
       <li>Leere Felder = Standard. Laufende und abgeschlossene Spieltage sind gesperrt.</li>
     </ul>
@@ -289,8 +290,8 @@ function Matchdays({ c }) {
       <span class="md-no">${i + 1}</span>
       <span class="md-what"><strong>${m.name}</strong>
         <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
-        ${two && html`<small>Waiver ${fmtDateTime(m.waiver_deadline || m.deadline)}</small>`}
-        <small>Stichtag ${fmtDateTime(m.deadline)}</small></span>
+        ${two && html`<small>Waiver bis ${fmtUntil(m.waiver_deadline || m.deadline)}</small>`}
+        <small>${two ? 'Freie Phase' : 'Waiver & Aufstellung'} bis ${fmtUntil(m.deadline)}</small></span>
       <span class="md-actions">
         <span class="tag">${m.frozen ? 'eingefroren' : m.status === 'closed' ? 'abgeschlossen' : m.status === 'running' ? 'läuft' : locked(m) ? 'Frist vorbei' : 'geplant'}</span>
         ${!locked(m) && html`
