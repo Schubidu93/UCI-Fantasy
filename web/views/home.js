@@ -17,7 +17,7 @@ function leagueStatus(l, mds) {
 
 export function Home({ session }) {
   const leagues = useLoad(() => q(sb.from('managers')
-    .select('team_name, leagues(id, name, status, season_start, season_end, gender, draft_at)')
+    .select('team_name, leagues(id, name, status, season_start, season_end, gender, draft_at, admin_user)')
     .eq('user_id', session.user.id)), [session.user.id]);
   const ids = (leagues.data || []).map((m) => m.leagues?.id).filter(Boolean);
   const mds = useLoad(() => (ids.length ? q(sb.from('matchdays').select('league_id,name,starts_on,ends_on').in('league_id', ids).order('starts_on'))
@@ -25,7 +25,7 @@ export function Home({ session }) {
   const [creating, setCreating] = useState(false);
   const [code, setCode] = useState('');
 
-  return html`<main class="wrap">
+  return html`<main class="wrap stack home">
     <div class="row between">
       <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> UCI Fantasy</div>
       <button class="ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button>
@@ -35,7 +35,8 @@ export function Home({ session }) {
       ? html`<p class="muted">Du bist noch in keiner Liga. Lege eine an oder tritt mit einem Einladungscode bei.</p>`
       : html`<ul class="cards">${leagues.data.filter((m) => m.leagues).map((m) => html`<li key=${m.leagues.id}>
           <a class="card link" href=${`#/league/${m.leagues.id}`}>
-            <strong>${m.leagues.name}</strong>
+            <span class="row between"><strong>${m.leagues.name}</strong>
+              ${m.leagues.admin_user === session.user.id && html`<span class="tag admin-tag" title="Du verwaltest diese Liga">⚙️ Admin</span>`}</span>
             <span class="muted">${m.team_name} · ${m.leagues.gender === 'women' ? 'Frauen' : 'Männer'}</span>
             ${(([text, cls]) => html`<span class=${`tag ${cls}`}>${text}</span>`)(leagueStatus(m.leagues, (mds.data || []).filter((x) => x.league_id === m.leagues.id)))}
             <span class="muted small">${fmtDate(m.leagues.season_start)} – ${fmtDate(m.leagues.season_end)}</span>

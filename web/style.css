@@ -348,3 +348,6 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .rule-sec > summary::after { content: "›"; font-size: 1.4rem; color: var(--muted); transition: transform .15s; }
 .rule-sec[open] > summary::after { transform: rotate(90deg); }
 .rule-sec[open] > summary { margin-bottom: 8px; }
+.admin-tag { background: var(--accent-soft); color: var(--accent); }
+.home h2 { margin: 0; }
+.home .brand { margin-bottom: 0; }
