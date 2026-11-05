@@ -12,6 +12,7 @@ import { Admin } from './views/admin.js';
 import { RiderModal } from './views/rider.js';
 import { Riders } from './views/riders.js';
 import { Races } from './views/races.js';
+import { registerServiceWorker } from './views/push.js';
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
@@ -111,4 +112,5 @@ function App() {
   return html`<${Home} session=${session} />`;
 }
 
+registerServiceWorker();
 render(html`<${App} /><${RiderModal} />`, document.getElementById('app'));

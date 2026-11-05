@@ -29,18 +29,28 @@ export function Races({ c, sub }) {
 }
 
 function RaceList({ c, races }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [mode, setMode] = useState('results');      // results | calendar
   const [group, setGroup] = useState('top');
   const [country, setCountry] = useState('');
   const [month, setMonth] = useState('');
   const [term, setTerm] = useState('');
   const countries = useMemo(() => [...new Set(races.map((r) => r.country).filter(Boolean))].sort(), [races]);
   const t = normName(term);
-  const list = races.filter((r) => matchClass(r, group) && (!country || r.country === country)
+  const byMode = mode === 'calendar'
+    ? races.filter((r) => (r.end_date || r.start_date) >= today).sort((a, b) => (a.start_date > b.start_date ? 1 : -1))
+    : races.filter((r) => r.start_date <= today);
+  const list = byMode.filter((r) => matchClass(r, group) && (!country || r.country === country)
     && (!month || (r.start_date || '').slice(5, 7) === month)
     && (!t || t.split(' ').every((w) => normName(r.name).includes(w))));
 
   return html`<section class="card">
-    <div class="row between"><h2>Rennen</h2><span class="muted small">${list.length} von ${races.length}</span></div>
+    <div class="row between"><h2>Rennen</h2>
+      <div class="seg small">
+        <button class=${mode === 'results' ? 'active' : ''} onClick=${() => setMode('results')}>Ergebnisse</button>
+        <button class=${mode === 'calendar' ? 'active' : ''} onClick=${() => setMode('calendar')}>Kalender</button>
+      </div></div>
+    <p class="muted small">${list.length} von ${byMode.length} Rennen${mode === 'calendar' ? ' · Startlisten liefert die UCI leider nicht' : ''}</p>
     <div class="filters">
       <input type="search" placeholder="Rennen suchen" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${group} onChange=${(e) => setGroup(e.target.value)}>${CLASS_GROUPS.map(([k, l]) => html`<option value=${k}>${l}</option>`)}</select>
@@ -49,12 +59,12 @@ function RaceList({ c, races }) {
         ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
     </div>
     ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf „Rennergebnisse laden“ läuft bzw. startet mittwochs.</p>` : html`
-    <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug}>
+    <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
       <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.pcs_slug)}`}>
         <strong>${r.name}</strong>
         <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${withFlag(r.country)}` : ''}</span>
       </a>
-      <span class="tag">${r.uci_class}</span></li>`)}</ul>`}
+      <span class="row">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
   </section>`;
 }
 
@@ -74,6 +84,7 @@ function RaceDetail({ c, slug }) {
     if (!s) stages.push(s = { name: e.stage_name, date: e.event_date, events: [] });
     s.events.push(e);
   }
+  stages.forEach((s) => s.events.sort((a, b) => eventOrder(a.event_name) - eventOrder(b.event_name)));
   const preferred = (s) => s.events.find((e) => /^(Stage )?Classification$|Final Classification|^General Classification$/.test(e.event_name)
     && !/Points|Mountain|Youth|Team/.test(e.event_name)) || s.events[0];
   // Standard: Schlusswertung (bzw. letzte Etappe), sonst das Ergebnis des Eintagesrennens
@@ -92,19 +103,28 @@ function RaceDetail({ c, slug }) {
       ${current && html`<div class="seg small wrap-seg">${stages.find((s) => s.events.includes(current)).events.map((e) =>
         html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${eventLabel(e.event_name)}</button>`)}</div>`}
     </section>
-    ${current ? html`<${ResultTable} c=${c} event=${current} />` : html`<p class="muted card">Keine Wertungen geladen.</p>`}
+    ${current ? html`<${ResultTable} c=${c} event=${current} />`
+      : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)
+        ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem nächsten Abruf (mittwochs).'
+        : 'Noch keine Ergebnisse geladen.'}</p>`}
   </div>`;
 }
 
+// Wertungsnamen der UCI → kurze deutsche Bezeichnung (ganzer Name wird ersetzt, kein "Stage …"-Rest)
 const EVENT_LABELS = [
-  [/^Stage Classification$/, 'Etappe'], [/^Stage General Classification$/, 'GC'], [/^General Classification$/, 'GC'],
-  [/^Final Classification$/, 'Ergebnis'], [/Points Classification/, 'Punkte'], [/Mountains? Classification/, 'Berg'],
-  [/Youth Classification|Young Riders?/, 'Nachwuchs'], [/Team/, 'Team'], [/^Overall /, ''],
+  [/^Stage Classification$|^Stage Result$/i, 'Etappe', 0],
+  [/General Classification/i, 'GC', 1],
+  [/^Final Classification$|^Result$/i, 'Ergebnis', 0],
+  [/Points Classification|Sprint/i, 'Punkte', 2],
+  [/Mountains? Classification|Climber|KOM/i, 'Berg', 3],
+  [/Youth|Young Riders?|Best Young/i, 'Nachwuchs', 4],
+  [/Team/i, 'Team', 5],
 ];
 const eventLabel = (n) => {
-  const hit = EVENT_LABELS.find(([re]) => re.test(n));
-  return (hit ? n.replace(hit[0], hit[1]) : n).trim() || n;
+  const hit = EVENT_LABELS.find(([re]) => re.test(n || ''));
+  return hit ? hit[1] : (n || '').replace(/^(Stage|Overall)\s+/i, '').replace(/\s+Classification$/i, '') || n;
 };
+const eventOrder = (n) => (EVENT_LABELS.find(([re]) => re.test(n || ''))?.[2] ?? 9);
 
 function ResultTable({ c, event }) {
   const rows = useLoad(() => q(sb.from('event_results').select('*').eq('event_id', event.id).order('sort_order')), [event.id]);

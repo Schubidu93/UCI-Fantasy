@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
 let clockOffset = 0;
@@ -31,6 +31,7 @@ function DraftLobby({ c }) {
       : html`<p>Live-Auktion mit ${c.league.budget} Budgetpunkten pro Manager. Jedes Gebot setzt die Uhr auf
           ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`}
     ${!offline && html`<${DraftSchedule} c=${c} />`}
+    ${c.league.keeper_count > 0 && c.league.prev_league && html`<${Keepers} c=${c} />`}
     <h3>Manager (${c.managers.length}/${c.league.max_managers})</h3>
     <ul class="list">${c.managers.map((m) => html`<li key=${m.id}>${m.team_name}
       ${m.user_id ? '' : html`<span class="tag">Platzhalter</span>`}</li>`)}</ul>
@@ -43,6 +44,37 @@ function DraftLobby({ c }) {
     <${Msg} msg=${a.msg} />
     <${AutoReload} c=${c} />
   </section>`;
+}
+
+// Keeper aus der Vorsaison wählen (nur vor dem Draft)
+function Keepers({ c }) {
+  const L = c.league.id;
+  const opts = useLoad(() => (c.me ? rpc('keeper_options', { p_league: L }) : Promise.resolve([])), [L]);
+  const all = useLoad(() => q(sb.from('keepers').select('*').eq('league_id', L)), [L]);
+  const [sel, setSel] = useState(null);
+  const a = useAction();
+  if (!opts.data || !all.data) return null;
+  const chosen = sel || new Set(opts.data.filter((o) => o.chosen).map((o) => o.rider_slug));
+  const flip = (slug) => { const s = new Set(chosen); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
+  const sum = opts.data.filter((o) => chosen.has(o.rider_slug)).reduce((s, o) => s + o.price, 0);
+  return html`<div class="schedule">
+    <strong>Keeper (bis zu ${c.league.keeper_count})</strong>
+    <p class="muted small">Behalte Fahrer aus der Vorsaison – zum Vorjahrespreis + ${c.league.keeper_surcharge}. Sie stehen beim Draft-Start fest in deinem Kader.</p>
+    ${opts.data.length === 0 ? html`<p class="muted small">Kein Vorjahreskader gefunden.</p>` : html`
+      <ul class="list compact">${opts.data.map((o) => html`<li key=${o.rider_slug}>
+        <label class="check"><input type="checkbox" checked=${chosen.has(o.rider_slug)} onChange=${() => flip(o.rider_slug)} />
+          <${RiderCell} r=${c.riderMap[o.rider_slug]} /></label>
+        <span class="muted small">${o.prev_price} → <strong>${o.price}</strong></span></li>`)}</ul>
+      <div class="row">
+        <button class="primary" disabled=${a.busy || chosen.size > c.league.keeper_count}
+          onClick=${() => a.run(async () => { await rpc('set_keepers', { p_league: L, p_riders: [...chosen] }); setSel(null); opts.reload(); all.reload(); }, 'Keeper gespeichert.')}>
+          Keeper speichern (${chosen.size}/${c.league.keeper_count} · ${sum} Pkt.)</button>
+      </div>`}
+    <${Msg} msg=${a.msg} />
+    ${all.data.length > 0 && html`<details><summary>Keeper aller Manager (${all.data.length})</summary>
+      <ul class="list compact">${all.data.map((k) => html`<li key=${k.rider_slug}><span>${c.riderMap[k.rider_slug]?.name || k.rider_slug}</span>
+        <span class="muted small">${c.managerMap[k.manager_id]?.team_name} · ${k.price}</span></li>`)}</ul></details>`}
+  </div>`;
 }
 
 // Geplanter Draft: Admin setzt Datum/Uhrzeit, alle sehen den Countdown; bei 0 startet der Draft automatisch

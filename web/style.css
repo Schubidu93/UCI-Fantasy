@@ -120,6 +120,8 @@ ol.list { counter-reset: n; }
 
 details summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details[open] summary { margin-bottom: 8px; }
+.season-zone { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
+.season-zone summary { color: var(--accent); }
 .danger-zone { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
 .danger-zone summary { color: var(--err); }
 

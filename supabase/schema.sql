@@ -151,6 +151,12 @@ create table if not exists leagues (
 );
 
 alter table leagues add column if not exists draft_at timestamptz;
+alter table leagues add column if not exists prev_league uuid references leagues (id) on delete set null;  -- Vorsaison
+alter table leagues add column if not exists keeper_count int not null default 0;      -- Fahrer, die man behalten darf
+alter table leagues add column if not exists keeper_surcharge int not null default 5;  -- Aufschlag auf den Vorjahrespreis
+do $$ begin
+  alter table leagues add constraint leagues_keeper_check check (keeper_count between 0 and 10 and keeper_surcharge between 0 and 50);
+exception when duplicate_object then null; end $$;
 
 create table if not exists managers (
   id             uuid primary key default gen_random_uuid(),
@@ -167,6 +173,18 @@ create table if not exists managers (
 -- ---------------------------------------------------------------------
 -- Draft
 -- ---------------------------------------------------------------------
+
+alter table managers add column if not exists prev_manager uuid references managers (id) on delete set null;
+
+-- Keeper: aus der Vorsaison behaltene Fahrer (werden beim Draft-Start in den Kader gesetzt)
+create table if not exists keepers (
+  league_id  uuid not null references leagues (id) on delete cascade,
+  manager_id uuid not null references managers (id) on delete cascade,
+  rider_slug text not null references riders (pcs_slug),
+  price      int  not null default 0,
+  primary key (manager_id, rider_slug),
+  unique (league_id, rider_slug)
+);
 
 create table if not exists draft_state (
   league_id        uuid primary key references leagues (id) on delete cascade,
@@ -335,6 +353,36 @@ create table if not exists admin_log (
   created_at timestamptz not null default now()
 );
 
+-- ---------------------------------------------------------------------
+-- Push-Benachrichtigungen
+-- ---------------------------------------------------------------------
+
+-- Interne Einstellungen (z. B. VAPID-Schlüssel) – nur für den Service-Key lesbar
+create table if not exists app_config (
+  key   text primary key,
+  value text not null
+);
+
+create table if not exists push_subscriptions (
+  endpoint   text primary key,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Warteschlange: wird alle 15 Minuten vom Workflow "Benachrichtigungen senden" verschickt
+create table if not exists notifications (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  title      text not null,
+  body       text,
+  url        text,
+  created_at timestamptz not null default now(),
+  sent_at    timestamptz
+);
+create index if not exists notifications_unsent on notifications (created_at) where sent_at is null;
+
 -- =====================================================================
 -- Hilfsfunktionen
 -- =====================================================================
@@ -376,6 +424,37 @@ language plpgsql stable security definer set search_path = public as $$
 begin
   if not is_admin(p_league) then raise exception 'Nur der Liga-Admin darf das.'; end if;
 end $$;
+
+-- Benachrichtigung an den Nutzer hinter einem Manager (Platzhalter ohne Konto werden übersprungen)
+create or replace function _notify(p_manager uuid, p_title text, p_body text, p_url text) returns void
+language sql security definer set search_path = public as $$
+  insert into notifications (user_id, title, body, url)
+  select user_id, p_title, p_body, p_url from managers where id = p_manager and user_id is not null
+    and exists (select 1 from push_subscriptions s where s.user_id = managers.user_id);
+$$;
+
+create or replace function _rname(p_slug text) returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select name from riders where pcs_slug = p_slug), p_slug);
+$$;
+
+create or replace function vapid_public_key() returns text
+language sql stable security definer set search_path = public as $$
+  select value from app_config where key = 'vapid_public';
+$$;
+
+create or replace function save_push_subscription(p_endpoint text, p_p256dh text, p_auth text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Bitte zuerst anmelden.'; end if;
+  insert into push_subscriptions (endpoint, user_id, p256dh, auth) values (p_endpoint, auth.uid(), p_p256dh, p_auth)
+  on conflict (endpoint) do update set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth;
+end $$;
+
+create or replace function delete_push_subscription(p_endpoint text) returns void
+language sql security definer set search_path = public as $$
+  delete from push_subscriptions where endpoint = p_endpoint and user_id = auth.uid();
+$$;
 
 create or replace function _log(p_league uuid, p_action text, p_details jsonb) returns void
 language sql security definer set search_path = public as $$
@@ -584,6 +663,69 @@ begin
 end $$;
 
 -- =====================================================================
+-- Neue Saison: Liga kopieren und Keeper
+-- =====================================================================
+
+create or replace function copy_league(p_league uuid, p_name text, p_season_start date, p_season_end date,
+                                       p_keeper_count int default 0, p_keeper_surcharge int default 5)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare l leagues; v uuid;
+begin
+  perform _require_admin(p_league);
+  select * into l from leagues where id = p_league;
+  insert into leagues (name, admin_user, max_managers, roster_size, scoring_mode, lineup_size, max_per_team, draft_mode,
+                       draft_order, bid_seconds, waiver_mode, gender, season_start, season_end, prev_league,
+                       keeper_count, keeper_surcharge)
+  values (coalesce(nullif(trim(p_name), ''), l.name), l.admin_user, l.max_managers, l.roster_size, l.scoring_mode,
+          l.lineup_size, l.max_per_team, l.draft_mode, l.draft_order, l.bid_seconds, l.waiver_mode, l.gender,
+          p_season_start, p_season_end, p_league, coalesce(p_keeper_count, 0), coalesce(p_keeper_surcharge, 5))
+  returning id into v;
+  insert into managers (league_id, user_id, team_name, prev_manager)
+    select v, user_id, team_name, id from managers where league_id = p_league order by draft_position nulls last, joined_at;
+  insert into draft_state (league_id) values (v);
+  perform _log(p_league, 'copy_league', jsonb_build_object('new_league', v));
+  return v;
+end $$;
+
+-- Mögliche Keeper des aufrufenden Managers: sein Kader am Ende der Vorsaison
+create or replace function keeper_options(p_league uuid)
+returns table (rider_slug text, prev_price int, price int, chosen boolean)
+language plpgsql stable security definer set search_path = public as $$
+declare v_me uuid; l leagues;
+begin
+  v_me := _require_member(p_league);
+  select * into l from leagues where id = p_league;
+  return query
+  select re.rider_slug, re.price, greatest(1, re.price + l.keeper_surcharge),
+         exists (select 1 from keepers k where k.manager_id = v_me and k.rider_slug = re.rider_slug)
+    from managers m join roster_entries re on re.manager_id = m.prev_manager and re.released_on is null
+   where m.id = v_me
+   order by re.price desc;
+end $$;
+
+create or replace function set_keepers(p_league uuid, p_riders text[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_me uuid; l leagues; v_sum int; v_n int := coalesce(array_length(p_riders, 1), 0);
+begin
+  v_me := _require_member(p_league);
+  select * into l from leagues where id = p_league;
+  if l.status <> 'setup' then raise exception 'Keeper können nur vor dem Draft gewählt werden.'; end if;
+  if v_n > l.keeper_count then raise exception 'Du darfst höchstens % Keeper wählen.', l.keeper_count; end if;
+  if exists (select 1 from unnest(p_riders) r where r not in (select o.rider_slug from keeper_options(p_league) o)) then
+    raise exception 'Nur Fahrer aus deinem Vorjahreskader.';
+  end if;
+  select coalesce(sum(o.price), 0) into v_sum from keeper_options(p_league) o where o.rider_slug = any (p_riders);
+  if l.draft_mode = 'live' and v_sum > l.budget - (l.roster_size - v_n) then
+    raise exception 'Zu teuer: Keeper kosten %, es muss Budget für die restlichen Plätze bleiben.', v_sum;
+  end if;
+  delete from keepers where manager_id = v_me;
+  insert into keepers (league_id, manager_id, rider_slug, price)
+    select p_league, v_me, o.rider_slug, o.price from keeper_options(p_league) o where o.rider_slug = any (p_riders);
+exception when unique_violation then
+  raise exception 'Dieser Fahrer ist schon Keeper eines anderen Managers.';
+end $$;
+
+-- =====================================================================
 -- Live-Auktions-Draft
 -- =====================================================================
 
@@ -606,12 +748,16 @@ begin
   if l.draft_mode = 'snake' then
     -- Schlangenreihenfolge: Runde 1 vorwärts, Runde 2 rückwärts, …
     select count(*) into v_n from managers where league_id = p_league;
-    v_pick := d.lot_no + 1;
-    v_round := (v_pick - 1) / v_n;
-    v_idx := (v_pick - 1) % v_n;
-    v_pos := case when v_round % 2 = 0 then v_idx + 1 else v_n - v_idx end;
-    select id into v_next from managers where league_id = p_league
-     order by draft_position, id offset v_pos - 1 limit 1;
+    v_pick := d.lot_no;
+    loop
+      v_pick := v_pick + 1;
+      v_round := (v_pick - 1) / v_n;
+      v_idx := (v_pick - 1) % v_n;
+      v_pos := case when v_round % 2 = 0 then v_idx + 1 else v_n - v_idx end;
+      select id into v_next from managers where league_id = p_league
+       order by draft_position, id offset v_pos - 1 limit 1;
+      exit when _open_slots(v_next) > 0;      -- Manager mit vollem Kader (Keeper) überspringen
+    end loop;
     update draft_state set phase = 'snake', lot_no = v_pick, current_rider = null, current_bid = 0, current_bidder = null,
                            nominator = v_next, deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
      where league_id = p_league;
@@ -691,12 +837,22 @@ begin
   update managers m set draft_position = s.rn, budget_left = l.budget
     from (select id, row_number() over (order by random()) rn from managers where league_id = p_league) s
    where m.id = s.id;
+  -- Keeper vorab in die Kader (zählen wie gekauft; die Auktion überspringt sie)
+  insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+    select p_league, k.manager_id, k.rider_slug, k.price, 'draft', l.season_start from keepers k where k.league_id = p_league;
+  update managers m set budget_left = budget_left - coalesce((select sum(price) from keepers k where k.manager_id = m.id), 0)
+   where m.league_id = p_league;
+  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
+    select p_league, 0, k.rider_slug, k.manager_id, k.price from keepers k where k.league_id = p_league
+  on conflict (league_id, rider_slug) do nothing;
   insert into draft_state (league_id) values (p_league) on conflict (league_id) do nothing;
   update draft_state set status = 'running', phase = 'auction', lot_no = 0, current_rider = null, current_bid = 0,
                          current_bidder = null, deadline = null, nominator = null, updated_at = now()
    where league_id = p_league;
   update leagues set status = 'drafting' where id = p_league;
   perform _draft_next(p_league);
+  perform _notify(m.id, '🚴 Der Draft startet jetzt!', l.name || ': Ab in den Draft-Raum.', '#/league/' || p_league || '/draft')
+     from managers m where m.league_id = p_league;
 end $$;
 
 create or replace function pause_draft(p_league uuid, p_pause boolean) returns void
@@ -1281,6 +1437,10 @@ begin
   end if;
   insert into trades (league_id, from_manager, to_manager, give_riders, take_riders)
   values (p_league, v_me, p_to, p_give, p_take) returning id into v;
+  perform _notify(p_to, '🔁 Neues Tauschangebot',
+    (select team_name from managers where id = v_me) || ' bietet ' ||
+    (select string_agg(_rname(x), ', ') from unnest(p_give) x) || ' für ' || (select string_agg(_rname(x), ', ') from unnest(p_take) x),
+    '#/league/' || p_league || '/team');
   return v;
 end $$;
 
@@ -1294,6 +1454,10 @@ begin
   update trades set status = case when p_accept then 'accepted' else 'declined' end,
                     accepted_at = case when p_accept then now() end
    where id = p_trade;
+  perform _notify(t.from_manager, case when p_accept then '✅ Tausch angenommen' else '❌ Tausch abgelehnt' end,
+    (select team_name from managers where id = t.to_manager) || case when p_accept
+      then ' hat zugestimmt. Ausgeführt wird zum nächsten Stichtag.' else ' hat abgelehnt.' end,
+    '#/league/' || t.league_id || '/team');
 end $$;
 
 create or replace function cancel_trade(p_trade uuid) returns void
@@ -1362,6 +1526,12 @@ begin
       from leagues l where l.id = m.league_id and m.id = md.id;
     perform _process_trades(md.id);
     perform _process_waivers(md.id);
+    perform _notify(w.manager_id, '📋 Waiver-Ergebnis',
+        coalesce('Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
+        || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'lost'), ''),
+        '#/league/' || md.league_id || '/waiver')
+       from waiver_claims w where w.matchday_id = md.id and w.processed_at >= now() - interval '1 minute'
+       group by w.manager_id;
     update matchdays set waivers_done = true where id = md.id;
     update leagues set last_waiver_run = now() where id = md.league_id;
     n := n + 1;
@@ -1378,7 +1548,14 @@ language plpgsql security definer set search_path = public as $$
 declare md matchdays;
 begin
   perform process_due(null);
-  update matchdays set status = 'closed', closed_at = now() where status = 'running' and ends_on < current_date;
+  for md in update matchdays set status = 'closed', closed_at = now() where status = 'running' and ends_on < current_date
+             returning * loop
+    perform _notify(t.manager_id, '🏁 ' || md.name || ' abgeschlossen',
+        coalesce((select round(sum(p.points))::text from _league_points(md.league_id) p
+                   where p.matchday_id = md.id and p.manager_id = t.manager_id), '0')
+        || ' Punkte · Gesamt Platz ' || t."position", '#/league/' || md.league_id || '/table')
+       from _league_table(md.league_id) t;
+  end loop;
   for md in select * from matchdays where status = 'closed' and not frozen and closed_at <= now() - interval '7 days' loop
     insert into score_snapshot (league_id, matchday_id, manager_id, rider_slug, race_slug, label, result_date, points)
       select md.league_id, s.matchday_id, s.manager_id, s.rider_slug, s.race_slug, s.label, s.result_date, s.points
@@ -1460,6 +1637,10 @@ alter table score_snapshot  enable row level security;
 alter table admin_log       enable row level security;
 alter table race_events     enable row level security;
 alter table event_results   enable row level security;
+alter table keepers         enable row level security;
+alter table app_config      enable row level security;   -- keine Policies: nur Service-Key
+alter table push_subscriptions enable row level security;
+alter table notifications   enable row level security;
 
 do $$
 declare t text;
@@ -1471,7 +1652,7 @@ begin
   end loop;
   -- Ligadaten: nur für Mitglieder
   foreach t in array array['managers', 'draft_state', 'draft_lots', 'draft_bids', 'roster_entries',
-                           'matchdays', 'trades', 'point_overrides', 'score_snapshot', 'admin_log'] loop
+                           'matchdays', 'trades', 'point_overrides', 'score_snapshot', 'admin_log', 'keepers'] loop
     execute format('drop policy if exists members_read on %I', t);
     execute format('create policy members_read on %I for select to authenticated using (is_member(league_id))', t);
   end loop;
@@ -1489,6 +1670,11 @@ drop policy if exists members_read on waiver_claims;
 create policy members_read on waiver_claims for select to authenticated
   using (is_member(league_id) and (status <> 'pending' or manager_id = my_manager(league_id)));
 
+drop policy if exists own_read on push_subscriptions;
+create policy own_read on push_subscriptions for select to authenticated using (user_id = auth.uid());
+drop policy if exists own_read on notifications;
+create policy own_read on notifications for select to authenticated using (user_id = auth.uid());
+
 -- interne Funktionen nicht direkt aufrufbar
 do $$
 declare f text;
@@ -1496,7 +1682,7 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

@@ -71,8 +71,26 @@ def main():
             loaded = {}
 
         comps = dr.competitions(gender, season["Id"])
+        # Kalender: kommende Rennen dieser und der nächsten Saison (ohne Ergebnisse) speichern
+        upcoming = [c for c in comps if (ms_date(c.get("EndDate")) or today) > today]
+        nxt = dr.season(today.year + 1)
+        if nxt["Id"] != season["Id"]:
+            upcoming += dr.competitions(gender, nxt["Id"])
+        cal = []
+        for c in upcoming:
+            start, end = ms_date(c.get("StartDate")), ms_date(c.get("EndDate"))
+            if not start:
+                continue
+            cal.append({"pcs_slug": race_slug(c["CompetitionName"], start.year, gender), "name": c["CompetitionName"].strip(),
+                        "gender": gender, "uci_class": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
+                        "dataride_id": c["CompetitionId"], "start_date": start.isoformat(),
+                        "end_date": end.isoformat() if end else None})
+        cal = list({r["pcs_slug"]: r for r in cal}.values())
+        print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
+        if cal and not DRY_RUN:
+            db.upsert("races", cal, "pcs_slug")
         comps = [c for c in comps if (ms_date(c.get("EndDate")) or today) <= today]   # nur bereits gefahrene
-        print(f"\n{gender}: {len(comps)} gefahrene Rennen")
+        print(f"{gender}: {len(comps)} gefahrene Rennen")
         todo = []
         for c in comps:
             end = ms_date(c.get("EndDate"))

@@ -1,5 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, fmtDate } from '../lib.js';
+import { PushToggle } from './push.js';
 
 const STATUS = { setup: 'Vor dem Draft', drafting: 'Draft läuft', active: 'Saison läuft', finished: 'Beendet' };
 
@@ -26,6 +27,7 @@ export function Home({ session }) {
             <span class="muted small">${fmtDate(m.leagues.season_start)} – ${fmtDate(m.leagues.season_end)}</span>
           </a></li>`)}</ul>`}
 
+    <${PushToggle} />
     <div class="grid2">
       <div class="card">
         <h3>Liga beitreten</h3>

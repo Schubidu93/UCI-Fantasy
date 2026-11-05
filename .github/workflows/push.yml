@@ -1,0 +1,31 @@
+name: Benachrichtigungen senden
+
+# Verschickt vorgemerkte Push-Benachrichtigungen (Waiver, Tausch, Draft, Spieltage, Punkte).
+# Erzeugt beim ersten Lauf das VAPID-Schlüsselpaar.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_run:
+    workflows: ["Ergebnisse abrufen (UCI)"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: push
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pcs_sync/requirements.txt
+      - run: python send_push.py
+        working-directory: pcs_sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

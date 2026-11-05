@@ -1,5 +1,5 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderPicker, fmtDate, fmtDateTime, normName } from '../lib.js';
+import { sb, q, all, rpc, useLoad, useAction, Msg, Loading, RiderPicker, fmtDate, fmtDateTime, normName } from '../lib.js';
 import { LeagueSettingsFields } from './home.js';
 
 const SECTIONS = [['settings', 'Einstellungen'], ['members', 'Mitglieder'], ['import', 'Offline-Draft'],
@@ -42,8 +42,33 @@ function Settings({ c }) {
       <div class="row"><button class="primary" disabled=${a.busy}>Speichern</button></div>
       <${Msg} msg=${a.msg} />
     </form>
+    <${NewSeason} c=${c} />
     <${DeleteLeague} c=${c} />
   </section>`;
+}
+
+function NewSeason({ c }) {
+  const y = +c.league.season_end.slice(0, 4) + 1;
+  const [f, setF] = useState({ name: c.league.name.replace(/\b20\d\d\b/, '').trim() + ` ${y}`, start: `${y}-01-01`, end: `${y}-10-31`, keepers: 0, surcharge: 5 });
+  const a = useAction();
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  return html`<details class="season-zone"><summary>Neue Saison anlegen</summary>
+    <p class="small muted">Legt eine neue Liga mit denselben Mitspielern und Einstellungen an. Alle sind sofort Mitglied.
+      Mit Keepern darf jeder Manager Fahrer aus seinem jetzigen Kader behalten – zum diesjährigen Preis plus Aufschlag.</p>
+    <div class="grid2 compact">
+      <label>Name<input value=${f.name} onInput=${set('name')} /></label>
+      <label>Saisonstart<input type="date" value=${f.start} onInput=${set('start')} /></label>
+      <label>Saisonende<input type="date" value=${f.end} onInput=${set('end')} /></label>
+      <label>Keeper pro Manager (0–10)<input type="number" min="0" max="10" value=${f.keepers} onInput=${set('keepers')} /></label>
+      ${+f.keepers > 0 && html`<label>Aufschlag auf den Preis<input type="number" min="0" max="50" value=${f.surcharge} onInput=${set('surcharge')} /></label>`}
+    </div>
+    <div class="row"><button class="primary" disabled=${a.busy}
+      onClick=${() => a.run(async () => {
+        const id = await rpc('copy_league', { p_league: c.league.id, p_name: f.name, p_season_start: f.start, p_season_end: f.end,
+          p_keeper_count: +f.keepers, p_keeper_surcharge: +f.surcharge });
+        location.hash = `#/league/${id}/admin`;
+      })}>Neue Saison anlegen</button></div>
+    <${Msg} msg=${a.msg} /></details>`;
 }
 
 function DeleteLeague({ c }) {
@@ -197,6 +222,33 @@ function proposal(kind, start, end) {
   return out;
 }
 
+// Rennblöcke aus dem echten Kalender: jede große Rundfahrt (WorldTour, ≥ 7 Tage) ist ein eigener
+// Spieltag, die Zeiträume dazwischen werden zu Blöcken (Saisonstart, Frühjahr, …, Herbst).
+async function calendarProposal(league) {
+  const races = await all(() => sb.from('races').select('name,uci_class,start_date,end_date')
+    .eq('gender', league.gender).gte('start_date', league.season_start).lte('start_date', league.season_end)
+    .not('start_date', 'is', null).order('start_date'));
+  const days = (r) => (new Date(r.end_date) - new Date(r.start_date)) / 864e5 + 1;
+  const tours = races.filter((r) => ['2.UWT', '2.WWT'].includes(r.uci_class) && days(r) >= 7)
+    .filter((r, i, arr) => !arr.slice(0, i).some((x) => x.end_date >= r.start_date));   // keine Überlappung
+  if (!tours.length) return null;
+  const out = [];
+  const gap = (from, to, name) => { if (from <= to) out.push({ name, starts_on: from, ends_on: to }); };
+  let cursor = league.season_start;
+  tours.forEach((t, i) => {
+    const before = addDays(t.start_date, -1);
+    if (i === 0) {
+      const march = `${cursor.slice(0, 4)}-03-01`;
+      if (march > cursor && march <= before) { gap(cursor, addDays(march, -1), 'Saisonstart'); gap(march, before, 'Frühjahrsklassiker'); }
+      else gap(cursor, before, 'Saisonstart');
+    } else gap(cursor, before, `Vor ${t.name.replace(/^(La |Le )/, '')}`);
+    out.push({ name: t.name, starts_on: t.start_date, ends_on: t.end_date > league.season_end ? league.season_end : t.end_date });
+    cursor = addDays(t.end_date, 1);
+  });
+  gap(cursor, league.season_end, 'Herbst');
+  return out;
+}
+
 function Matchdays({ c }) {
   const empty = { id: null, name: '', starts_on: '', ends_on: '', deadline: '' };
   const [f, setF] = useState(empty);
@@ -246,12 +298,17 @@ function Matchdays({ c }) {
 
     <details><summary>Spieltage automatisch vorschlagen</summary>
       <div class="row">
-        <button onClick=${() => setGen(proposal('blocks', c.league.season_start, c.league.season_end))}>Rennblöcke</button>
+        <button class="primary" onClick=${() => a.run(async () => {
+          const p = await calendarProposal(c.league);
+          if (!p) throw new Error('Für diese Saison sind noch keine großen Rundfahrten im Kalender – nimm vorerst „Rennblöcke (Richtwerte)“.');
+          setGen(p);
+        })}>Aus Rennkalender</button>
+        <button onClick=${() => setGen(proposal('blocks', c.league.season_start, c.league.season_end))}>Rennblöcke (Richtwerte)</button>
         <button onClick=${() => setGen(proposal('monthly', c.league.season_start, c.league.season_end))}>Monatlich</button>
         <button onClick=${() => setGen(proposal('weekly', c.league.season_start, c.league.season_end))}>Wöchentlich</button>
       </div>
-      ${gen && html`<p class="muted small">Vorschlag für ${fmtDate(c.league.season_start)} – ${fmtDate(c.league.season_end)}. Die Daten der Rennblöcke sind Richtwerte –
-          nach dem Anlegen einzeln anpassbar. Spieltage in der Vergangenheit werden übersprungen.</p>
+      ${gen && html`<p class="muted small">Vorschlag für ${fmtDate(c.league.season_start)} – ${fmtDate(c.league.season_end)}.
+          Nach dem Anlegen einzeln anpassbar. Spieltage in der Vergangenheit werden übersprungen.</p>
         <ul class="list compact">${gen.map((m) => html`<li><span>${m.name}</span><span class="muted">${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</span></li>`)}</ul>
         <button class="primary" disabled=${a.busy || c.matchdays.length > 0} onClick=${createAll}>Alle anlegen</button>
         ${c.matchdays.length > 0 && html`<p class="muted small">Nur möglich, solange noch keine Spieltage angelegt sind.</p>`}`}

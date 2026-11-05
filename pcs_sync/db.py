@@ -52,3 +52,12 @@ def rpc(function, args=None):
     if not r.ok:
         raise RuntimeError(f"RPC {function} fehlgeschlagen: {r.status_code} {r.text}")
     return r.json() if r.text else None
+
+
+def insert(table, rows):
+    """Neue Zeilen anlegen (ohne Konfliktbehandlung)."""
+    headers = {**HEADERS, "Prefer": "return=minimal"}
+    for i in range(0, len(rows), 500):
+        r = requests.post(f"{URL}/rest/v1/{table}", headers=headers, json=rows[i:i + 500], timeout=60)
+        if not r.ok:
+            raise RuntimeError(f"Insert {table} fehlgeschlagen: {r.status_code} {r.text}")
