@@ -1,6 +1,6 @@
 // Fahrer-Fenster: Stammdaten und alle Ergebnisse (Rang, Zeit, UCI-Punkte) – Klick springt ins Rennen
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, all, fmtDate, fmtPts, flag, withFlag } from '../lib.js';
+import { sb, q, all, rpc, fmtDate, fmtPts, flag, withFlag, teamName } from '../lib.js';
 import { describeEvent } from './races.js';
 
 // Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
@@ -32,9 +32,10 @@ export function RiderModal() {
   const [allPlaces, setAllPlaces] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [season, setSeason] = useState({});      // Jahr → { season_rank, points, riders }
 
   useEffect(() => {
-    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); };
+    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); setSeason({}); };
     const esc = (e) => { if (e.key === 'Escape') setSlug(null); };
     addEventListener('rider:open', open);
     addEventListener('keydown', esc);
@@ -48,7 +49,6 @@ export function RiderModal() {
     return () => { alive = false; };
   }, [slug]);
 
-  if (!slug) return null;
   const r = data?.rider;
   const yearOf = (x) => +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
   const withPoints = (data?.results || []).filter((x) => Number(x.uci_points) > 0);
@@ -58,6 +58,17 @@ export function RiderModal() {
   const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y)
     .sort((a, b) => (b.ev.event_date || '').localeCompare(a.ev.event_date || '') || a.ev.id - b.ev.id);
   const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.uci_points), 0);
+  const current = !y || y === thisYear;
+  // Vergangene Jahre: Platz in der Saisonwertung statt der aktuellen Weltrangliste
+  useEffect(() => {
+    if (!slug || current || season[y] !== undefined) return;
+    rpc('rider_season_rank', { p_slug: slug, p_year: y })
+      .then((rows) => setSeason((s) => ({ ...s, [y]: rows?.[0] || null }))).catch(() => {});
+  }, [slug, y]);
+  const sr = season[y];
+  const rankLine = r && (current
+    ? [r.uci_rank && `UCI-Rang ${r.uci_rank}`, r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte (52 Wochen)`]
+    : [sr ? `Platz ${sr.season_rank} in der Saison ${y}` : `Saison ${y}`]).filter(Boolean).join(' · ');
   const groups = [];
   for (const x of shown) {
     let g = groups.find((g) => g.slug === x.ev.race_slug);
@@ -67,15 +78,16 @@ export function RiderModal() {
   const L = leagueId();
   const go = (x) => { if (!L) return; setSlug(null); location.hash = `#/league/${L}/races/${encodeURIComponent(x.ev.race_slug)}/${x.ev.id}`; };
 
+  if (!slug) return null;
   return html`<div class="modal-back" onClick=${() => setSlug(null)}>
     <div class="modal card" role="dialog" aria-modal="true" aria-label="Fahrer" onClick=${(e) => e.stopPropagation()}>
       <div class="modal-head">
         <div class="modal-title">
           <h2>${r?.nation ? flag(r.nation) + ' ' : ''}${r?.name || '…'}</h2>
-          ${r && html`<div class="muted small">${[r.team, r.nation && withFlag(r.nation),
-            r.birth_date && `Jahrgang ${r.birth_date.slice(0, 4)} (${Math.floor((Date.now() - new Date(r.birth_date)) / 31557600000)} J.)`,
-            r.uci_rank && `UCI-Rang ${r.uci_rank}`,
-            r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte`].filter(Boolean).join(' · ')}</div>`}
+          ${r && html`<div class="muted small">${[r.nation && r.nation.trim(),
+            r.birth_date && `${r.birth_date.slice(0, 4)} (${Math.floor((Date.now() - new Date(r.birth_date)) / 31557600000)} J.)`,
+            teamName(r.team)].filter(Boolean).join(' · ')}</div>`}
+          ${rankLine && html`<div class="small"><strong>${rankLine}</strong></div>`}
         </div>
         <button class="ghost small" onClick=${() => setSlug(null)} aria-label="Schließen">✕</button>
       </div>

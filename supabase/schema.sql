@@ -1317,6 +1317,24 @@ language sql stable security definer set search_path = public as $$
    group by r.rider_slug;
 $$;
 
+-- Platz eines Fahrers in der Saisonwertung eines Jahres (Summe der UCI-Punkte aus den Rennergebnissen)
+create index if not exists race_events_date on race_events (event_date);
+create or replace function rider_season_rank(p_slug text, p_year int)
+returns table (season_rank int, points numeric, riders int)
+language sql stable security definer set search_path = public as $$
+  with s as (
+    select er.rider_slug, sum(er.uci_points) pts
+      from event_results er
+      join race_events e on e.id = er.event_id
+      join riders x on x.pcs_slug = er.rider_slug
+     where e.event_date >= make_date(p_year, 1, 1) and e.event_date <= make_date(p_year, 12, 31)
+       and er.uci_points > 0
+       and x.gender = (select gender from riders where pcs_slug = p_slug)
+     group by er.rider_slug)
+  select (select count(*) + 1 from s where s.pts > me.pts)::int, me.pts, (select count(*) from s)::int
+    from s me where me.rider_slug = p_slug;
+$$;
+
 -- Herkunft der Punkte (einzelne Rennergebnisse)
 create or replace function league_point_details(p_league uuid, p_matchday uuid default null)
 returns table (matchday_id uuid, manager_id uuid, rider_slug text, race_slug text, race_name text,
