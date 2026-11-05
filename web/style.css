@@ -341,3 +341,10 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .md-admin .md-what { flex: 1; min-width: 0; }
 .md-admin .md-what small { display: block; color: var(--muted); }
 .md-admin .md-actions { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+/* Regeln: Abschnitte zum Aufklappen */
+.rule-sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.rule-sec > summary::-webkit-details-marker { display: none; }
+.rule-sec > summary h3 { margin: 0; }
+.rule-sec > summary::after { content: "›"; font-size: 1.4rem; color: var(--muted); transition: transform .15s; }
+.rule-sec[open] > summary::after { transform: rotate(90deg); }
+.rule-sec[open] > summary { margin-bottom: 8px; }

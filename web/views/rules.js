@@ -41,8 +41,8 @@ export function Rules({ c }) {
       </tbody></table>
     </section>
 
-    <section class="card">
-      <h3>Draft</h3>
+    <details class="card rule-sec">
+      <summary><h3>Draft</h3></summary>
       ${l.draft_mode === 'live' ? html`<ul>
           <li>Jeder Manager hat <strong>${l.budget} Budgetpunkte</strong>. Die Fahrer kommen ${l.draft_order === 'ranking' ? 'in der Reihenfolge der UCI-Rangliste' : 'reihum nominiert (Startgebot 1)'} unter den Hammer.</li>
           <li>Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr auf ${l.bid_seconds} Sekunden zurück. Läuft sie ab, gewinnt das Höchstgebot.</li>
@@ -58,10 +58,10 @@ export function Rules({ c }) {
         </ul>`
       : html`<ul><li>Der Draft findet offline statt. Der Admin trägt danach die Kader samt Preisen ein (oder lädt eine CSV hoch).</li>${extras}</ul>`}
 
-    </section>
+    </details>
 
-    <section class="card">
-      <h3>Punkte</h3>
+    <details class="card rule-sec">
+      <summary><h3>Punkte</h3></summary>
       <ul>
         <li>Gewertet werden die <strong>UCI-Punkte aus den Rennergebnissen</strong> – genau die Punkte, die die UCI für ein Ergebnis vergibt,
           z. B. für Platz 7 einer Etappe. Vom kleinen .2-Rennen bis zum Tour-Sieg (1.300).</li>
@@ -75,10 +75,10 @@ export function Rules({ c }) {
         <li>Die Punkte werden <strong>direkt mit dem Ergebnis</strong> gutgeschrieben – Abruf täglich um 20 Uhr, bei Rundfahrten Etappe für Etappe.</li>
         <li>Korrigiert die UCI ein Ergebnis (z. B. Aberkennung wegen Doping), wird das automatisch übernommen, solange der Spieltag nicht eingefroren ist.</li>
       </ul>
-    </section>
+    </details>
 
-    <section class="card">
-      <h3>Spieltage und Tabelle</h3>
+    <details class="card rule-sec">
+      <summary><h3>Spieltage und Tabelle</h3></summary>
       <ul>
         <li>Der Admin legt Spieltage als Zeiträume fest (z. B. Klassiker, Giro, Tour, Vuelta). Punkte zwischen zwei Spieltagen verfallen.
           Alle Spieltage stehen im Spielplan unter Liga → Spieltage.</li>
@@ -99,10 +99,10 @@ export function Rules({ c }) {
         <li>Ein Spieltag schließt nach seinem Ende und wird 7 Tage später eingefroren; bis dahin werden Korrekturen automatisch übernommen.</li>
         <li>Gleichstand in der Tabelle: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(l) ? ', dann weniger ausgegebenes Budget' : ''}.</li>
       </ul>
-    </section>
+    </details>
 
-    <section class="card">
-      <h3>Waiver und Tausch</h3>
+    <details class="card rule-sec">
+      <summary><h3>Waiver und Tausch</h3></summary>
       <ul>
         <li>Freie Fahrer holst du per <strong>Waiver-Antrag</strong>: freien Fahrer wählen, eigenen Fahrer abgeben (der Kader bleibt immer voll). Mehrere Anträge in Wunschreihenfolge sind möglich.</li>
         ${two && html`<li>In der <strong>freien Phase</strong> tauschst du sofort ohne Antrag – wer zuerst kommt, bekommt den Fahrer.</li>`}
@@ -117,10 +117,10 @@ export function Rules({ c }) {
         <li>Tausche dürfen ungleich sein (z. B. 1 gegen 2): Wer mehr Fahrer bekommt, entlässt dafür eigene Fahrer – beim Angebot bzw. bei der Annahme.
           Fahrer aus offenen Waiver-Anträgen können dafür nicht gewählt werden. Wer weniger bekommt, hat danach einen freien Platz und füllt ihn per Waiver.</li>
       </ul>
-    </section>
+    </details>
 
-    <section class="card">
-      <h3>Daten</h3>
+    <details class="card rule-sec">
+      <summary><h3>Daten</h3></summary>
       <ul>
         <li><strong>Quelle:</strong> Fahrer, Rennen und Ergebnisse kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
         <li><strong>Rennergebnisse:</strong>
@@ -139,6 +139,6 @@ export function Rules({ c }) {
         <li><strong>Zeitraum:</strong> Ergebnisse werden ab der Saison 2025 gespeichert.</li>
         <li><strong>Korrekturen:</strong> Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
       </ul>
-    </section>
+    </details>
   </div>`;
 }
