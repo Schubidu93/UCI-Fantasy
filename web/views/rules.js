@@ -112,6 +112,8 @@ export function Rules({ c }) {
           : 'Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt.'}</li>
         <li>Fahrer mit Karriereende oder Sperre (vom Admin markiert) können sofort außer der Reihe ersetzt werden.</li>
         <li><strong>Tausch</strong> zwischen Managern: Beide müssen zustimmen, danach hat der Admin 24 Stunden Vetorecht. Ausgeführt wird zum nächsten Stichtag.</li>
+        <li>Tausche dürfen ungleich sein (z. B. 1 gegen 2): Wer mehr Fahrer bekommt, entlässt dafür eigene Fahrer – beim Angebot bzw. bei der Annahme.
+          Fahrer aus offenen Waiver-Anträgen können dafür nicht gewählt werden. Wer weniger bekommt, hat danach einen freien Platz und füllt ihn per Waiver.</li>
       </ul>
     </section>
 

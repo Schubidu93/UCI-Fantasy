@@ -48,7 +48,7 @@ export function Waiver({ c }) {
     ${pending.length > 0 && html`<section class="card">
       <h3>Meine Anträge (Wunschreihenfolge)</h3>
       <ol class="list">${pending.map((p, i) => html`<li key=${p.id}>
-        <span><strong>+ ${name(p.add_rider)}</strong> <span class="muted">für</span> − ${name(p.drop_rider)}
+        <span><strong>+ ${name(p.add_rider)}</strong>${p.drop_rider ? html` <span class="muted">für</span> − ${name(p.drop_rider)}` : html` <span class="muted">(freier Platz)</span>`}
           ${c.league.waiver_mode === 'faab' ? html` <span class="tag">${p.bid}</span>` : ''}</span>
         <span class="row">
           <button class="small ghost" disabled=${i === 0} onClick=${() => move(i, -1)} aria-label="nach oben">↑</button>
@@ -64,7 +64,7 @@ export function Waiver({ c }) {
     ${done.length > 0 && html`<section class="card">
       <h3>Abgewickelte Anträge</h3>
       <ul class="list compact">${done.slice(0, 40).map((p) => html`<li key=${p.id}>
-        <span>${c.managerMap[p.manager_id]?.team_name}: + ${name(p.add_rider)} / − ${name(p.drop_rider)}</span>
+        <span>${c.managerMap[p.manager_id]?.team_name}: + ${name(p.add_rider)}${p.drop_rider ? ` / − ${name(p.drop_rider)}` : ''}</span>
         <span class=${p.status === 'won' ? 'tag ok' : 'tag'}>${STATUS[p.status]}${p.note ? ` – ${p.note}` : ''}</span></li>`)}</ul>
     </section>`}
   </div>`;
@@ -102,14 +102,17 @@ function FreeAgents({ c, onPick, free: freePhase }) {
 
 function ClaimForm({ c, add, onDone, onCancel }) {
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
-  const [drop, setDrop] = useState(mine[0]?.rider_slug || '');
+  const open = c.league.roster_size - mine.length;            // freie Kaderplätze (z. B. nach ungleichem Tausch)
+  const [drop, setDrop] = useState(open > 0 ? '' : mine[0]?.rider_slug || '');
+  const dropOptions = html`${open > 0 && html`<option value="">– niemand (freier Kaderplatz) –</option>`}
+        ${mine.map((r) => html`<option value=${r.rider_slug}>${c.riderMap[r.rider_slug]?.name}${c.riderMap[r.rider_slug]?.inactive ? ' (inaktiv)' : ''}</option>`)}`;
   const [bid, setBid] = useState(0);
   const a = useAction();
   const dropRider = c.riderMap[drop];
   const faab = c.league.waiver_mode === 'faab';
   const { md, phase } = transferPhase(c);
   const freeMove = () => a.run(async () => {
-    await rpc('free_move', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop });
+    await rpc('free_move', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop || null });
     onDone();
   });
   if (phase === 'free') return html`<section class="card stack">
@@ -118,17 +121,15 @@ function ClaimForm({ c, add, onDone, onCancel }) {
       Bis dahin kannst du beliebig oft tauschen – der abgegebene Fahrer ist sofort für alle frei.</p>
     <div>Holen: <${RiderCell} r=${add} /></div>
     <label>Dafür abgeben
-      <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>
-        ${mine.map((r) => html`<option value=${r.rider_slug}>${c.riderMap[r.rider_slug]?.name}</option>`)}
-      </select></label>
+      <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>${dropOptions}</select></label>
     <div class="row">
-      <button class="primary" disabled=${a.busy || !drop} onClick=${freeMove}>Jetzt tauschen</button>
+      <button class="primary" disabled=${a.busy || (!drop && open <= 0)} onClick=${freeMove}>Jetzt tauschen</button>
       <button class="ghost" onClick=${onCancel}>Abbrechen</button>
     </div>
     <${Msg} msg=${a.msg} />
   </section>`;
   const submit = (immediate) => a.run(async () => {
-    await rpc('submit_waiver', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop, p_bid: faab ? +bid : 0, p_immediate: immediate });
+    await rpc('submit_waiver', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop || null, p_bid: faab ? +bid : 0, p_immediate: immediate });
     onDone();
   });
 
@@ -136,12 +137,10 @@ function ClaimForm({ c, add, onDone, onCancel }) {
     <h3>Waiver-Antrag</h3>
     <div>Holen: <${RiderCell} r=${add} /></div>
     <label>Dafür abgeben
-      <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>
-        ${mine.map((r) => html`<option value=${r.rider_slug}>${c.riderMap[r.rider_slug]?.name}${c.riderMap[r.rider_slug]?.inactive ? ' (inaktiv)' : ''}</option>`)}
-      </select></label>
+      <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>${dropOptions}</select></label>
     ${faab && html`<label>Gebot (0–${c.me.budget_left})<input type="number" min="0" max=${c.me.budget_left} value=${bid} onInput=${(e) => setBid(e.target.value)} /></label>`}
     <div class="row">
-      <button class="primary" disabled=${a.busy || !drop} onClick=${() => submit(false)}>Antrag stellen</button>
+      <button class="primary" disabled=${a.busy || (!drop && open <= 0)} onClick=${() => submit(false)}>Antrag stellen</button>
       ${dropRider?.inactive && html`<button disabled=${a.busy} onClick=${() => submit(true)}
         title="Bei Karriereende oder Sperre sofort ersetzen">Sofort ersetzen</button>`}
       <button class="ghost" onClick=${onCancel}>Abbrechen</button>

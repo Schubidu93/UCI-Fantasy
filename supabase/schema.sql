@@ -327,6 +327,12 @@ create table if not exists trades (
   accepted_at  timestamptz,
   done_at      timestamptz
 );
+-- Waiver ohne Abgabe, wenn der Kader nicht voll ist (z. B. nach einem ungleichen Tausch)
+alter table waiver_claims alter column drop_rider drop not null;
+
+-- Ungleiche Tausche: wer mehr Fahrer bekommt, entlässt dafür zusätzlich eigene Fahrer
+alter table trades add column if not exists from_drop text[] not null default '{}';   -- entlässt from_manager (beim Angebot gewählt)
+alter table trades add column if not exists to_drop   text[] not null default '{}';   -- entlässt to_manager (bei Annahme gewählt)
 
 -- ---------------------------------------------------------------------
 -- Punkte: Korrekturen, eingefrorene Stände, Protokoll
@@ -1510,7 +1516,9 @@ begin
   v_me := _require_member(p_league);
   select * into l from leagues where id = p_league;
   if l.status <> 'active' then raise exception 'Waiver sind erst nach dem Draft möglich.'; end if;
-  if not exists (select 1 from roster_entries where manager_id = v_me and rider_slug = p_drop and released_on is null) then
+  if p_drop is null then
+    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen Fahrer zum Abgeben wählen.'; end if;
+  elsif not exists (select 1 from roster_entries where manager_id = v_me and rider_slug = p_drop and released_on is null) then
     raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.';
   end if;
   if not _rider_free(p_league, p_add, 'infinity') then raise exception 'Dieser Fahrer ist nicht frei.'; end if;
@@ -1521,7 +1529,7 @@ begin
 
   if p_immediate then
     -- Ersatz außer der Reihe bei Karriereende/Sperre
-    if not (select inactive from riders where pcs_slug = p_drop) then
+    if p_drop is null or not (select inactive from riders where pcs_slug = p_drop) then
       raise exception 'Sofort-Ersatz nur für Fahrer mit Karriereende oder Sperre.';
     end if;
     if not _rider_free(p_league, p_add, coalesce(l.last_waiver_run, '-infinity')) then
@@ -1564,7 +1572,9 @@ end $$;
 create or replace function _claim_valid(c waiver_claims, l leagues) returns text
 language plpgsql stable security definer set search_path = public as $$
 begin
-  if not exists (select 1 from roster_entries where manager_id = c.manager_id and rider_slug = c.drop_rider and released_on is null) then
+  if c.drop_rider is null then
+    if _open_roster_slots(c.manager_id) <= 0 then return 'Kader ist voll'; end if;
+  elsif not exists (select 1 from roster_entries where manager_id = c.manager_id and rider_slug = c.drop_rider and released_on is null) then
     return 'Abzugebender Fahrer nicht mehr im Kader';
   end if;
   if not _rider_free(l.id, c.add_rider, now()) then return 'Fahrer schon vergeben'; end if;
@@ -1591,7 +1601,7 @@ begin
   update waiver_claims set status = 'won', processed_at = now(), matchday_id = md.id where id = c.id;
   -- andere Anträge mit demselben abzugebenden Fahrer werden ungültig
   update waiver_claims set status = 'lost', note = 'Abzugebender Fahrer schon getauscht', processed_at = now(), matchday_id = md.id
-   where manager_id = c.manager_id and status = 'pending' and drop_rider = c.drop_rider;
+   where manager_id = c.manager_id and status = 'pending' and c.drop_rider is not null and drop_rider = c.drop_rider;
 end $$;
 
 -- Phase für den nächsten Spieltag: 'waiver' (Anträge sammeln), 'free' (sofort tauschen), null (kein Spieltag)
@@ -1618,8 +1628,12 @@ begin
   if l.transfer_mode <> 'waiver_free' or l.status <> 'active' then raise exception 'In dieser Liga gibt es keine freie Phase.'; end if;
   select * into md from matchdays where league_id = p_league and deadline > now() order by deadline limit 1;
   if not found or not md.waivers_done then raise exception 'Die freie Phase beginnt erst nach der Waiver-Runde.'; end if;
-  select * into e from roster_entries where manager_id = v_me and rider_slug = p_drop and released_on is null;
-  if not found then raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.'; end if;
+  if p_drop is null then
+    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen Fahrer zum Abgeben wählen.'; end if;
+  else
+    select * into e from roster_entries where manager_id = v_me and rider_slug = p_drop and released_on is null;
+    if not found then raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.'; end if;
+  end if;
   -- frei = in keinem Kader für den nächsten Spieltag (abgegebene Fahrer sind sofort wieder frei)
   if exists (select 1 from roster_entries where league_id = p_league and rider_slug = p_add and released_on is null) then
     raise exception 'Dieser Fahrer ist schon vergeben.';
@@ -1629,7 +1643,8 @@ begin
   end if;
   if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
   -- abgeben: erst in dieser Phase geholt → Eintrag entfernen, sonst endet er mit dem Spieltagstart
-  if e.acquired_on >= md.starts_on then
+  if e.id is null then null;
+  elsif e.acquired_on >= md.starts_on then
     delete from roster_entries where id = e.id;
   else
     update roster_entries set released_on = md.starts_on, released_at = now() where id = e.id;
@@ -1710,24 +1725,52 @@ end $$;
 -- Tausch zwischen Managern
 -- =====================================================================
 
-create or replace function propose_trade(p_league uuid, p_to uuid, p_give text[], p_take text[])
+-- Freie Kaderplätze eines Managers
+create or replace function _open_roster_slots(p_manager uuid) returns int
+language sql stable security definer set search_path = public as $$
+  select l.roster_size - (select count(*) from roster_entries re where re.manager_id = m.id and re.released_on is null)::int
+    from managers m join leagues l on l.id = m.league_id where m.id = p_manager;
+$$;
+
+-- Prüft Fahrer, die ein Manager im Tausch zusätzlich entlässt: im Kader, nicht Teil des Tauschs,
+-- nicht schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen
+create or replace function _check_trade_drops(p_manager uuid, p_drop text[], p_trade_riders text[], p_needed int) returns void
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if coalesce(array_length(p_drop, 1), 0) <> p_needed then
+    raise exception 'Bitte genau % Fahrer zum Entlassen auswählen, damit der Kader nicht zu groß wird.', p_needed;
+  end if;
+  if p_needed = 0 then return; end if;
+  if (select count(distinct x) from unnest(p_drop) x) <> p_needed or p_drop && p_trade_riders then
+    raise exception 'Zu entlassende Fahrer dürfen nicht Teil des Tauschs sein.';
+  end if;
+  if (select count(*) from roster_entries where manager_id = p_manager and released_on is null and rider_slug = any (p_drop)) <> p_needed then
+    raise exception 'Zu entlassende Fahrer müssen im eigenen Kader stehen.';
+  end if;
+  if exists (select 1 from waiver_claims where manager_id = p_manager and status = 'pending' and drop_rider = any (p_drop)) then
+    raise exception 'Ein Fahrer ist schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen.';
+  end if;
+end $$;
+
+drop function if exists propose_trade(uuid, uuid, text[], text[]);
+create or replace function propose_trade(p_league uuid, p_to uuid, p_give text[], p_take text[], p_drop text[] default '{}')
 returns uuid language plpgsql security definer set search_path = public as $$
-declare v_me uuid; v uuid;
+declare v_me uuid; v uuid; n_give int := coalesce(array_length(p_give, 1), 0); n_take int := coalesce(array_length(p_take, 1), 0);
 begin
   v_me := _require_member(p_league);
   if (select status from leagues where id = p_league) <> 'active' then raise exception 'Tausch erst nach dem Draft.'; end if;
   if p_to = v_me or not exists (select 1 from managers where id = p_to and league_id = p_league) then
     raise exception 'Ungültiger Tauschpartner.';
   end if;
-  if coalesce(array_length(p_give, 1), 0) = 0 or coalesce(array_length(p_give, 1), 0) <> coalesce(array_length(p_take, 1), 0) then
-    raise exception 'Beide Seiten müssen gleich viele Fahrer abgeben (mindestens 1).';
-  end if;
-  if (select count(*) from roster_entries where manager_id = v_me and released_on is null and rider_slug = any (p_give)) <> array_length(p_give, 1)
-     or (select count(*) from roster_entries where manager_id = p_to and released_on is null and rider_slug = any (p_take)) <> array_length(p_take, 1) then
+  if n_give = 0 or n_take = 0 then raise exception 'Beide Seiten müssen mindestens einen Fahrer abgeben.'; end if;
+  if (select count(*) from roster_entries where manager_id = v_me and released_on is null and rider_slug = any (p_give)) <> n_give
+     or (select count(*) from roster_entries where manager_id = p_to and released_on is null and rider_slug = any (p_take)) <> n_take then
     raise exception 'Die Fahrer müssen in den jeweiligen Kadern stehen.';
   end if;
-  insert into trades (league_id, from_manager, to_manager, give_riders, take_riders)
-  values (p_league, v_me, p_to, p_give, p_take) returning id into v;
+  -- bekomme ich mehr Fahrer als ich abgebe, entlasse ich die Differenz
+  perform _check_trade_drops(v_me, coalesce(p_drop, '{}'), p_give, greatest(n_take - n_give - _open_roster_slots(v_me), 0));
+  insert into trades (league_id, from_manager, to_manager, give_riders, take_riders, from_drop)
+  values (p_league, v_me, p_to, p_give, p_take, coalesce(p_drop, '{}')) returning id into v;
   perform _notify(p_to, '🔁 Neues Tauschangebot',
     (select team_name from managers where id = v_me) || ' bietet ' ||
     (select string_agg(_rname(x), ', ') from unnest(p_give) x) || ' für ' || (select string_agg(_rname(x), ', ') from unnest(p_take) x),
@@ -1735,15 +1778,22 @@ begin
   return v;
 end $$;
 
-create or replace function respond_trade(p_trade uuid, p_accept boolean) returns void
+drop function if exists respond_trade(uuid, boolean);
+create or replace function respond_trade(p_trade uuid, p_accept boolean, p_drop text[] default '{}') returns void
 language plpgsql security definer set search_path = public as $$
 declare t trades;
 begin
   select * into t from trades where id = p_trade for update;
   if not found or t.status <> 'proposed' then raise exception 'Kein offenes Angebot.'; end if;
   if t.to_manager <> my_manager(t.league_id) then raise exception 'Dieses Angebot ist nicht an dich.'; end if;
+  if p_accept then
+    -- bekomme ich mehr Fahrer als ich abgebe, entlasse ich die Differenz
+    perform _check_trade_drops(t.to_manager, coalesce(p_drop, '{}'), t.take_riders,
+      greatest(array_length(t.give_riders, 1) - array_length(t.take_riders, 1) - _open_roster_slots(t.to_manager), 0));
+  end if;
   update trades set status = case when p_accept then 'accepted' else 'declined' end,
-                    accepted_at = case when p_accept then now() end
+                    accepted_at = case when p_accept then now() end,
+                    to_drop = case when p_accept then coalesce(p_drop, '{}') else to_drop end
    where id = p_trade;
   perform _notify(t.from_manager, case when p_accept then '✅ Tausch angenommen' else '❌ Tausch abgelehnt' end,
     (select team_name from managers where id = t.to_manager) || case when p_accept
@@ -1781,11 +1831,16 @@ begin
   select * into md from matchdays where id = p_md;
   for t in select * from trades where league_id = md.league_id and status = 'accepted'
                                   and accepted_at + interval '24 hours' <= md.deadline order by accepted_at loop
-    if (select count(*) from roster_entries where manager_id = t.from_manager and released_on is null and rider_slug = any (t.give_riders)) <> array_length(t.give_riders, 1)
-       or (select count(*) from roster_entries where manager_id = t.to_manager and released_on is null and rider_slug = any (t.take_riders)) <> array_length(t.take_riders, 1) then
+    if (select count(*) from roster_entries where manager_id = t.from_manager and released_on is null
+          and rider_slug = any (t.give_riders || t.from_drop)) <> coalesce(array_length(t.give_riders || t.from_drop, 1), 0)
+       or (select count(*) from roster_entries where manager_id = t.to_manager and released_on is null
+          and rider_slug = any (t.take_riders || t.to_drop)) <> coalesce(array_length(t.take_riders || t.to_drop, 1), 0) then
       update trades set status = 'failed', note = 'Fahrer nicht mehr im Kader', done_at = now() where id = t.id;
       continue;
     end if;
+    -- zusätzlich entlassene Fahrer werden frei
+    foreach r in array t.from_drop loop perform _release(md.league_id, t.from_manager, r, md.starts_on); end loop;
+    foreach r in array t.to_drop loop perform _release(md.league_id, t.to_manager, r, md.starts_on); end loop;
     foreach r in array t.give_riders loop
       perform _release(md.league_id, t.from_manager, r, md.starts_on);
       insert into roster_entries (league_id, manager_id, rider_slug, source, acquired_on) values (md.league_id, t.to_manager, r, 'trade', md.starts_on);
@@ -2035,7 +2090,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

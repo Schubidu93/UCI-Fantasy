@@ -101,33 +101,58 @@ const TRADE_STATUS = { proposed: 'offen', accepted: 'angenommen – wird zum nä
 
 function Trades({ c }) {
   const trades = useLoad(() => q(sb.from('trades').select('*').eq('league_id', c.league.id).order('created_at', { ascending: false }).limit(50)), [c.league.id]);
+  const claims = useLoad(() => q(sb.from('waiver_claims').select('drop_rider').eq('manager_id', c.me.id).eq('status', 'pending')), [c.me.id]);
   const [partner, setPartner] = useState('');
   const [give, setGive] = useState([]);
   const [take, setTake] = useState([]);
+  const [drop, setDrop] = useState([]);          // zusätzlich entlassen (wenn ich mehr bekomme)
+  const [accept, setAccept] = useState(null);    // Angebot, das ich gerade annehme (mit Entlassungen)
   const a = useAction();
   const name = (s) => c.riderMap[s]?.name || s;
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
   const theirs = c.active.filter((r) => r.manager_id === partner);
+  const openSlots = c.league.roster_size - mine.length;
+  const pendingDrops = new Set((claims.data || []).map((x) => x.drop_rider).filter(Boolean));
   const flip = (list, set, slug) => set(list.includes(slug) ? list.filter((x) => x !== slug) : [...list, slug]);
   const act = (fn, args) => a.run(async () => { await rpc(fn, args); trades.reload(); c.reload(); });
+  // Fahrer, die ich zusätzlich entlassen muss, wenn ich mehr bekomme als ich abgebe
+  const needDrop = (getN, giveN) => Math.max(0, getN - giveN - openSlots);
+  const myNeed = needDrop(take.length, give.length);
+  const DropPicker = ({ exclude, need, sel, set }) => html`<div class="drop-pick">
+    <h4>Zusätzlich entlassen (${sel.length}/${need})</h4>
+    <p class="muted small">Du bekommst mehr Fahrer als du abgibst – damit der Kader nicht zu groß wird. Fahrer aus offenen Waiver-Anträgen sind ausgenommen.</p>
+    ${mine.filter((r) => !exclude.includes(r.rider_slug)).map((r) => html`<label class="check" key=${r.id}>
+      <input type="checkbox" disabled=${pendingDrops.has(r.rider_slug)} checked=${sel.includes(r.rider_slug)} onChange=${() => flip(sel, set, r.rider_slug)} />
+      ${name(r.rider_slug)}${pendingDrops.has(r.rider_slug) ? html` <span class="muted small">(Waiver-Antrag)</span>` : ''}</label>`)}
+  </div>`;
 
   return html`<section class="card stack">
     <h3>Tausch</h3>
-    <p class="muted small">Beide müssen zustimmen; danach hat der Admin 24 Stunden Vetorecht. Ausgeführt wird zum nächsten Stichtag.</p>
+    <p class="muted small">Auch ungleich möglich (z. B. 1 gegen 2): Wer mehr Fahrer bekommt, entlässt dafür eigene. Beide müssen zustimmen;
+      danach hat der Admin 24 Stunden Vetorecht. Ausgeführt wird zum nächsten Stichtag.</p>
     ${trades.data && trades.data.length > 0 && html`<ul class="list">${trades.data.map((t) => {
       const incoming = t.to_manager === c.me.id;
       const vetoOpen = t.status === 'accepted' && Date.now() < new Date(t.accepted_at).getTime() + 864e5;
+      const need = needDrop(t.give_riders.length, t.take_riders.length);
       return html`<li key=${t.id} class="stack-sm">
         <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t.give_riders.map(name).join(', ')}
-          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_riders.map(name).join(', ')}</div>
+          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_riders.map(name).join(', ')}
+          ${(t.from_drop?.length || t.to_drop?.length) ? html`<div class="muted small">entlassen: ${[...(t.from_drop || []), ...(t.to_drop || [])].map(name).join(', ')}</div>` : ''}</div>
         <div class="row"><span class="tag">${TRADE_STATUS[t.status]}</span>
           ${incoming && t.status === 'proposed' && html`
-            <button class="small primary" onClick=${() => act('respond_trade', { p_trade: t.id, p_accept: true })}>Annehmen</button>
+            <button class="small primary" onClick=${() => (need ? setAccept({ id: t.id, need, drop: [], exclude: t.take_riders })
+              : act('respond_trade', { p_trade: t.id, p_accept: true }))}>Annehmen</button>
             <button class="small" onClick=${() => act('respond_trade', { p_trade: t.id, p_accept: false })}>Ablehnen</button>`}
           ${t.from_manager === c.me.id && ['proposed', 'accepted'].includes(t.status) && html`
             <button class="small ghost" onClick=${() => act('cancel_trade', { p_trade: t.id })}>Zurückziehen</button>`}
           ${c.isAdmin && vetoOpen && html`<button class="small danger" onClick=${() => act('veto_trade', { p_trade: t.id })}>Veto</button>`}
-        </div></li>`;
+        </div>
+        ${accept?.id === t.id && html`<div class="stack">
+          <${DropPicker} exclude=${accept.exclude} need=${accept.need} sel=${accept.drop} set=${(d) => setAccept({ ...accept, drop: d })} />
+          <div class="row"><button class="primary" disabled=${a.busy || accept.drop.length !== accept.need}
+            onClick=${() => act('respond_trade', { p_trade: t.id, p_accept: true, p_drop: accept.drop }).then(() => setAccept(null))}>Annehmen und entlassen</button>
+            <button class="ghost" onClick=${() => setAccept(null)}>Abbrechen</button></div></div>`}
+      </li>`;
     })}</ul>`}
     <details><summary>Neues Angebot</summary>
       <div class="stack">
@@ -138,14 +163,16 @@ function Trades({ c }) {
           </select></label>
         ${partner && html`<div class="grid2">
           <div><h4>Ich gebe</h4>${mine.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${give.includes(r.rider_slug)} onChange=${() => flip(give, setGive, r.rider_slug)} /> ${name(r.rider_slug)}</label>`)}</div>
+            <input type="checkbox" checked=${give.includes(r.rider_slug)} onChange=${() => { flip(give, setGive, r.rider_slug); setDrop(drop.filter((x) => x !== r.rider_slug)); }} /> ${name(r.rider_slug)}</label>`)}</div>
           <div><h4>Ich bekomme</h4>${theirs.map((r) => html`<label class="check" key=${r.id}>
             <input type="checkbox" checked=${take.includes(r.rider_slug)} onChange=${() => flip(take, setTake, r.rider_slug)} /> ${name(r.rider_slug)}</label>`)}</div>
         </div>
-        <button class="primary" disabled=${a.busy || !give.length || give.length !== take.length}
-          onClick=${() => act('propose_trade', { p_league: c.league.id, p_to: partner, p_give: give, p_take: take }).then(() => { setGive([]); setTake([]); })}>
-          Angebot senden</button>
-        ${give.length !== take.length && html`<p class="muted small">Beide Seiten gleich viele Fahrer, damit die Kader voll bleiben.</p>`}`}
+        ${myNeed > 0 && html`<${DropPicker} exclude=${give} need=${myNeed} sel=${drop} set=${setDrop} />`}
+        ${give.length > take.length && take.length > 0 && html`<p class="muted small">Du gibst mehr Fahrer ab – ${c.managerMap[partner]?.team_name} wählt bei der Annahme, wen er dafür entlässt.</p>`}
+        <button class="primary" disabled=${a.busy || !give.length || !take.length || drop.length !== myNeed}
+          onClick=${() => act('propose_trade', { p_league: c.league.id, p_to: partner, p_give: give, p_take: take, p_drop: myNeed ? drop : [] })
+            .then(() => { setGive([]); setTake([]); setDrop([]); })}>
+          Angebot senden</button>`}
       </div>
     </details>
     <${Msg} msg=${a.msg} />
