@@ -1,0 +1,22 @@
+name: Datenbank abfragen (nur lesen)
+
+# Für die Fehlersuche: führt eine SQL-Abfrage in einer schreibgeschützten Transaktion aus.
+on:
+  workflow_dispatch:
+    inputs:
+      sql:
+        description: "SQL-Abfrage (nur lesend)"
+        required: true
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt-get install -y -qq postgresql-client
+      - name: Abfrage
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SQL: ${{ inputs.sql }}
+        run: |
+          printf 'begin transaction read only;\n%s;\nrollback;\n' "$SQL" > q.sql
+          psql "$SUPABASE_DB_URL" -P pager=off -v ON_ERROR_STOP=1 -f q.sql
