@@ -29,7 +29,9 @@ LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 REFRESH = os.environ.get("REFRESH") == "1"
 CLASSES = {c for c in os.environ.get("CLASSES", "").split(",") if c}
 CATEGORY_NAME = {"men": "Men Elite", "women": "Women Elite"}
-FERTIG_NACH_TAGEN = 21     # so lange nach Rennende wird ein Rennen noch aktualisiert (Korrekturen)
+FERTIG_NACH_TAGEN = 21     # nach so vielen Tagen gilt ein Ergebnis als endgültig (ein letzter Abgleich danach)
+# Täglich nur Rennen der letzten Tage nachladen; mittwochs alle der letzten 3 Wochen (Korrekturen der UCI)
+FENSTER = int(os.environ.get("FENSTER") or (FERTIG_NACH_TAGEN if date.today().weekday() == 2 else 3))
 
 
 def replace_provisional(gender, cal, today):
@@ -125,19 +127,24 @@ def main():
         # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
         comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today]
         print(f"{gender}: {len(comps)} gestartete Rennen")
-        todo = []
+        todo, final_pass = [], set()
         for c in comps:
             end = ms_date(c.get("EndDate"))
             prev = loaded.get(c["CompetitionId"])
-            done = prev and prev.get("loaded_at") and end and (today - end).days > FERTIG_NACH_TAGEN \
-                and prev["loaded_at"] > (end + timedelta(days=FERTIG_NACH_TAGEN)).isoformat()
-            if REFRESH or not done:
+            age = (today - end).days if end else 0           # < 0: Rennen läuft noch
+            never = not (prev and prev.get("loaded_at"))
+            recent = age <= FENSTER                          # läuft oder gerade erst beendet
+            final = age > FERTIG_NACH_TAGEN and not never \
+                and prev["loaded_at"] <= (end + timedelta(days=FERTIG_NACH_TAGEN)).isoformat()
+            if REFRESH or never or recent or final:
                 todo.append(c)
+                if REFRESH or never or final:
+                    final_pass.add(c["CompetitionId"])       # komplett laden, nicht nur die letzten Etappen
         if CLASSES:
             todo = [c for c in todo if c.get("ClassCode") in CLASSES]
         if LIMIT:
             todo = todo[:LIMIT]
-        print(f"  davon zu laden: {len(todo)}")
+        print(f"  davon zu laden: {len(todo)} (Fenster {FENSTER} Tage)")
 
         for n, c in enumerate(todo, 1):
             start, end = ms_date(c.get("StartDate")), ms_date(c.get("EndDate"))
@@ -147,6 +154,12 @@ def main():
                         "dataride_id": c["CompetitionId"],
                         "start_date": start.isoformat() if start else None, "end_date": end.isoformat() if end else None}
             events, results = [], []
+            # Rundfahrten: ältere, schon gespeicherte Etappen nicht jedes Mal neu abfragen
+            full = DRY_RUN or c["CompetitionId"] in final_pass
+            have = set() if full else {e["stage_name"] for e in db.select(
+                "race_events", {"select": "stage_name", "race_slug": f"eq.{slug}", "limit": 2000})}
+            cutoff = today - timedelta(days=FENSTER)
+            skipped = 0
             try:
                 for race in dr.races(c["CompetitionId"]):
                     # Meisterschaften enthalten alle Kategorien (Elite, U23, Junioren, Frauen) – nur die passende
@@ -154,6 +167,9 @@ def main():
                     if cat and cat != CATEGORY_NAME[gender]:
                         continue
                     day = ms_date(race.get("StartDate"))
+                    if not full and day and day < cutoff and race.get("RaceName") in have:
+                        skipped += 1
+                        continue
                     for ev in dr.events(race["Id"]):
                         events.append({"id": ev["EventId"], "race_slug": slug, "stage_name": race.get("RaceName"),
                                        "stage_no": stage_order(race), "event_name": ev.get("EventName") or "",
@@ -177,15 +193,17 @@ def main():
                 print(f"  ! {c['CompetitionName']}: {e}")
                 continue
 
-            label = f"  [{n}/{len(todo)}] {c['CompetitionName'][:40]:<40} {c.get('ClassCode') or '':<6} {len(events):>3} Wertungen {len(results):>5} Zeilen"
+            label = f"  [{n}/{len(todo)}] {c['CompetitionName'][:40]:<40} {c.get('ClassCode') or '':<6} {len(events):>3} Wertungen {len(results):>5} Zeilen" + (f" ({skipped} ältere Etappen übersprungen)" if skipped else "")
             print(label)
             if DRY_RUN:
                 for row in results[:3]:
                     print(f"      {row['rank_text']:>4} {row['rider_name']:<26} {row['team'] or '':<28} {row['result'] or '':>10} {row['uci_points']}")
                 continue
             db.upsert("races", [race_row], "pcs_slug")
-            # alte Wertungen dieses Rennens entfernen (auch fälschlich zugeordnete anderer Kategorien)
-            db.delete("race_events", {"race_slug": f"eq.{slug}"})
+            # alte Wertungen dieses Rennens entfernen (auch fälschlich zugeordnete anderer Kategorien) –
+            # bei nur teilweise geladenen Rundfahrten bleiben die übersprungenen Etappen stehen
+            if not skipped:
+                db.delete("race_events", {"race_slug": f"eq.{slug}"})
             if events:
                 db.upsert("race_events", events, "id")
                 ids = ",".join(str(e["id"]) for e in events)
