@@ -278,20 +278,25 @@ function Matchdays({ c }) {
 
   return html`<section class="card stack">
     <h3>Spieltage</h3>
-    <p class="muted small">Zeiträume dürfen unterschiedlich lang sein, aber sich nicht überlappen. Lücken sind erlaubt (Punkte darin verfallen).
-      ${two
+    <ul class="small muted md-help">
+      <li>Zeiträume dürfen unterschiedlich lang sein, aber sich nicht überlappen. Lücken sind erlaubt (Punkte darin verfallen).</li>
+      <li>${two
         ? 'Standard: Waiver-Auswertung 7 Tage vor Start um 20 Uhr (ist der vorige Spieltag kürzer als 14 Tage: nach seiner Hälfte), danach freie Phase bis zum Stichtag um 0:00 Uhr am Starttag.'
-        : 'Stichtag für Waiver und Aufstellung ist standardmäßig der Vortag des Spieltags um 20:00 Uhr.'}
-      Leere Felder = Standard. Laufende und abgeschlossene Spieltage sind gesperrt.</p>
-    ${c.matchdays.length ? html`<table class="tbl">
-      <thead><tr><th>Name</th><th>Zeitraum</th>${two && html`<th>Waiver</th>`}<th>Stichtag</th><th>Status</th><th></th></tr></thead>
-      <tbody>${c.matchdays.map((m) => html`<tr key=${m.id}>
-        <td>${m.name}</td><td>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</td>${two && html`<td>${fmtDateTime(m.waiver_deadline || m.deadline)}</td>`}<td>${fmtDateTime(m.deadline)}</td>
-        <td>${m.frozen ? 'eingefroren' : m.status === 'closed' ? 'abgeschlossen' : m.status === 'running' ? 'läuft' : locked(m) ? 'Stichtag vorbei' : 'geplant'}</td>
-        <td class="right">${!locked(m) && html`
+        : 'Standard-Stichtag für Waiver und Aufstellung: Vortag des Spieltags um 20:00 Uhr.'}</li>
+      <li>Leere Felder = Standard. Laufende und abgeschlossene Spieltage sind gesperrt.</li>
+    </ul>
+    ${c.matchdays.length ? html`<ul class="list md-admin">${c.matchdays.map((m, i) => html`<li key=${m.id}>
+      <span class="md-no">${i + 1}</span>
+      <span class="md-what"><strong>${m.name}</strong>
+        <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
+        ${two && html`<small>Waiver ${fmtDateTime(m.waiver_deadline || m.deadline)}</small>`}
+        <small>Stichtag ${fmtDateTime(m.deadline)}</small></span>
+      <span class="md-actions">
+        <span class="tag">${m.frozen ? 'eingefroren' : m.status === 'closed' ? 'abgeschlossen' : m.status === 'running' ? 'läuft' : locked(m) ? 'Frist vorbei' : 'geplant'}</span>
+        ${!locked(m) && html`
           <button class="small ghost" onClick=${() => setF({ ...m, deadline: toLocal(m.deadline), waiver_deadline: m.waiver_deadline ? toLocal(m.waiver_deadline) : '' })}>Bearbeiten</button>
-          <button class="small danger" onClick=${() => confirm(`${m.name} löschen?`) && a.run(async () => { await rpc('delete_matchday', { p_id: m.id }); c.reload(); })}>Löschen</button>`}</td>
-      </tr>`)}</tbody></table>` : html`<p class="muted">Noch keine Spieltage. Am schnellsten: unten „Spieltage automatisch vorschlagen“ → „Aus Rennkalender“ → „Alle anlegen“.</p>`}
+          <button class="small danger" onClick=${() => confirm(`${m.name} löschen?`) && a.run(async () => { await rpc('delete_matchday', { p_id: m.id }); c.reload(); })}>Löschen</button>`}
+      </span></li>`)}</ul>` : html`<p class="muted">Noch keine Spieltage. Am schnellsten: unten „Spieltage automatisch vorschlagen“ → „Aus Rennkalender“ → „Alle anlegen“.</p>`}
 
     <form class="grid2 compact" onSubmit=${save}>
       <label>Name<input required value=${f.name} onInput=${(e) => setF({ ...f, name: e.target.value })} placeholder="z. B. Tour de France" /></label>
