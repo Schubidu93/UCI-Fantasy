@@ -6,11 +6,15 @@ import { describeEvent } from './races.js';
 // Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
 const FIRST_YEAR = 2025;
 
+// Zwischenstand einer Rundfahrt nach einer Etappe, z. B. „Etappe 7 · GC“
+const isInterim = (x) => /^(Etappe \d+|Prolog) · /.test(describeEvent(x.ev.stage_name, x.ev.event_name));
+// Berg-, Punkte- und Nebenwertungen nach einzelnen Etappen ohne UCI-Punkte – nur die Endwertung zählt
+const interimSide = (x) => isInterim(x) && !/ · GC$/.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && !Number(x.uci_points);
+
 // Platz 1–3 als Gold/Silber/Bronze – nicht bei Zwischenständen in Rundfahrten (z. B. „Etappe 7 · GC“)
 function placeLabel(x) {
   if (x.rank_text && !/^\d+$/.test(x.rank_text)) return x.rank_text;
-  const interim = / · /.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && /^(Etappe \d+|Prolog)/.test(describeEvent(x.ev.stage_name, x.ev.event_name));
-  return x.rank >= 1 && x.rank <= 3 && !interim
+  return x.rank >= 1 && x.rank <= 3 && !isInterim(x)
     ? html`<span class=${`medal m${x.rank}`}>Platz ${x.rank}</span>` : `Platz ${x.rank}`;
 }
 
@@ -63,7 +67,7 @@ export function RiderModal() {
   const years = [...new Set(withPoints.map(yearOf))].filter((yy) => yy >= FIRST_YEAR).sort();
   const thisYear = new Date().getFullYear();
   const y = year || (years.includes(thisYear) ? thisYear : years[years.length - 1]);
-  const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y)
+  const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y && !interimSide(x))
     .sort((a, b) => (b.ev.event_date || '').localeCompare(a.ev.event_date || '') || a.ev.id - b.ev.id);
   const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.uci_points), 0);
   const current = !y || y === thisYear;
