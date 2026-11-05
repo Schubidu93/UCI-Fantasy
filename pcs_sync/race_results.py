@@ -101,8 +101,9 @@ def main():
         print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
         if cal and not DRY_RUN:
             db.upsert("races", cal, "pcs_slug")
-        comps = [c for c in comps if (ms_date(c.get("EndDate")) or today) <= today]   # nur bereits gefahrene
-        print(f"{gender}: {len(comps)} gefahrene Rennen")
+        # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
+        comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today]
+        print(f"{gender}: {len(comps)} gestartete Rennen")
         todo = []
         for c in comps:
             end = ms_date(c.get("EndDate"))
