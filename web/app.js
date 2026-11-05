@@ -13,6 +13,7 @@ import { RiderModal } from './views/rider.js';
 import { Riders } from './views/riders.js';
 import { Races } from './views/races.js';
 import { Rules } from './views/rules.js';
+import { More } from './views/more.js';
 import { registerServiceWorker } from './views/push.js';
 
 function useHash() {
@@ -60,10 +61,32 @@ async function loadLeague(id, userId) {
   };
 }
 
-const TABS = [
-  ['draft', 'Draft'], ['team', 'Team'], ['riders', 'Fahrer'], ['races', 'Rennen'], ['waiver', 'Waiver'],
-  ['results', 'Ergebnisse'], ['table', 'Tabelle'], ['rules', 'Regeln'], ['admin', 'Admin'],
-];
+// Navigation: fünf Bereiche (auf dem Handy als Leiste unten), darunter ggf. Unterreiter
+const ICONS = {
+  liga: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  team: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  draft: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  riders: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  races: '<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>',
+  more: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+};
+const Icon = ({ name }) => html`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: ICONS[name] }}></svg>`;
+
+function sections(c) {
+  const beforeDraft = ['setup', 'drafting'].includes(c.league.status);
+  const afterDraft = ['active', 'finished'].includes(c.league.status);
+  return [
+    { key: 'liga', label: 'Liga', tabs: [['table', 'Tabelle'], ['results', 'Spieltage']] },
+    beforeDraft
+      ? { key: 'draft', label: 'Draft', tabs: [['draft', 'Draft']] }
+      : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['waiver', 'Waiver']] : [])] },
+    { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
+    { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
+    { key: 'more', label: 'Mehr', tabs: [['more', 'Übersicht'], ['rules', 'Regeln'],
+      ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },
+  ];
+}
 
 function LeagueShell({ id, tab, sub, sub2, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
@@ -71,7 +94,11 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'setup' || c.league.status === 'drafting' ? 'draft' : 'table';
   const t = tab || defaultTab;
-  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results, table: Table, admin: Admin }[t] || Table;
+  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results,
+    table: Table, admin: Admin, more: More }[t] || Table;
+  const secs = sections(c);
+  const current = secs.find((x) => x.tabs.some(([k]) => k === t)) || secs[0];
+  const href = (k) => `#/league/${id}/${k}`;
   return html`
     <header class="league-head">
       <div class="wrap row between">
@@ -86,10 +113,15 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
           </div>
         </div>
       </div>
-      <nav class="tabs wrap" aria-label="Bereiche">
-        ${TABS.filter(([k]) => (k !== 'admin' || c.isAdmin) && (k !== 'waiver' || ['active', 'finished'].includes(c.league.status))).map(([k, label]) =>
-          html`<a href=${`#/league/${id}/${k}`} class=${k === t ? 'active' : ''}>${label}</a>`)}
+      <nav class="mainnav" aria-label="Bereiche">
+        <div class="wrap mainnav-inner">
+          ${secs.map((x) => html`<a href=${href(x.tabs[0][0])} class=${x === current ? 'active' : ''}>
+            <${Icon} name=${x.key} /><span>${x.label}</span></a>`)}
+        </div>
       </nav>
+      ${current.tabs.length > 1 && html`<nav class="subnav wrap" aria-label="Unterbereiche">
+        ${current.tabs.map(([k, label]) => html`<a href=${href(k)} class=${k === t ? 'active' : ''}>${label}</a>`)}
+      </nav>`}
     </header>
     <main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} /></main>`;
 }
