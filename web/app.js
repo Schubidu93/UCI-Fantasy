@@ -90,7 +90,7 @@ function sections(c) {
 
 function LeagueShell({ id, tab, sub, sub2, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
-  if (!ctx.data) return html`<main class="wrap"><${Loading} error=${ctx.error} /></main>`;
+  if (!ctx.data) return html`<div class="scroll"><main class="wrap"><${Loading} error=${ctx.error} /></main></div>`;
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'setup' || c.league.status === 'drafting' ? 'draft' : 'table';
   const t = tab || defaultTab;
@@ -126,26 +126,29 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
         ${current.tabs.map(([k, label]) => html`<a href=${href(k)} class=${k === t ? 'active' : ''}>${label}</a>`)}
       </nav>`}
     </header>
-    <main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} /></main>`;
+    <div class="scroll" key=${t}><main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} /></main></div>`;
 }
+
+// Nur dieser Bereich scrollt – Kopf und Menüleiste stehen fest (kein Inhalt unter der iPhone-Statusleiste)
+const Scroll = ({ children }) => html`<div class="scroll">${children}</div>`;
 
 function App() {
   const session = useSession();
   const hash = useHash();
-  if (session === undefined) return html`<main class="wrap"><p class="muted">Lädt …</p></main>`;
+  if (session === undefined) return html`<${Scroll}><main class="wrap"><p class="muted">Lädt …</p></main><//>`;
   const parts = hash.split('/').filter(Boolean);
   if (!session) {
     if (parts[0] === 'join') sessionStorage.setItem('joinAfterLogin', parts[1]);
-    return html`<${Login} />`;
+    return html`<${Scroll}><${Login} /><//>`;
   }
   const pending = sessionStorage.getItem('joinAfterLogin');
   if (pending) {
     sessionStorage.removeItem('joinAfterLogin');
     location.hash = `#/join/${pending}`;
   }
-  if (parts[0] === 'join') return html`<${Join} code=${parts[1]} session=${session} />`;
+  if (parts[0] === 'join') return html`<${Scroll}><${Join} code=${parts[1]} session=${session} /><//>`;
   if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} sub2=${parts[4]} session=${session} />`;
-  return html`<${Home} session=${session} />`;
+  return html`<${Scroll}><${Home} session=${session} /><//>`;
 }
 
 registerServiceWorker();
