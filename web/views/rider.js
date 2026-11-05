@@ -11,6 +11,12 @@ const isInterim = (x) => /^(Etappe \d+|Prolog) · /.test(describeEvent(x.ev.stag
 // Berg-, Punkte- und Nebenwertungen nach einzelnen Etappen ohne UCI-Punkte – nur die Endwertung zählt
 const interimSide = (x) => isInterim(x) && !/ · GC$/.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && !Number(x.uci_points);
 
+// Eintagesrennen (Klasse 1.x) haben kein GC – dort heißt die Wertung „Ergebnis“
+const label = (x) => {
+  const l = describeEvent(x.ev.stage_name, x.ev.event_name);
+  return l === 'GC' && /^1\./.test(x.race?.uci_class || '') ? 'Ergebnis' : l;
+};
+
 // Platz 1–3 als Gold/Silber/Bronze – nicht bei Zwischenständen in Rundfahrten (z. B. „Etappe 7 · GC“)
 function placeLabel(x) {
   if (x.rank_text && !/^\d+$/.test(x.rank_text)) return html`<span class="muted">${x.rank_text}</span>`;
@@ -97,8 +103,8 @@ export function RiderModal() {
   const row = (x, withRace) => html`<div key=${x.event_id} class=${`res-row ${L ? 'clickable' : ''} ${isInterim(x) ? 'interim' : ''}`} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
     <span class="res-date">${shortDate(x.ev.event_date)}</span>
     <span class="res-what">${withRace
-      ? html`<b>${x.race?.name || x.ev.race_slug}</b><small>${describeEvent(x.ev.stage_name, x.ev.event_name)}${x.result ? ` · ${x.result}` : ''}</small>`
-      : html`${describeEvent(x.ev.stage_name, x.ev.event_name)}${x.result ? html`<small>${x.result}</small>` : ''}`}</span>
+      ? html`<b>${x.race?.name || x.ev.race_slug}</b><small>${label(x)}${x.result ? ` · ${x.result}` : ''}</small>`
+      : html`${label(x)}${x.result ? html`<small>${x.result}</small>` : ''}`}</span>
     <span class="res-place">${placeLabel(x)}</span>
     <span class="res-pts">${Number(x.uci_points) ? fmtPts(x.uci_points) : ''}</span>
   </div>`;
