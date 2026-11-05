@@ -32,6 +32,26 @@ CATEGORY_NAME = {"men": "Men Elite", "women": "Women Elite"}
 FERTIG_NACH_TAGEN = 21     # so lange nach Rennende wird ein Rennen noch aktualisiert (Korrekturen)
 
 
+def replace_provisional(gender, cal, today):
+    """Vorläufige Kalendereinträge (von Hand, provisional=true) löschen, sobald DataRide das Rennen liefert:
+    gleiche Klasse und Start höchstens 3 Tage auseinander. Abgelaufene Platzhalter ebenfalls entfernen."""
+    import db
+    prov = db.select("races", {"select": "pcs_slug,uci_class,start_date,end_date", "gender": f"eq.{gender}",
+                               "provisional": "is.true", "limit": 500})
+    gone = []
+    for p in prov:
+        start = date.fromisoformat(p["start_date"])
+        end = date.fromisoformat(p["end_date"] or p["start_date"])
+        if end < today - timedelta(days=7) or any(
+                c["uci_class"] == p["uci_class"] and abs((date.fromisoformat(c["start_date"]) - start).days) <= 3
+                for c in cal):
+            gone.append(p["pcs_slug"])
+    for slug in gone:
+        db.delete("races", {"pcs_slug": f"eq.{slug}", "provisional": "is.true"})
+    if gone:
+        print(f"  {len(gone)} vorläufige Kalendereinträge durch DataRide ersetzt bzw. entfernt")
+
+
 def rank_int(text):
     return int(text) if text and str(text).strip().isdigit() else None
 
@@ -101,6 +121,7 @@ def main():
         print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
         if cal and not DRY_RUN:
             db.upsert("races", cal, "pcs_slug")
+            replace_provisional(gender, cal, today)
         # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
         comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today]
         print(f"{gender}: {len(comps)} gestartete Rennen")

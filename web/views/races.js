@@ -20,8 +20,8 @@ const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 
 
 export function Races({ c, sub, sub2 }) {
   const year = new Date().getFullYear();
-  const races = useLoad(() => all(() => sb.from('races').select('pcs_slug,name,uci_class,country,start_date,end_date')
-    .eq('gender', c.league.gender).not('dataride_id', 'is', null)
+  const races = useLoad(() => all(() => sb.from('races').select('pcs_slug,name,uci_class,country,start_date,end_date,provisional')
+    .eq('gender', c.league.gender).or('dataride_id.not.is.null,provisional.is.true')
     .gte('start_date', `${year}-01-01`).order('start_date', { ascending: false })), [c.league.gender, year]);
   if (sub) return html`<${RaceDetail} key=${sub + (sub2 || '')} c=${c} slug=${decodeURIComponent(sub)} initialEvent=${sub2 ? +sub2 : null} />`;
   if (!races.data) return html`<${Loading} error=${races.error} />`;
@@ -58,7 +58,7 @@ function RaceList({ c, races }) {
       </div></div>
     <p class="muted small">${list.length} von ${byMode.length} Rennen${mode === 'calendar' ? ' · Startlisten liefert die UCI leider nicht' : ''}</p>
     ${mode === 'calendar' && byMode.length < 10 && html`<p class="note small">Die UCI trägt den Rennkalender der nächsten Saison erst nach und nach ein.
-      Neue Rennen erscheinen hier automatisch (Abruf mittwochs).</p>`}
+      Neue Rennen erscheinen hier automatisch (Abruf täglich um 20 Uhr).</p>`}
     <div class="filters">
       <input type="search" placeholder="Rennen suchen" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${group} onChange=${(e) => setGroup(e.target.value)}>${CLASS_GROUPS.map(([k, l]) => html`<option value=${k}>${l}</option>`)}</select>
@@ -72,7 +72,7 @@ function RaceList({ c, races }) {
         <strong>${r.name}</strong>
         <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${withFlag(r.country)}` : ''}</span>
       </a>
-      <span class="row">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
+      <span class="row">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}${r.provisional ? html`<span class="tag warn" title="Termin aus dem veröffentlichten UCI-Kalender – wird ersetzt, sobald die UCI das Rennen in DataRide einträgt">vorläufig</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
   </section>`;
 }
 
