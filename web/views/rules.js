@@ -55,12 +55,14 @@ export function Rules({ c }) {
     <section class="card">
       <h3>Punkte</h3>
       <ul>
-        <li>Ein Fahrer bringt seinem Manager genau die <strong>UCI-Punkte</strong>, die er für ein Ergebnis in der Weltrangliste erhält – vom kleinen .2-Rennen bis zum Tour-Sieg (1.300).</li>
+        <li>Ein Fahrer bringt seinem Manager genau die <strong>UCI-Punkte aus dem Rennergebnis</strong> – z. B. für Platz 7 einer Etappe –
+          vom kleinen .2-Rennen bis zum Tour-Sieg (1.300).</li>
         <li>Etappen, Gesamtwertung, Trikots und Führungstage zählen jeweils einzeln, so wie die UCI sie vergibt.</li>
+        <li>Die Punkte werden <strong>direkt mit dem Ergebnis</strong> gutgeschrieben – es muss nicht auf die Weltrangliste gewartet werden.
+          Ergebnisse werden täglich um 20 Uhr abgerufen, bei laufenden Rundfahrten Etappe für Etappe.</li>
         <li>Gezählt wird ab dem Tag, an dem der Fahrer ins Team kommt, bis zum Tag seiner Abgabe.</li>
         <li>Einmal gutgeschriebene Punkte bleiben – anders als im rollierenden 52-Wochen-Ranking der UCI.</li>
-        <li>Die UCI rechnet ihr Ranking <strong>einmal pro Woche</strong> neu; neue Punkte erscheinen deshalb mit einigen Tagen Verzögerung.</li>
-        <li>Aberkannte Ergebnisse (z. B. Doping) werden automatisch abgezogen, solange der Spieltag nicht eingefroren ist.</li>
+        <li>Korrigiert die UCI ein Ergebnis (z. B. Aberkennung wegen Doping), wird das automatisch übernommen, solange der Spieltag nicht eingefroren ist.</li>
       </ul>
     </section>
 
@@ -90,7 +92,7 @@ export function Rules({ c }) {
     <section class="card">
       <h3>Daten</h3>
       <p class="small">Fahrer, Ranglisten und Ergebnisse stammen aus <strong>UCI DataRide</strong>, der offiziellen Seite der UCI-Weltrangliste.
-        Fahrerpunkte werden täglich abgerufen, Rennergebnisse und das Ranking wöchentlich (mittwochs). Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</p>
+        Rennergebnisse werden täglich um 20 Uhr abgerufen, Fahrer und Weltrangliste täglich morgens und vollständig mittwochs. Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</p>
     </section>
   </div>`;
 }
