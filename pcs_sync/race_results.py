@@ -21,6 +21,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 
 from dataride import DataRide, ms_date, normalize_name, race_slug
+from sync import notify_points
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 GENDERS = os.environ.get("GENDERS", "men,women").split(",")
@@ -165,11 +166,44 @@ def main():
                 # gleiche Sortierposition zweimal (sollte nicht vorkommen) → letzte gewinnt
                 uniq = list({(r["event_id"], r["sort_order"]): r for r in results}.values())
                 db.upsert("event_results", uniq, "event_id,sort_order")
+                # Punkte sofort in die Fantasy-Wertung übernehmen (gleiche Schlüssel wie beim Ranking-Abruf,
+                # das wöchentliche Ranking bleibt die Kontrolle und korrigiert ggf.)
+                ev_by_id = {e["id"]: e for e in events}
+                points = {}
+                for r in uniq:
+                    if not r["rider_slug"] or not r["uci_points"] or float(r["uci_points"]) <= 0:
+                        continue
+                    ev = ev_by_id[r["event_id"]]
+                    if not ev["event_date"]:
+                        continue
+                    parts = [p.strip() for p in (ev["stage_name"], ev["event_name"]) if p and p.strip()]
+                    label = (" · ".join(dict.fromkeys(parts)) or "Ergebnis")[:200]
+                    points[(r["rider_slug"], label)] = {"rider_slug": r["rider_slug"], "race_slug": slug, "label": label,
+                                                        "result_date": ev["event_date"], "rank": r["rank"],
+                                                        "uci_points": float(r["uci_points"])}
+                if points:
+                    existing = db.select("results", {"select": "rider_slug,label,result_date,uci_points",
+                                                     "race_slug": f"eq.{slug}", "limit": 5000})
+                    known = {(r["rider_slug"], r["label"]) for r in existing}
+                    # Sicherheitsnetz gegen Doppelzählung: gleiches Ergebnis (Fahrer, Tag, Punkte) unter anderem Namen
+                    same = {(r["rider_slug"], r["result_date"], float(r["uci_points"])) for r in existing}
+                    points = {k: r for k, r in points.items()
+                              if k in known or (r["rider_slug"], r["result_date"], r["uci_points"]) not in same}
+                if points:
+                    db.upsert("results", list(points.values()), "rider_slug,race_slug,label")
+                    recent = (today - timedelta(days=10)).isoformat()
+                    fresh = [r for k, r in points.items() if k not in known and r["result_date"] >= recent]
+                    if fresh:
+                        try:
+                            notify_points(fresh, {slug: {"name": race_row["name"]}})
+                        except Exception as e:     # Benachrichtigungen dürfen das Laden nie stoppen
+                            print(f"  Benachrichtigungen übersprungen: {e}")
             db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
     if not DRY_RUN:
         n = db.rpc("relink_event_riders")
         print(f"{n} Ergebniszeilen neu mit Fahrern verknüpft.")
+        db.rpc("run_maintenance")     # Stichtage, Spieltage abschließen, Stand aktualisieren
     print(f"\nFertig nach {int(time.time() - started) // 60} Minuten.")
 
 
