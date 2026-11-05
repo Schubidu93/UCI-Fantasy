@@ -9,6 +9,11 @@ on:
     workflows: ["Ergebnisse abrufen (UCI)"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      test:
+        description: "Testnachricht an alle Geräte schicken"
+        type: boolean
+        default: false
 
 concurrency:
   group: push
@@ -27,5 +32,6 @@ jobs:
       - run: python send_push.py
         working-directory: pcs_sync
         env:
+          TEST: ${{ inputs.test && '1' || '' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

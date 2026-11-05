@@ -10,6 +10,7 @@ Abgelaufene Abos (HTTP 404/410) werden gelöscht. Nachrichten, die älter als
 """
 import base64
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 from cryptography.hazmat.primitives import serialization
@@ -36,8 +37,19 @@ def ensure_vapid():
     return v
 
 
+def queue_test():
+    """Testnachricht an alle Nutzer mit eingeschalteten Benachrichtigungen vormerken."""
+    users = sorted({s["user_id"] for s in db.select("push_subscriptions", {"select": "user_id"})})
+    if users:
+        db.insert("notifications", [{"user_id": u, "title": "🚴 Test von UCI Fantasy",
+                                     "body": "Benachrichtigungen funktionieren! Antippen öffnet die App.", "url": ""} for u in users])
+    print(f"Testnachricht für {len(users)} Nutzer vorgemerkt.")
+
+
 def main():
     vapid = ensure_vapid()
+    if os.environ.get("TEST") == "1":
+        queue_test()
     pending = db.select("notifications", {"select": "*", "sent_at": "is.null", "order": "id", "limit": 500})
     if not pending:
         print("Keine neuen Benachrichtigungen.")
