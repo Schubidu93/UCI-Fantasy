@@ -8,7 +8,7 @@ DRY_RUN=1 → nur anzeigen, nichts speichern.
 import os
 from datetime import datetime, timezone
 
-from dataride import DataRide, rider_slug
+from dataride import DataRide, ms_date, rider_slug
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 MAX_RIDERS = 6000           # alle Fahrer mit UCI-Punkten (Männer ca. 3400, Frauen weniger)
@@ -31,6 +31,7 @@ def main():
             "team": (r.get("TeamName") or "").strip() or None,
             "uci_rank": r.get("Rank"),
             "ranking_points": r.get("Points"),
+            "birth_date": (ms_date(r.get("BirthDate")) or None) and ms_date(r.get("BirthDate")).isoformat(),
             "updated_at": now,
         } for r in rows if r.get("ObjectId") and r.get("DisplayName")]
         print(f"{gender}: {rk['RankingName']} – {len(riders)} Fahrer")

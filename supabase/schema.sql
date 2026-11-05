@@ -54,6 +54,7 @@ create table if not exists riders (
 );
 alter table riders add column if not exists ranking_points numeric;
 alter table riders add column if not exists inactive boolean not null default false;
+alter table riders add column if not exists birth_date date;
 create index if not exists riders_gender_rank on riders (gender, uci_rank);
 
 create table if not exists races (
@@ -742,6 +743,8 @@ begin
                            deadline = null, nominator = null, updated_at = now()
      where league_id = p_league;
     update leagues set status = 'active', last_waiver_run = now() where id = p_league;
+    perform _notify(m.id, '🏁 Draft beendet!', l.name || ': Dein Draft-Report mit Note ist da.', '#/league/' || p_league || '/draft')
+       from managers m where m.league_id = p_league;
     return;
   end if;
 

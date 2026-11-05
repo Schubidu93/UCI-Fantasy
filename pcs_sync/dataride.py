@@ -12,7 +12,7 @@ Abrufe bewusst sparsam und mit ehrlicher Kennung (keine Browser-Tarnung).
 import re
 import time
 import unicodedata
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import requests
 
@@ -133,10 +133,10 @@ class DataRide:
 
 def ms_date(value):
     """'/Date(1787868000000)/' → date (DataRide: Mitternacht Schweizer Zeit)"""
-    m = re.search(r"(-?\d{10,})", value or "")
-    if not m or m.group(1).startswith("-"):
+    m = re.search(r"(-?\d{9,})", value or "")
+    if not m or int(m.group(1)) <= -62135596800000 + 86400000:   # "0001-01-01" = kein Datum
         return None
-    return datetime.utcfromtimestamp(int(m.group(1)) / 1000 + 12 * 3600).date()
+    return (datetime(1970, 1, 1) + timedelta(milliseconds=int(m.group(1)) + 12 * 3600 * 1000)).date()
 
 
 # ---- Umwandlung in unsere Tabellen --------------------------------------------

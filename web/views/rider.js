@@ -69,7 +69,9 @@ export function RiderModal() {
       <div class="modal-head">
         <div class="modal-title">
           <h2>${r?.nation ? flag(r.nation) + ' ' : ''}${r?.name || '…'}</h2>
-          ${r && html`<div class="muted small">${[r.team, r.nation && withFlag(r.nation), r.uci_rank && `UCI-Rang ${r.uci_rank}`,
+          ${r && html`<div class="muted small">${[r.team, r.nation && withFlag(r.nation),
+            r.birth_date && `Jahrgang ${r.birth_date.slice(0, 4)} (${Math.floor((Date.now() - new Date(r.birth_date)) / 31557600000)} J.)`,
+            r.uci_rank && `UCI-Rang ${r.uci_rank}`,
             r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte`].filter(Boolean).join(' · ')}</div>`}
         </div>
         <button class="ghost small" onClick=${() => setSlug(null)} aria-label="Schließen">✕</button>

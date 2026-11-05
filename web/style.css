@@ -166,6 +166,15 @@ a.race-link:hover strong { color: var(--accent); }
 .schedule { background: var(--accent-soft); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .countdown { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* Draft-Report */
+.report-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.report-title h3 { margin: 0; }
+.report.mine { border-color: var(--accent); }
+.grade { flex: none; width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center;
+  font-size: 1.5rem; font-weight: 800; color: #fff; }
+.grade.small { width: auto; height: auto; padding: 2px 10px; font-size: .9rem; border-radius: 99px; }
+.g-a { background: #2f9e44; } .g-b { background: #1c7ed6; } .g-c { background: #f08c00; } .g-d { background: #e8590c; } .g-f { background: #c92a2a; }
+
 /* Draft */
 .draft { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
 .draft .auction { grid-column: 1 / -1; }

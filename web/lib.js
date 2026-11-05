@@ -117,7 +117,7 @@ export function RiderCell({ r }) {
   return html`<span class="rider">
     <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
       onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>${r.inactive ? html` <span class="tag warn">inaktiv</span>` : ''}
-    <span class="rider-meta">${[r.nation && withFlag(r.nation), r.team, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
+    <span class="rider-meta">${[r.nation && withFlag(r.nation), r.birth_date && `Jg. ${r.birth_date.slice(0, 4)}`, r.team, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
   </span>`;
 }
 
