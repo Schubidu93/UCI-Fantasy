@@ -1,5 +1,5 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, normName, withFlag, teamName } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, normName, withFlag, teamName, SearchSelect } from '../lib.js';
 import { NextDeadline, transferPhase, fmtDeadline } from './deadline.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };
@@ -87,8 +87,7 @@ function FreeAgents({ c, onPick, free: freePhase }) {
     <h3>Freie Fahrer</h3>
     <div class="filters">
       <input type="search" placeholder="Name" value=${term} onInput=${(e) => setTerm(e.target.value)} />
-      <input type="search" list=${`teams-waiver`} placeholder="Team (z. B. UAE)" value=${team} onInput=${(e) => setTeam(e.target.value)} />
-      <datalist id=${`teams-waiver`}>${teams.map((x) => html`<option value=${teamName(x)} />`)}</datalist>
+      <${SearchSelect} value=${team} onChange=${setTeam} options=${teams} label=${teamName} placeholder="Team (z. B. UAE)" />
       <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
     </div>
     <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug}>

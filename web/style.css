@@ -292,3 +292,10 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .phase-list { margin: 10px 0 6px; padding-left: 20px; }
 .phase-list li { margin: 4px 0; padding: 4px 8px; border-radius: 8px; }
 .phase-list li.active { background: var(--warn-soft); }
+.search-select { position: relative; }
+.search-select input { width: 100%; }
+.search-select-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px 0; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  max-height: 260px; overflow-y: auto; }
+.search-select-list li { padding: 9px 12px; cursor: pointer; }
+.search-select-list li:hover { background: var(--surface-2); }

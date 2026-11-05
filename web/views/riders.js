@@ -1,6 +1,6 @@
 // Fahrer-Übersicht: alle Fahrer der Wertung mit UCI-Punkten der Saison und Besitzer in der Liga
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName } from '../lib.js';
+import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName, SearchSelect } from '../lib.js';
 
 export function Riders({ c }) {
   const year = new Date().getFullYear();
@@ -31,8 +31,7 @@ export function Riders({ c }) {
     <div class="row between"><h2>Fahrer</h2><span class="muted small">${list.length} Fahrer · UCI-Punkte ${year}</span></div>
     <div class="filters">
       <input type="search" placeholder="Name" value=${term} onInput=${(e) => { setTerm(e.target.value); setLimit(100); }} />
-      <input type="search" list=${`teams-riders`} placeholder="Team (z. B. UAE)" value=${team} onInput=${(e) => setTeam(e.target.value)} />
-      <datalist id=${`teams-riders`}>${teams.map((x) => html`<option value=${teamName(x)} />`)}</datalist>
+      <${SearchSelect} value=${team} onChange=${setTeam} options=${teams} label=${teamName} placeholder="Team (z. B. UAE)" />
       <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
       <select value=${owner} onChange=${(e) => setOwner(e.target.value)}>
         <option value="">Alle Fahrer</option><option value="free">Nur freie</option>

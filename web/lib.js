@@ -138,6 +138,20 @@ export function RiderCell({ r }) {
   </span>`;
 }
 
+// Suchfeld mit eigener Vorschlagsliste: tippen filtert die Liste, antippen übernimmt den Eintrag
+export function SearchSelect({ value, onChange, options, placeholder, label = (x) => x }) {
+  const [open, setOpen] = useState(false);
+  const t = normName(value);
+  const hits = options.filter((o) => !t || t.split(' ').every((w) => normName(label(o) + ' ' + o).includes(w))).slice(0, 30);
+  return html`<div class="search-select">
+    <input type="search" placeholder=${placeholder} value=${value} autocomplete="off" autocorrect="off" spellcheck="false"
+      onInput=${(e) => { onChange(e.target.value); setOpen(true); }} onFocus=${() => setOpen(true)}
+      onBlur=${() => setTimeout(() => setOpen(false), 150)} />
+    ${open && hits.length > 0 && html`<ul class="search-select-list">${hits.map((o) => html`<li key=${o}
+      onMouseDown=${(e) => { e.preventDefault(); onChange(label(o)); setOpen(false); }}>${label(o)}</li>`)}</ul>`}
+  </div>`;
+}
+
 // Fahrerauswahl mit Suche
 export function RiderPicker({ riders, onPick, placeholder = 'Fahrer suchen …', limit = 30, action = 'Wählen' }) {
   const [term, setTerm] = useState('');
