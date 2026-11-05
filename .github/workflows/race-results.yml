@@ -1,13 +1,10 @@
 name: Rennergebnisse laden (UCI)
 
 # Rennkalender und Ergebnislisten (Rang, Zeit, UCI-Punkte) aller Rennen der Saison.
-# Täglich um 20:00 Uhr deutscher Zeit; übernimmt die Punkte auch in die Fantasy-Wertung.
+# Täglich um 20:00 Uhr deutscher Zeit (gestartet vom Zeitplaner in der Datenbank); übernimmt die Punkte auch in die Fantasy-Wertung.
 # Der erste Lauf baut die ganze Saison auf (einige Stunden), danach nur Neues.
 
 on:
-  schedule:
-    - cron: "0 18 * * *"    # 20:00 Sommerzeit (MESZ)
-    - cron: "0 19 * * *"    # 20:00 Winterzeit (MEZ) – der jeweils falsche Lauf beendet sich sofort
   workflow_dispatch:
     inputs:
       neu_laden:
@@ -32,26 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
-      - name: Nur den Lauf für 20 Uhr deutscher Zeit ausführen (Sommer-/Winterzeit)
-        id: gate
-        run: |
-          # GitHub startet geplante Läufe teils verspätet – daher nach Zeitzone statt Uhrzeit entscheiden
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            want="0 19 * * *"; [ "$(TZ=Europe/Berlin date +%z)" = "+0200" ] && want="0 18 * * *"
-            if [ "${{ github.event.schedule }}" != "$want" ]; then
-              echo "Anderer Zeitzonen-Lauf – übersprungen."; echo "skip=1" >> "$GITHUB_OUTPUT"
-            fi
-          fi
       - uses: actions/checkout@v4
-        if: steps.gate.outputs.skip != '1'
       - uses: actions/setup-python@v5
-        if: steps.gate.outputs.skip != '1'
         with:
           python-version: "3.12"
       - run: pip install -r pcs_sync/requirements.txt
-        if: steps.gate.outputs.skip != '1'
       - run: python race_results.py
-        if: steps.gate.outputs.skip != '1'
         working-directory: pcs_sync
         env:
           REFRESH: ${{ inputs.neu_laden && '1' || '' }}

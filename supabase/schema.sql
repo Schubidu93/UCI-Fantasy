@@ -1638,6 +1638,61 @@ begin
 end $$;
 
 -- =====================================================================
+-- Zeitplaner (pg_cron): startet die GitHub-Abläufe zu deutschen Uhrzeiten
+-- Der GitHub-Schlüssel liegt verschlüsselt im Supabase Vault ("github_dispatch_token").
+-- =====================================================================
+
+do $$ begin
+  create extension if not exists pg_net with schema extensions;
+  create extension if not exists pg_cron;
+exception when others then raise notice 'pg_net/pg_cron nicht verfügbar: %', sqlerrm;   -- z. B. lokale Testdatenbank
+end $$;
+
+create or replace function dispatch_workflow(p_file text, p_inputs jsonb default '{}') returns bigint
+language plpgsql security definer set search_path = public, extensions as $$
+declare v_token text; v_id bigint;
+begin
+  select decrypted_secret into v_token from vault.decrypted_secrets where name = 'github_dispatch_token';
+  if v_token is null then
+    raise warning 'Kein github_dispatch_token im Vault – Ablauf % nicht gestartet', p_file;
+    return null;
+  end if;
+  select net.http_post(
+    url := 'https://api.github.com/repos/Schubidu93/UCI-Fantasy/actions/workflows/' || p_file || '/dispatches',
+    body := jsonb_build_object('ref', 'main', 'inputs', coalesce(p_inputs, '{}'::jsonb)),
+    headers := jsonb_build_object('Authorization', 'Bearer ' || v_token, 'Accept', 'application/vnd.github+json',
+                                  'X-GitHub-Api-Version', '2022-11-28', 'User-Agent', 'uci-fantasy-scheduler',
+                                  'Content-Type', 'application/json')) into v_id;
+  return v_id;
+end $$;
+
+-- läuft alle 15 Minuten
+create or replace function scheduler_tick() returns void
+language plpgsql security definer set search_path = public as $$
+declare t timestamp := now() at time zone 'Europe/Berlin';
+        h int := extract(hour from t); m int := extract(minute from t); dow int := extract(isodow from t);
+begin
+  begin
+    perform process_due(null);                     -- Stichtage (Waiver, Tausch) pünktlich abarbeiten
+  exception when others then raise warning 'process_due: %', sqlerrm;
+  end;
+  if m < 15 then
+    if h = 6 then perform dispatch_workflow('pcs-sync.yml', '{"umfang": "kader"}'); end if;      -- Fahrerpunkte (Kader)
+    if h = 20 then perform dispatch_workflow('race-results.yml'); end if;                         -- Rennergebnisse
+    if dow = 3 and h = 5 then perform dispatch_workflow('import-riders.yml'); end if;             -- Fahrerliste (Mi)
+    if dow = 3 and h = 7 then perform dispatch_workflow('pcs-sync.yml', '{"umfang": "alle"}'); end if;  -- Komplettabgleich (Mi)
+  end if;
+  if exists (select 1 from notifications where sent_at is null) then
+    perform dispatch_workflow('push.yml');
+  end if;
+end $$;
+
+do $$ begin
+  perform cron.schedule('uci-fantasy-tick', '*/15 * * * *', 'select public.scheduler_tick()');
+exception when others then raise notice 'Zeitplan nicht angelegt: %', sqlerrm;
+end $$;
+
+-- =====================================================================
 -- Rechte
 -- =====================================================================
 
@@ -1705,7 +1760,8 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
+    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

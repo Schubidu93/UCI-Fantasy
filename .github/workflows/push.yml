@@ -3,8 +3,6 @@ name: Benachrichtigungen senden
 # Verschickt vorgemerkte Push-Benachrichtigungen (Waiver, Tausch, Draft, Spieltage, Punkte).
 # Erzeugt beim ersten Lauf das VAPID-Schlüsselpaar.
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_run:
     workflows: ["Ergebnisse abrufen (UCI)", "Rennergebnisse laden (UCI)"]
     types: [completed]

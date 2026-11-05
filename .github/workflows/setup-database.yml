@@ -32,6 +32,18 @@ jobs:
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: GitHub-Schlüssel für den Zeitplaner in den Vault übernehmen
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_DISPATCH_TOKEN" ]; then echo "::warning::Secret GH_DISPATCH_TOKEN fehlt – Zeitplaner kann keine Abläufe starten."; exit 0; fi
+          psql "$SUPABASE_DB_URL" -q -v ON_ERROR_STOP=1 -v token="$GH_DISPATCH_TOKEN" -f - <<'SQL'
+          select vault.update_secret(id, :'token') from vault.secrets where name = 'github_dispatch_token';
+          select vault.create_secret(:'token', 'github_dispatch_token')
+           where not exists (select 1 from vault.secrets where name = 'github_dispatch_token');
+          SQL
+          echo "Schlüssel im Vault hinterlegt."
       - name: Schema-Cache der API neu laden
         run: psql "$SUPABASE_DB_URL" -q -c "notify pgrst, 'reload schema';"
         env:

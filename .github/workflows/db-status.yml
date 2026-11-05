@@ -24,3 +24,11 @@ jobs:
             order by 1, 2;"
           psql "$SUPABASE_DB_URL" -P pager=off -c "select name, uci_class, country, start_date, loaded_at from races where loaded_at is not null order by loaded_at desc limit 5;"
           psql "$SUPABASE_DB_URL" -P pager=off -c "select pg_size_pretty(pg_database_size(current_database())) as datenbankgroesse;"
+      - name: Zeitplaner
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SUPABASE_DB_URL" -P pager=off -c "select jobname, schedule, active from cron.job;" || true
+          psql "$SUPABASE_DB_URL" -P pager=off -c "select status, left(return_message, 80) as meldung, start_time from cron.job_run_details order by start_time desc limit 5;" || true
+          psql "$SUPABASE_DB_URL" -P pager=off -c "select status_code, left(content, 80) as antwort, created from net._http_response order by created desc limit 8;" || true
+          psql "$SUPABASE_DB_URL" -P pager=off -c "select exists (select 1 from vault.secrets where name = 'github_dispatch_token') as schluessel_hinterlegt;" || true
