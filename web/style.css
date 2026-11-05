@@ -324,3 +324,12 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .fa-list .rider { flex: 1; min-width: 0; }
 .fa-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .fa-side .pts-chip { margin-left: 0; }
+/* Fahrerliste: feste Spalten, damit nichts rechts abgeschnitten wird – nur der Fahrer-Block kürzt/umbricht */
+.riders-tbl { width: 100%; table-layout: fixed; }
+.riders-tbl .col-no { width: 2.6em; }
+.riders-tbl .col-res { width: 6em; }
+.riders-tbl .col-owner { width: 5.2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.riders-tbl .col-pts { width: 4.6em; }
+.riders-tbl td { overflow: hidden; }
+.riders-tbl td:nth-child(5), .riders-tbl td.num { white-space: nowrap; }
+.riders-tbl .rider { max-width: 100%; }

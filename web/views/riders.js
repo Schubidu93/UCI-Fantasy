@@ -42,15 +42,15 @@ export function Riders({ c }) {
         <option value="points">Sortiert nach Punkten ${year}</option><option value="rank">Sortiert nach UCI-Rang</option>
       </select>
     </div>
-    <div class="scroll-x"><table class="tbl">
-      <thead><tr><th class="num hide-sm">#</th><th>Fahrer</th><th>Kader</th><th class="num hide-sm">Ergebnisse</th><th class="num">Pkt. ${year}</th></tr></thead>
+    <div class="scroll-x"><table class="tbl riders-tbl">
+      <thead><tr><th class="num hide-sm col-no">#</th><th>Fahrer</th><th class="col-owner">Kader</th><th class="num hide-sm col-res">Ergebnisse</th><th class="num col-pts" title=${`UCI-Punkte ${year}`}>Pkt.</th></tr></thead>
       <tbody>${list.slice(0, limit).map((r, i) => {
         const m = c.managerMap[c.owner[r.pcs_slug]];
         const p = pmap[r.pcs_slug];
         return html`<tr key=${r.pcs_slug} class=${m && m.id === c.me?.id ? 'me' : ''}>
           <td class="num muted hide-sm">${i + 1}</td>
           <td><${RiderCell} r=${r} /></td>
-          <td>${m ? m.team_name : html`<span class="tag ok">frei</span>`}</td>
+          <td class="col-owner">${m ? m.team_name : html`<span class="tag ok">frei</span>`}</td>
           <td class="num hide-sm">${p?.results || 0}</td>
           <td class="num"><strong>${fmtPts(p?.points || 0)}</strong></td></tr>`;
       })}</tbody>
