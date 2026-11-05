@@ -319,3 +319,8 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .howto ol { margin: 8px 0 0; padding-left: 20px; }
 .howto li { margin: 4px 0; }
 .trade-sum { background: var(--surface-2); padding: 6px 10px; border-radius: 8px; margin: 0; }
+/* Freie Fahrer: Fahrer links (darf umbrechen), Punkte und Knopf immer rechts untereinander */
+.fa-list li { flex-wrap: nowrap; align-items: center; }
+.fa-list .rider { flex: 1; min-width: 0; }
+.fa-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.fa-side .pts-chip { margin-left: 0; }

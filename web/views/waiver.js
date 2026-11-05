@@ -93,12 +93,14 @@ function FreeAgents({ c, onPick, free: freePhase }) {
       <${SearchSelect} value=${team} onChange=${setTeam} options=${teams} label=${teamName} placeholder="Team (z. B. UAE)" />
       <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
     </div>
-    <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug}>
+    <ul class="list fa-list">${list.map((r) => html`<li key=${r.pcs_slug}>
       <${RiderCell} r=${r} />
-      <span class="pts-chip">${fmtPts(pts[r.pcs_slug] || 0)} Pkt.</span>
-      ${locked.has(r.pcs_slug)
-        ? html`<span class="tag" title="Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt – Antrag ist trotzdem möglich">gesperrt</span>` : ''}
-      <button class=${freePhase ? 'small primary' : 'small'} onClick=${() => onPick(r)}>${freePhase ? 'Holen' : 'Antrag'}</button></li>`)}</ul>
+      <span class="fa-side">
+        <span class="pts-chip">${fmtPts(pts[r.pcs_slug] || 0)} Pkt.</span>
+        ${locked.has(r.pcs_slug)
+          ? html`<span class="tag" title="Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt – Antrag ist trotzdem möglich">gesperrt</span>` : ''}
+        <button class=${freePhase ? 'small primary' : 'small'} onClick=${() => onPick(r)}>${freePhase ? 'Holen' : 'Antrag'}</button>
+      </span></li>`)}</ul>
     <p class="muted small">Sortiert nach UCI-Punkten ${new Date().getFullYear()}, max. 100 Treffer.</p>
   </section>`;
 }
