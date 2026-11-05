@@ -14,8 +14,8 @@ export function Rules({ c }) {
   return html`<div class="stack rules">
     <section class="card">
       <h2>So funktioniert UCI Fantasy</h2>
-      <p>Jeder Manager stellt ein Team aus echten Radprofis zusammen und sammelt die <strong>UCI-Weltranglistenpunkte</strong>,
-        die seine Fahrer im Spielzeitraum dazugewinnen. Wer am Saisonende die meisten Punkte hat, gewinnt die Liga.</p>
+      <p>Jeder Manager stellt ein Team aus echten Radprofis zusammen und sammelt die <strong>UCI-Punkte</strong>,
+        die seine ${l.scoring_mode === 'lineup' ? 'aufgestellten ' : ''}Fahrer in den Rennen holen. Wer am Saisonende die meisten Punkte hat, gewinnt die Liga.</p>
     </section>
 
     <section class="card">
@@ -55,13 +55,16 @@ export function Rules({ c }) {
     <section class="card">
       <h3>Punkte</h3>
       <ul>
-        <li>Ein Fahrer bringt seinem Manager genau die <strong>UCI-Punkte aus dem Rennergebnis</strong> – z. B. für Platz 7 einer Etappe –
-          vom kleinen .2-Rennen bis zum Tour-Sieg (1.300).</li>
-        <li>Etappen, Gesamtwertung, Trikots und Führungstage zählen jeweils einzeln, so wie die UCI sie vergibt.</li>
-        <li>Die Punkte werden <strong>direkt mit dem Ergebnis</strong> gutgeschrieben – es muss nicht auf die Weltrangliste gewartet werden.
-          Ergebnisse werden täglich um 20 Uhr abgerufen, bei laufenden Rundfahrten Etappe für Etappe.</li>
-        <li>Gezählt wird ab dem Tag, an dem der Fahrer ins Team kommt, bis zum Tag seiner Abgabe.</li>
-        <li>Einmal gutgeschriebene Punkte bleiben – anders als im rollierenden 52-Wochen-Ranking der UCI.</li>
+        <li>Gewertet werden die <strong>UCI-Punkte aus den Rennergebnissen</strong> – genau die Punkte, die die UCI für ein Ergebnis vergibt,
+          z. B. für Platz 7 einer Etappe. Vom kleinen .2-Rennen bis zum Tour-Sieg (1.300).</li>
+        <li>Etappen, Gesamtwertung, Trikots und Führungstage zählen jeweils einzeln.</li>
+        ${l.scoring_mode === 'lineup'
+          ? html`<li>Es zählen nur die Fahrer deiner <strong>Aufstellung</strong>: Für jeden Spieltag stellst du ${l.lineup_size} deiner ${l.roster_size} Fahrer auf.
+              Bis zum Stichtag kannst du sie ändern, danach ist sie für diesen Spieltag fest.
+              Stellst du nicht neu auf, gilt die Aufstellung vom vorigen Spieltag (beim ersten Spieltag: deine teuersten Fahrer).</li>`
+          : html`<li>Es zählen <strong>alle Fahrer deines Kaders</strong>.</li>`}
+        <li>Punkte zählen nur innerhalb eines Spieltags und nur, solange der Fahrer in deinem Team ist (ab dem Tag der Aufnahme bis zum Tag der Abgabe).</li>
+        <li>Die Punkte werden <strong>direkt mit dem Ergebnis</strong> gutgeschrieben – Abruf täglich um 20 Uhr, bei Rundfahrten Etappe für Etappe.</li>
         <li>Korrigiert die UCI ein Ergebnis (z. B. Aberkennung wegen Doping), wird das automatisch übernommen, solange der Spieltag nicht eingefroren ist.</li>
       </ul>
     </section>
@@ -93,7 +96,7 @@ export function Rules({ c }) {
     <section class="card">
       <h3>Daten</h3>
       <ul class="small">
-        <li><strong>Quelle:</strong> Fahrer, Rennen, Ergebnisse und Weltrangliste kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
+        <li><strong>Quelle:</strong> Fahrer, Rennen und Ergebnisse kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
         <li><strong>Rennergebnisse:</strong>
           <ul>
             <li>täglich um 20 Uhr: neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage</li>
@@ -105,11 +108,10 @@ export function Rules({ c }) {
             <li>wird beim selben Abruf aktualisiert, inklusive der nächsten Saison</li>
             <li>noch nicht von der UCI eingetragene Termine stehen als „vorläufig“ drin und werden automatisch ersetzt</li>
           </ul></li>
-        <li><strong>Fahrer und Weltrangliste:</strong>
+        <li><strong>Fahrer:</strong>
           <ul>
-            <li>täglich um 6 Uhr für alle Fahrer in einem Kader</li>
+            <li>täglich um 6 Uhr für alle Fahrer in einem Kader (Team, UCI-Rang)</li>
             <li>mittwochs für alle Fahrer (neue Fahrer, Teamwechsel, Geburtsdaten)</li>
-            <li>nur zur Kontrolle – die Punkte kommen aus den Rennergebnissen</li>
           </ul></li>
         <li><strong>Zeitraum:</strong> Ergebnisse werden ab der Saison 2025 gespeichert.</li>
         <li><strong>Korrekturen:</strong> Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
