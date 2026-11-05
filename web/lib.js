@@ -26,6 +26,9 @@ export async function all(makeQuery) {
   }
 }
 
+// Funktion mit vielen Ergebniszeilen seitenweise abrufen (die API liefert max. 1000 Zeilen pro Abfrage)
+export const rpcAll = (fn, args = {}) => all(() => sb.rpc(fn, args));
+
 // ---- Formatierung --------------------------------------------------------
 
 export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('de-DE') : '–');

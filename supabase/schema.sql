@@ -1404,7 +1404,8 @@ language sql stable security definer set search_path = public as $$
     from results r join riders x on x.pcs_slug = r.rider_slug
    where x.gender = p_gender
      and r.result_date >= make_date(p_year, 1, 1) and r.result_date <= make_date(p_year, 12, 31)
-   group by r.rider_slug;
+   group by r.rider_slug
+   order by r.rider_slug;
 $$;
 
 -- ---- Vorläufiger WorldTour-Kalender 2027 ---------------------------------------------------

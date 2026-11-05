@@ -1,10 +1,10 @@
 // Fahrer-Übersicht: alle Fahrer der Wertung mit UCI-Punkten der Saison und Besitzer in der Liga
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName, SearchSelect } from '../lib.js';
+import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName, SearchSelect, rpcAll } from '../lib.js';
 
 export function Riders({ c }) {
   const year = new Date().getFullYear();
-  const pts = useLoad(() => rpc('rider_points', { p_gender: c.league.gender, p_year: year }), [c.league.gender, year]);
+  const pts = useLoad(() => rpcAll('rider_points', { p_gender: c.league.gender, p_year: year }), [c.league.gender, year]);
   const [term, setTerm] = useState('');
   const [team, setTeam] = useState('');
   const [nation, setNation] = useState('');
