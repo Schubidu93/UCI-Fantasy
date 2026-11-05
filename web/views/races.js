@@ -177,7 +177,7 @@ function ResultTable({ c, event }) {
         <td class="num">${r.uci_points ? html`<strong>${fmtPts(r.uci_points)}</strong>` : ''}</td>
         <td class="small hide-sm">${m ? m.team_name : ''}</td></tr>`;
     })}</tbody></table></div>
-    ${rows.data.length === 0 && html`<p class="muted">Keine Ergebnisse.</p>`}
+    ${rows.data.length === 0 && html`<p class="muted">Für diese Wertung hat die UCI keine Ergebnisliste veröffentlicht.</p>`}
     <p class="muted small">Top 25 und alle weiteren Plätze mit UCI-Punkten. Quelle: UCI DataRide.</p>
   </section>`;
 }

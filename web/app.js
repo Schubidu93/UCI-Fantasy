@@ -14,6 +14,7 @@ import { Riders } from './views/riders.js';
 import { Races } from './views/races.js';
 import { Rules } from './views/rules.js';
 import { More } from './views/more.js';
+import { Overview } from './views/overview.js';
 import { registerServiceWorker } from './views/push.js';
 
 function useHash() {
@@ -77,13 +78,13 @@ function sections(c) {
   const beforeDraft = ['setup', 'drafting'].includes(c.league.status);
   const afterDraft = ['active', 'finished'].includes(c.league.status);
   return [
-    { key: 'liga', label: 'Liga', tabs: [['table', 'Tabelle'], ['results', 'Spieltage']] },
+    { key: 'liga', label: 'Liga', tabs: [['home', 'Übersicht'], ['table', 'Tabelle'], ['results', 'Spieltage']] },
     beforeDraft
       ? { key: 'draft', label: 'Draft', tabs: [['draft', 'Draft']] }
       : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['waiver', 'Waiver']] : [])] },
     { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
     { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
-    { key: 'more', label: 'Mehr', tabs: [['more', 'Übersicht'], ['rules', 'Regeln'],
+    { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
       ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },
   ];
 }
@@ -92,10 +93,10 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
   if (!ctx.data) return html`<div class="scroll"><main class="wrap"><${Loading} error=${ctx.error} /></main></div>`;
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
-  const defaultTab = c.league.status === 'setup' || c.league.status === 'drafting' ? 'draft' : 'table';
+  const defaultTab = c.league.status === 'drafting' ? 'draft' : 'home';
   const t = tab || defaultTab;
   const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results,
-    table: Table, admin: Admin, more: More }[t] || Table;
+    table: Table, admin: Admin, more: More, home: Overview }[t] || Overview;
   const secs = sections(c);
   const current = secs.find((x) => x.tabs.some(([k]) => k === t)) || secs[0];
   const href = (k) => `#/league/${id}/${k}`;

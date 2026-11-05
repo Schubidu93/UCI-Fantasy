@@ -29,6 +29,21 @@ export async function all(makeQuery) {
 // Funktion mit vielen Ergebniszeilen seitenweise abrufen (die API liefert max. 1000 Zeilen pro Abfrage)
 export const rpcAll = (fn, args = {}) => all(() => sb.rpc(fn, args));
 
+// UCI-Punkte aller Fahrer im laufenden Jahr (einmal pro Wertung geladen und zwischengespeichert)
+const pointsCache = {};
+export function useRiderPoints(gender) {
+  const year = new Date().getFullYear();
+  const key = `${gender}-${year}`;
+  const [map, setMap] = useState(pointsCache[key] || null);
+  useEffect(() => {
+    if (pointsCache[key]) return;
+    rpcAll('rider_points', { p_gender: gender, p_year: year })
+      .then((rows) => { pointsCache[key] = Object.fromEntries(rows.map((r) => [r.rider_slug, Number(r.points)])); setMap(pointsCache[key]); })
+      .catch(() => setMap({}));
+  }, [key]);
+  return map || {};
+}
+
 // ---- Formatierung --------------------------------------------------------
 
 export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('de-DE') : '–');

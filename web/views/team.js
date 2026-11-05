@@ -1,5 +1,5 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtPts, SOURCE_LABEL, budgetRelevant } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtPts, SOURCE_LABEL, budgetRelevant, useRiderPoints } from '../lib.js';
 
 import { NextDeadline, fmtDeadline } from './deadline.js';
 
@@ -68,7 +68,7 @@ function Lineup({ c }) {
       .then((rows) => setSel(new Set(rows.map((r) => (typeof r === 'string' ? r : r.effective_lineup)))))
       .catch(() => setSel(new Set()));
   }, [md?.id]);
-  if (!md) return html`<section class="card"><h3>Aufstellung</h3><p class="muted">Kein kommender Spieltag angelegt.</p></section>`;
+  if (!md) return html`<section class="card"><h3>Aufstellung</h3><p class="muted">Kein kommender Spieltag angelegt.${c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Spieltag anlegen →</a>` : ''}</p></section>`;
   if (!sel) return null;
   const toggle = (slug) => { const s = new Set(sel); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
   return html`<section class="card">
@@ -108,7 +108,10 @@ function Trades({ c }) {
   const [drop, setDrop] = useState([]);          // zusätzlich entlassen (wenn ich mehr bekomme)
   const [accept, setAccept] = useState(null);    // Angebot, das ich gerade annehme (mit Entlassungen)
   const a = useAction();
+  const pts = useRiderPoints(c.league.gender);
   const name = (s) => c.riderMap[s]?.name || s;
+  const withPts = (s) => html`${name(s)} <span class="muted small">${fmtPts(pts[s] || 0)}</span>`;
+  const sumPts = (list) => list.reduce((x, s) => x + (pts[s] || 0), 0);
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
   const theirs = c.active.filter((r) => r.manager_id === partner);
   const openSlots = c.league.roster_size - mine.length;
@@ -123,7 +126,7 @@ function Trades({ c }) {
     <p class="muted small">Du bekommst mehr Fahrer als du abgibst – damit der Kader nicht zu groß wird. Fahrer aus offenen Waiver-Anträgen sind ausgenommen.</p>
     ${mine.filter((r) => !exclude.includes(r.rider_slug)).map((r) => html`<label class="check" key=${r.id}>
       <input type="checkbox" disabled=${pendingDrops.has(r.rider_slug)} checked=${sel.includes(r.rider_slug)} onChange=${() => flip(sel, set, r.rider_slug)} />
-      ${name(r.rider_slug)}${pendingDrops.has(r.rider_slug) ? html` <span class="muted small">(Waiver-Antrag)</span>` : ''}</label>`)}
+      ${name(r.rider_slug)}${pendingDrops.has(r.rider_slug) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r.rider_slug] || 0)}</span>`}</label>`)}
   </div>`;
 
   return html`<section class="card stack">
@@ -135,8 +138,8 @@ function Trades({ c }) {
       const vetoOpen = t.status === 'accepted' && Date.now() < new Date(t.accepted_at).getTime() + 864e5;
       const need = needDrop(t.give_riders.length, t.take_riders.length);
       return html`<li key=${t.id} class="stack-sm">
-        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t.give_riders.map(name).join(', ')}
-          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_riders.map(name).join(', ')}
+        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t.give_riders.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.give_riders))})</span>
+          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_riders.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.take_riders))})</span>
           ${(t.from_drop?.length || t.to_drop?.length) ? html`<div class="muted small">entlassen: ${[...(t.from_drop || []), ...(t.to_drop || [])].map(name).join(', ')}</div>` : ''}</div>
         <div class="row"><span class="tag">${TRADE_STATUS[t.status]}</span>
           ${incoming && t.status === 'proposed' && html`
@@ -163,10 +166,11 @@ function Trades({ c }) {
           </select></label>
         ${partner && html`<div class="grid2">
           <div><h4>Ich gebe</h4>${mine.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${give.includes(r.rider_slug)} onChange=${() => { flip(give, setGive, r.rider_slug); setDrop(drop.filter((x) => x !== r.rider_slug)); }} /> ${name(r.rider_slug)}</label>`)}</div>
+            <input type="checkbox" checked=${give.includes(r.rider_slug)} onChange=${() => { flip(give, setGive, r.rider_slug); setDrop(drop.filter((x) => x !== r.rider_slug)); }} /> ${withPts(r.rider_slug)}</label>`)}</div>
           <div><h4>Ich bekomme</h4>${theirs.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${take.includes(r.rider_slug)} onChange=${() => flip(take, setTake, r.rider_slug)} /> ${name(r.rider_slug)}</label>`)}</div>
+            <input type="checkbox" checked=${take.includes(r.rider_slug)} onChange=${() => flip(take, setTake, r.rider_slug)} /> ${withPts(r.rider_slug)}</label>`)}</div>
         </div>
+        ${(give.length > 0 || take.length > 0) && html`<p class="small trade-sum">Punkte ${new Date().getFullYear()}: du gibst <strong>${fmtPts(sumPts(give))}</strong>, du bekommst <strong>${fmtPts(sumPts(take))}</strong></p>`}
         ${myNeed > 0 && html`<${DropPicker} exclude=${give} need=${myNeed} sel=${drop} set=${setDrop} />`}
         ${give.length > take.length && take.length > 0 && html`<p class="muted small">Du gibst mehr Fahrer ab – ${c.managerMap[partner]?.team_name} wählt bei der Annahme, wen er dafür entlässt.</p>`}
         <button class="primary" disabled=${a.busy || !give.length || !take.length || drop.length !== myNeed}

@@ -38,7 +38,8 @@ export function NextDeadline({ c, compact }) {
   const { md, two, wd, lock, phase } = transferPhase(c);
   const today = new Date().toISOString().slice(0, 10);
   const running = c.matchdays.find((m) => m.starts_on <= today && m.ends_on >= today);
-  if (!md) return html`<section class="card deadline"><p class="muted small">Kein kommender Spieltag angelegt – Transfers und Aufstellung sind erst wieder möglich, wenn der Admin den nächsten Spieltag festlegt.</p></section>`;
+  if (!md) return html`<section class="card deadline"><p class="muted small">Kein kommender Spieltag angelegt – Transfers und Aufstellung sind erst wieder möglich, wenn es einen nächsten Spieltag gibt.
+    ${c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Jetzt anlegen →</a>` : ' Der Admin legt sie fest.'}</p></section>`;
   const lineup = c.league.scoring_mode === 'lineup';
   const next = two && phase === 'waiver' ? wd : lock;
   const steps = two ? [

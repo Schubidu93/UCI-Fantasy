@@ -32,7 +32,7 @@ export function Results({ c }) {
     <${NextDeadline} c=${c} />
     <p class="card muted">${c.matchdays.length
       ? `Noch kein Spieltag begonnen – der erste startet am ${fmtDate(c.matchdays[0].starts_on)}.`
-      : 'Noch keine Spieltage angelegt.'}</p>
+      : html`Noch keine Spieltage angelegt.`}${c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Jetzt anlegen →</a>` : ' Der Admin legt sie fest.'}</p>
     <${Schedule} c=${c} />
   </div>`;
   const md = c.matchdays.find((m) => m.id === mdId);

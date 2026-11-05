@@ -109,7 +109,7 @@ function DraftSchedule({ c }) {
     ${at ? html`<div class="row between">
         <div><div class="muted small">Draft-Start</div><strong>${at.toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' })}</strong></div>
         <div class="countdown">${left > 0 ? fmt(left) : 'startet …'}</div></div>`
-      : html`<p class="muted small">Noch kein Termin für den Draft festgelegt.</p>`}
+      : html`<p class="muted small">Noch kein Termin für den Draft festgelegt.${c.isAdmin ? ' Lege unten einen Termin fest oder starte den Draft direkt.' : ' Der Admin legt ihn fest – du bekommst dann eine Push-Nachricht.'}</p>`}
     ${c.isAdmin && html`<div class="row">
       <input type="datetime-local" value=${val} onInput=${(e) => setVal(e.target.value)} />
       <button disabled=${a.busy || !val} onClick=${() => a.run(async () => {

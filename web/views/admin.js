@@ -291,7 +291,7 @@ function Matchdays({ c }) {
         <td class="right">${!locked(m) && html`
           <button class="small ghost" onClick=${() => setF({ ...m, deadline: toLocal(m.deadline), waiver_deadline: m.waiver_deadline ? toLocal(m.waiver_deadline) : '' })}>Bearbeiten</button>
           <button class="small danger" onClick=${() => confirm(`${m.name} löschen?`) && a.run(async () => { await rpc('delete_matchday', { p_id: m.id }); c.reload(); })}>Löschen</button>`}</td>
-      </tr>`)}</tbody></table>` : html`<p class="muted">Noch keine Spieltage.</p>`}
+      </tr>`)}</tbody></table>` : html`<p class="muted">Noch keine Spieltage. Am schnellsten: unten „Spieltage automatisch vorschlagen“ → „Aus Rennkalender“ → „Alle anlegen“.</p>`}
 
     <form class="grid2 compact" onSubmit=${save}>
       <label>Name<input required value=${f.name} onInput=${(e) => setF({ ...f, name: e.target.value })} placeholder="z. B. Tour de France" /></label>

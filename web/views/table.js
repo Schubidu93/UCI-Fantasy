@@ -14,7 +14,11 @@ export function Table({ c }) {
   const faab = c.league.waiver_mode === 'faab';   // Budget zählt nach dem Draft nur noch für FAAB-Gebote
   const sum = (mid, md) => pts.data.filter((p) => p.manager_id === mid && p.matchday_id === md).reduce((s, p) => s + Number(p.points), 0);
 
+  const empty = !c.matchdays.some((m) => m.starts_on <= new Date().toISOString().slice(0, 10));
   return html`<div class="stack">
+    ${empty && html`<p class="note small">${c.matchdays.length
+      ? `Die Tabelle füllt sich ab dem ersten Spieltag (${c.matchdays[0].name}, ab ${new Date(c.matchdays[0].starts_on).toLocaleDateString('de-DE')}).`
+      : 'Noch keine Spieltage angelegt – ohne Spieltage gibt es keine Punkte.'}${!c.matchdays.length && c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Spieltage anlegen →</a>` : ''}</p>`}
     <section class="card">
       <div class="row between"><h2>Tabelle</h2>
         <div class="seg small">
