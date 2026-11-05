@@ -181,8 +181,11 @@ button.linkish:hover, button.linkish:focus-visible { color: var(--accent); text-
 @media (max-width: 720px) { .modal-back { padding: calc(12px + env(safe-area-inset-top)) 8px calc(12px + env(safe-area-inset-bottom)); } }
 .card.link .tag { align-self: flex-start; }
 
+.league-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.league-title h1 { margin: 0; }
+.head-logo { width: 52px; height: 52px; border-radius: 12px; display: block; flex: none; }
 .mini-logo { width: 18px; height: 18px; vertical-align: -4px; border-radius: 4px; margin-right: 4px; }
-.brand .logo-img { width: 34px; height: 34px; border-radius: 8px; }
+.brand .logo-img { width: 44px; height: 44px; border-radius: 10px; }
 
 a.race-link { display: flex; flex-direction: column; color: var(--text); min-width: 0; }
 a.race-link:hover strong { color: var(--accent); }

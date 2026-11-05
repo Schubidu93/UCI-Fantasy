@@ -102,9 +102,12 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   return html`
     <header class="league-head">
       <div class="wrap row between">
-        <div>
-          <a href="#/" class="muted small-link"><img src="logo.svg" alt="" class="mini-logo" /> Meine Ligen</a>
-          <h1>${c.league.name}</h1>
+        <div class="league-title">
+          <a href="#/" aria-label="Meine Ligen"><img src="logo.svg" alt="" class="head-logo" /></a>
+          <div>
+            <a href="#/" class="muted small-link">Meine Ligen</a>
+            <h1>${c.league.name}</h1>
+          </div>
         </div>
         <div class="muted small right">
           ${c.me ? html`<div><strong>${c.me.team_name}</strong></div>` : ''}
