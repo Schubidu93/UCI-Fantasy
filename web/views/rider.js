@@ -13,10 +13,12 @@ const interimSide = (x) => isInterim(x) && !/ · GC$/.test(describeEvent(x.ev.st
 
 // Platz 1–3 als Gold/Silber/Bronze – nicht bei Zwischenständen in Rundfahrten (z. B. „Etappe 7 · GC“)
 function placeLabel(x) {
-  if (x.rank_text && !/^\d+$/.test(x.rank_text)) return x.rank_text;
-  return x.rank >= 1 && x.rank <= 3 && !isInterim(x)
-    ? html`<span class=${`medal m${x.rank}`}>Platz ${x.rank}</span>` : `Platz ${x.rank}`;
+  if (x.rank_text && !/^\d+$/.test(x.rank_text)) return html`<span class="muted">${x.rank_text}</span>`;
+  if (!x.rank) return '';
+  return x.rank <= 3 && !isInterim(x) ? html`<span class=${`medal m${x.rank}`}>${x.rank}.</span>` : `${x.rank}.`;
 }
+// „28.08.“ – das Jahr steht schon oben im Reiter
+const shortDate = (d) => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.` : '');
 
 const leagueId = () => (location.hash.match(/^#\/league\/([^/]+)/) || [])[1];
 
@@ -111,12 +113,15 @@ export function RiderModal() {
         </div>
         <label class="check small"><input type="checkbox" checked=${allPlaces} onChange=${(e) => setAllPlaces(e.target.checked)} /> auch Platzierungen ohne Punkte</label>
         ${groups.length === 0 ? html`<p class="muted">Keine Ergebnisse${y ? ` in ${y}` : ''}.</p>`
-          : html`<div class="modal-body">${groups.map((g) => html`<div class="detail-rider" key=${g.slug}>
+          : html`<div class="modal-body"><div class="res-row res-head"><span>Datum</span><span>Wertung · Zeit</span><span class="res-place">Platz</span><span class="res-pts">Pkt.</span></div>${groups.map((g) => html`<div class="detail-rider" key=${g.slug}>
               <div class="row between"><strong>${g.race?.name || g.slug}${g.race?.uci_class ? html` <span class="tag">${g.race.uci_class}</span>` : ''}</strong>
                 <span>${g.sum ? fmtPts(g.sum) : ''}</span></div>
-              <ul class="list compact">${g.rows.map((x) => html`<li class=${L ? 'clickable' : ''} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
-                <span>${describeEvent(x.ev.stage_name, x.ev.event_name)} <span class="muted">· ${placeLabel(x)}${x.result ? ` · ${x.result}` : ''}</span></span>
-                <span class="muted">${fmtDate(x.ev.event_date)}${Number(x.uci_points) ? html` · <strong>${fmtPts(x.uci_points)}</strong>` : ''}${L ? ' ›' : ''}</span></li>`)}</ul>
+              <div class="res-table">${g.rows.map((x) => html`<div class=${`res-row ${L ? 'clickable' : ''} ${isInterim(x) ? 'interim' : ''}`} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
+                <span class="res-date">${shortDate(x.ev.event_date)}</span>
+                <span class="res-what">${describeEvent(x.ev.stage_name, x.ev.event_name)}${x.result ? html`<small>${x.result}</small>` : ''}</span>
+                <span class="res-place">${placeLabel(x)}</span>
+                <span class="res-pts">${Number(x.uci_points) ? fmtPts(x.uci_points) : ''}</span>
+              </div>`)}</div>
             </div>`)}</div>`}`}
       <p class="muted small">Quelle: UCI DataRide. Antippen öffnet das ganze Ergebnis.</p>
     </div>

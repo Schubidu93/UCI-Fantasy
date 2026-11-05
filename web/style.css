@@ -244,3 +244,18 @@ a.race-link:hover strong { color: var(--accent); }
 .medal.m1 { background: linear-gradient(135deg, #ffe58a, #f2c230); color: #5c4300; }
 .medal.m2 { background: linear-gradient(135deg, #f1f3f5, #c4cad1); color: #3a4048; }
 .medal.m3 { background: linear-gradient(135deg, #f3c9a2, #cd8a52); color: #4a2a10; }
+
+/* Ergebnisse im Fahrerfenster als Tabelle: Datum | Wertung (+ Zeit) | Platz | Punkte */
+.res-row { display: grid; grid-template-columns: 3.1em 1fr 3.2em 3.4em; gap: 8px; align-items: center;
+  padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: .9rem; }
+.res-row:last-child { border-bottom: 0; }
+.res-row.clickable { cursor: pointer; }
+.res-row.interim .res-what, .res-row.interim .res-place { color: var(--muted); }
+.res-row.clickable:hover { background: var(--surface-2); }
+.res-head { font-size: .75rem; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); padding-top: 0; }
+.res-date { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; }
+.res-what { min-width: 0; line-height: 1.25; }
+.res-what small { display: block; color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.res-place { text-align: center; font-variant-numeric: tabular-nums; }
+.res-pts { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.res-table { margin-top: 2px; }
