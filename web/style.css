@@ -282,3 +282,10 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .md-plan .md-what small { display: block; color: var(--muted); }
 .md-plan li .tag { flex: none; }
 .md-plan li.me { background: var(--accent-soft); border-radius: 8px; padding-left: 6px; padding-right: 6px; }
+/* Fristen */
+.deadline { border-left: 4px solid var(--warn); }
+.deadline-head { display: flex; align-items: center; gap: 10px; }
+.deadline-icon { font-size: 1.5rem; }
+.deadline-time { font-weight: 700; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.deadline-list { margin: 8px 0 0; padding-left: 18px; }
+.deadline-list li { margin: 2px 0; }

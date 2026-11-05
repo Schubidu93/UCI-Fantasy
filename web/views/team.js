@@ -1,6 +1,8 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtDateTime, fmtPts, SOURCE_LABEL , budgetRelevant } from '../lib.js';
 
+import { NextDeadline, fmtDeadline } from './deadline.js';
+
 export function Team({ c }) {
   const [mid, setMid] = useState(c.me?.id || c.managers[0]?.id);
   const pts = useLoad(() => rpc('league_points', { p_league: c.league.id }), [c.league.id]);
@@ -8,6 +10,7 @@ export function Team({ c }) {
   const isMe = c.me && mid === c.me.id;
 
   return html`<div class="stack">
+    ${isMe && html`<${NextDeadline} c=${c} compact />`}
     <div class="row between">
       <label class="inline">Team
         <select value=${mid} onChange=${(e) => setMid(e.target.value)}>
@@ -70,8 +73,8 @@ function Lineup({ c }) {
   const toggle = (slug) => { const s = new Set(sel); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
   return html`<section class="card">
     <h3>Aufstellung für ${md.name}</h3>
-    <p class="muted small">${size} von ${c.league.roster_size} Fahrern werten. Stichtag ${fmtDateTime(md.deadline)}.
-      Ohne neue Eingabe gilt die letzte Aufstellung.</p>
+    <p class="muted small">${size} von ${c.league.roster_size} Fahrern werten. Änderbar bis <strong>${fmtDeadline(md.deadline)}</strong>,
+      danach ist sie für ${md.name} fest. Ohne neue Eingabe gilt die letzte Aufstellung.</p>
     <ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
       <label class="check"><input type="checkbox" checked=${sel.has(r.rider_slug)} onChange=${() => toggle(r.rider_slug)} />
         <${RiderCell} r=${c.riderMap[r.rider_slug]} /></label></li>`)}</ul>

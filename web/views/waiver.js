@@ -1,5 +1,6 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDateTime, normName, withFlag } from '../lib.js';
+import { NextDeadline } from './deadline.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };
 
@@ -27,12 +28,11 @@ export function Waiver({ c }) {
   };
 
   return html`<div class="stack">
+    <${NextDeadline} c=${c} />
     <section class="card">
       <div class="row between">
         <div><h2>Waiver</h2>
-          <p class="muted small">${c.nextMatchday
-            ? html`Nächster Stichtag: <strong>${fmtDateTime(c.nextMatchday.deadline)}</strong> (${c.nextMatchday.name})`
-            : 'Kein kommender Spieltag angelegt.'}</p></div>
+          </div>
         <div class="right">
           <div class="big">${myPos ?? '–'}<span class="muted small"> / ${c.managers.length}</span></div>
           <div class="muted small">deine Waiver-Position</div>

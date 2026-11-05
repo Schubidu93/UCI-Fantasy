@@ -1,5 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts } from '../lib.js';
+import { NextDeadline, windowStart } from './deadline.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
 
@@ -28,6 +29,7 @@ export function Results({ c }) {
   const [open, setOpen] = useState(null);
 
   if (!started.length) return html`<div class="stack">
+    <${NextDeadline} c=${c} />
     <p class="card muted">${c.matchdays.length
       ? `Noch kein Spieltag begonnen – der erste startet am ${fmtDate(c.matchdays[0].starts_on)}.`
       : 'Noch keine Spieltage angelegt.'}</p>
@@ -40,6 +42,7 @@ export function Results({ c }) {
   })).sort((a, b) => b.total - a.total);
 
   return html`<div class="stack">
+    <${NextDeadline} c=${c} compact />
     <div class="row between">
       <label class="inline">Spieltag
         <select value=${mdId} onChange=${(e) => { setMdId(e.target.value); setOpen(null); }}>
@@ -74,7 +77,8 @@ function Schedule({ c, current }) {
     <ul class="list md-plan">${c.matchdays.map((m, i) => html`<li key=${m.id} class=${m.id === current ? 'me' : ''}>
       <span class="md-no">${i + 1}</span>
       <span class="md-what"><strong>${m.name}</strong>
-        <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small><small>Stichtag ${fmtDateTime(m.deadline)}</small></span>
+        <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
+        <small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''}: ${windowStart(c, m) ? `${fmtDateTime(windowStart(c, m))} – ` : 'bis '}${fmtDateTime(m.deadline)}</small></span>
       ${tag(m)}</li>`)}</ul>
   </section>`;
 }
