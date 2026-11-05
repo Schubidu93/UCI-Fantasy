@@ -21,28 +21,44 @@ export const windowStart = (c, md) => {
   return i > 0 ? c.matchdays[i - 1].deadline : null;
 };
 
+// Aktuelle Transferphase für den nächsten Spieltag
+export function transferPhase(c) {
+  const md = c.nextMatchday;
+  if (!md) return { md: null, phase: null };
+  const two = c.league.transfer_mode === 'waiver_free';
+  const wd = md.waiver_deadline || md.deadline;
+  const free = two && (md.waivers_done || new Date(wd) <= new Date());
+  return { md, two, wd, lock: md.deadline, phase: free ? 'free' : 'waiver' };
+}
+
 export function NextDeadline({ c, compact }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
   if (c.league.status !== 'active') return null;
-  const md = c.nextMatchday;
+  const { md, two, wd, lock, phase } = transferPhase(c);
   const today = new Date().toISOString().slice(0, 10);
   const running = c.matchdays.find((m) => m.starts_on <= today && m.ends_on >= today);
-  if (!md) return html`<section class="card deadline"><p class="muted small">Kein kommender Spieltag angelegt – Waiver und Aufstellung sind erst wieder möglich, wenn der Admin den nächsten Spieltag festlegt.</p></section>`;
+  if (!md) return html`<section class="card deadline"><p class="muted small">Kein kommender Spieltag angelegt – Transfers und Aufstellung sind erst wieder möglich, wenn der Admin den nächsten Spieltag festlegt.</p></section>`;
   const lineup = c.league.scoring_mode === 'lineup';
+  const next = two && phase === 'waiver' ? wd : lock;
+  const steps = two ? [
+    ['Waiver-Runde', `bis ${fmtDeadline(wd)}`, 'Anträge stellen – ausgewertet in Waiver-Reihenfolge', phase === 'waiver'],
+    ['Freie Phase', `${fmtDeadline(wd)} – ${fmtDeadline(lock)}`, 'freie Fahrer sofort holen und abgeben, wer zuerst kommt', phase === 'free'],
+    ['Stichtag', fmtDeadline(lock), `Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
+  ] : [
+    ['Waiver', `bis ${fmtDeadline(lock)}`, `Anträge stellen${lineup ? ', Aufstellung festlegen' : ''}`, true],
+    ['Stichtag', fmtDeadline(lock), `Waiver werden ausgewertet, Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
+  ];
   return html`<section class="card deadline">
     <div class="deadline-head">
       <span class="deadline-icon" aria-hidden="true">⏰</span>
       <div>
-        <div class="muted small">Nächster Stichtag · vor ${md.name} (${fmtDate(md.starts_on)} – ${fmtDate(md.ends_on)})</div>
-        <div class="deadline-time">${fmtDeadline(md.deadline)} <span class="tag warn">${untilText(md.deadline)}</span></div>
+        <div class="muted small">${two && phase === 'free' ? 'Freie Phase läuft' : two ? 'Waiver-Runde läuft' : 'Nächster Stichtag'} · für ${md.name} (${fmtDate(md.starts_on)} – ${fmtDate(md.ends_on)})</div>
+        <div class="deadline-time">${two && phase === 'waiver' ? 'Waiver bis ' : two ? 'Frei bis ' : ''}${fmtDeadline(next)} <span class="tag warn">${untilText(next)}</span></div>
       </div>
     </div>
-    ${!compact && html`<ul class="small deadline-list">
-      <li><strong>Bis dahin:</strong> Waiver-Anträge stellen oder ändern${lineup ? `, Aufstellung für ${md.name} festlegen` : ''}, Tauschangebote annehmen.</li>
-      <li><strong>Am Stichtag:</strong> Waiver und Tausche werden ausgeführt – neue Fahrer zählen ab ${md.name}${lineup ? ', die Aufstellung ist dann fest' : ''}.</li>
-      ${running && running.id !== md.id && html`<li><strong>Läuft gerade:</strong> ${running.name} bis ${fmtDate(running.ends_on)} – Kader${lineup ? ' und Aufstellung' : ''} dafür sind fest.</li>`}
-      <li><strong>Danach</strong> gestellte Anträge gelten für den folgenden Spieltag.</li>
-    </ul>`}
+    ${!compact && html`<ol class="small phase-list">${steps.map(([t, when, what, active]) => html`<li class=${active ? 'active' : ''}>
+        <strong>${t}</strong> <span class="muted">${when}</span><br />${what}</li>`)}</ol>
+      <p class="muted small">Alle Wechsel gelten ab ${md.name}${running && running.id !== md.id ? ` – im laufenden Spieltag ${running.name} bleibt dein Kader${lineup ? ' samt Aufstellung' : ''} unverändert` : ''}. Danach gestellte Anträge gelten für den folgenden Spieltag.</p>`}
   </section>`;
 }

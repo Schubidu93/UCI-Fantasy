@@ -289,3 +289,6 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .deadline-time { font-weight: 700; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .deadline-list { margin: 8px 0 0; padding-left: 18px; }
 .deadline-list li { margin: 2px 0; }
+.phase-list { margin: 10px 0 6px; padding-left: 20px; }
+.phase-list li { margin: 4px 0; padding: 4px 8px; border-radius: 8px; }
+.phase-list li.active { background: var(--warn-soft); }

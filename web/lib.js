@@ -51,7 +51,7 @@ export function normName(s) {
 export const draftCosts = (l) => l.draft_mode !== 'snake';
 export const budgetRelevant = (l) => draftCosts(l) || l.waiver_mode === 'faab';
 
-export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 'Waiver', trade: 'Tausch', admin: 'Admin' };
+export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 'Waiver', trade: 'Tausch', admin: 'Admin', free: 'Freie Phase' };
 
 // ---- Flaggen ---------------------------------------------------------------
 // UCI nutzt bei Fahrern IOC-Codes (SLO, GER, NED …), bei Rennen ISO-3-Codes (SVN, DEU …).

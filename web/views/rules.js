@@ -10,6 +10,8 @@ const DRAFT = {
 
 export function Rules({ c }) {
   const l = c.league;
+  const two = l.transfer_mode === 'waiver_free';
+  const lineup = l.scoring_mode === 'lineup';
   const row = (k, v) => html`<tr><td>${k}</td><td><strong>${v}</strong></td></tr>`;
   return html`<div class="stack rules">
     <section class="card">
@@ -30,6 +32,7 @@ export function Rules({ c }) {
         ${row('Draft', DRAFT[l.draft_mode] + (l.draft_mode === 'live' ? ` · ${l.draft_order === 'ranking' ? 'Reihenfolge nach UCI-Rang' : 'reihum nominieren'}` : ''))}
         ${l.draft_mode !== 'offline' && row(l.draft_mode === 'snake' ? 'Zeit pro Pick' : 'Zeit pro Gebot', `${l.bid_seconds} Sekunden`)}
         ${draftCosts(l) ? row('Budget', `${l.budget} Punkte pro Manager`) : l.waiver_mode === 'faab' && row('FAAB-Budget', `${l.budget} Punkte pro Manager für Waiver-Gebote`)}
+        ${row('Transfers', two ? 'Waiver-Runde, danach freie Phase bis zum Stichtag' : 'nur Waiver bis zum Stichtag')}
         ${row('Waiver', l.waiver_mode === 'faab' ? 'FAAB – verdeckt mit dem Restbudget bieten' : 'Priorität – Tabellenletzter zuerst')}
         ${l.keeper_count > 0 && row('Keeper', `bis zu ${l.keeper_count} Fahrer aus der Vorsaison, Preis Vorjahr + ${l.keeper_surcharge}`)}
       </tbody></table>
@@ -74,10 +77,19 @@ export function Rules({ c }) {
       <ul>
         <li>Der Admin legt Spieltage als Zeiträume fest (z. B. Klassiker, Giro, Tour, Vuelta). Punkte zwischen zwei Spieltagen verfallen.
           Alle Spieltage stehen im Spielplan unter Liga → Spieltage.</li>
-        <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Vortag des Spieltags, 20:00 Uhr). Bis dahin stellst du Waiver-Anträge${l.scoring_mode === 'lineup' ? ' und die Aufstellung' : ''} für diesen Spieltag;
-          am Stichtag werden Waiver und Tausche ausgeführt${l.scoring_mode === 'lineup' ? ' und die Aufstellung wird fest' : ''}.</li>
-        <li>Der <strong>Waiver-Zeitraum</strong> für einen Spieltag reicht vom Stichtag des vorigen Spieltags bis zu seinem eigenen Stichtag. Später gestellte Anträge gelten für den folgenden Spieltag.
-          Den nächsten Stichtag mit Countdown siehst du unter Team und Waiver, alle Zeiträume im Spielplan.</li>
+        ${two ? html`
+        <li>Vor jedem Spieltag gibt es zwei Transferphasen:
+          <ul>
+            <li><strong>Waiver-Runde</strong> bis zur Waiver-Auswertung (Standard: 7 Tage vor Spieltagstart, 20 Uhr; ist der vorige Spieltag kürzer als 14 Tage, nach seiner Hälfte).</li>
+            <li><strong>Freie Phase</strong> danach bis zum Stichtag: freie Fahrer sofort holen und abgeben, so oft du willst – wer zuerst kommt.</li>
+            <li><strong>Stichtag</strong> (Standard: 0:00 Uhr am Starttag): Tausche werden ausgeführt, Kader${lineup ? ' und Aufstellung' : ''} sind für den Spieltag fest.</li>
+          </ul></li>`
+        : html`
+        <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Vortag des Spieltags, 20:00 Uhr). Bis dahin stellst du Waiver-Anträge${lineup ? ' und die Aufstellung' : ''} für diesen Spieltag;
+          am Stichtag werden Waiver und Tausche ausgeführt${lineup ? ' und die Aufstellung wird fest' : ''}.</li>
+        <li>Der <strong>Waiver-Zeitraum</strong> für einen Spieltag reicht vom Stichtag des vorigen Spieltags bis zu seinem eigenen Stichtag.</li>`}
+        <li>Alle Wechsel gelten ab dem nächsten Spieltag – im laufenden Spieltag bleibt dein Kader${lineup ? ' samt Aufstellung' : ''} unverändert. Später gestellte Anträge gelten für den folgenden Spieltag.
+          Fristen mit Countdown siehst du unter Team und Waiver, alle Zeiträume im Spielplan.</li>
         <li>Ein Spieltag schließt nach seinem Ende und wird 7 Tage später eingefroren; bis dahin werden Korrekturen automatisch übernommen.</li>
         <li>Gleichstand in der Tabelle: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(l) ? ', dann weniger ausgegebenes Budget' : ''}.</li>
       </ul>
@@ -90,7 +102,9 @@ export function Rules({ c }) {
         <li>${l.waiver_mode === 'faab'
           ? html`<strong>FAAB:</strong> Du bietest verdeckt mit deinem Restbudget; das Höchstgebot gewinnt, bei Gleichstand der schlechter Platzierte.`
           : html`<strong>Priorität:</strong> Der Tabellenletzte wählt zuerst, dann der Vorletzte … Pro Runde bekommt jeder höchstens einen Fahrer. Vor dem ersten Spieltag gilt die umgekehrte Draft-Reihenfolge.`}</li>
-        <li>Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt.</li>
+        <li>${two
+          ? 'In der Waiver-Runde abgegebene Fahrer sind erst in der freien Phase wieder zu haben; in der freien Phase abgegebene Fahrer sind sofort frei.'
+          : 'Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt.'}</li>
         <li>Fahrer mit Karriereende oder Sperre (vom Admin markiert) können sofort außer der Reihe ersetzt werden.</li>
         <li><strong>Tausch</strong> zwischen Managern: Beide müssen zustimmen, danach hat der Admin 24 Stunden Vetorecht. Ausgeführt wird zum nächsten Stichtag.</li>
       </ul>

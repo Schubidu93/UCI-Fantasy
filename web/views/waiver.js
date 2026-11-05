@@ -1,6 +1,6 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDateTime, normName, withFlag } from '../lib.js';
-import { NextDeadline } from './deadline.js';
+import { NextDeadline, transferPhase, fmtDeadline } from './deadline.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };
 
@@ -58,7 +58,7 @@ export function Waiver({ c }) {
     </section>`}
 
     ${pick ? html`<${ClaimForm} c=${c} add=${pick} onDone=${() => { setPick(null); reload(); }} onCancel=${() => setPick(null)} />`
-      : html`<${FreeAgents} c=${c} onPick=${setPick} />`}
+      : html`<${FreeAgents} c=${c} onPick=${setPick} free=${transferPhase(c).phase === 'free'} />`}
     <${Msg} msg=${a.msg} />
 
     ${done.length > 0 && html`<section class="card">
@@ -70,12 +70,12 @@ export function Waiver({ c }) {
   </div>`;
 }
 
-function FreeAgents({ c, onPick }) {
+function FreeAgents({ c, onPick, free: freePhase }) {
   const [term, setTerm] = useState('');
   const [team, setTeam] = useState('');
   const [nation, setNation] = useState('');
   const lockedSince = c.league.last_waiver_run;
-  const locked = useMemo(() => new Set(c.roster.filter((r) => r.released_at && lockedSince && r.released_at >= lockedSince).map((r) => r.rider_slug)), [c.roster]);
+  const locked = useMemo(() => new Set(freePhase ? [] : c.roster.filter((r) => r.released_at && lockedSince && r.released_at >= lockedSince).map((r) => r.rider_slug)), [c.roster, freePhase]);
   const free = c.riders.filter((r) => !c.owner[r.pcs_slug]);
   const teams = [...new Set(free.map((r) => r.team).filter(Boolean))].sort();
   const nations = [...new Set(free.map((r) => r.nation).filter(Boolean))].sort();
@@ -94,7 +94,7 @@ function FreeAgents({ c, onPick }) {
       <${RiderCell} r=${r} />
       ${locked.has(r.pcs_slug)
         ? html`<span class="tag" title="Abgegebene Fahrer sind bis zum nächsten Stichtag gesperrt – Antrag ist trotzdem möglich">gesperrt</span>` : ''}
-      <button class="small" onClick=${() => onPick(r)}>Antrag</button></li>`)}</ul>
+      <button class=${freePhase ? 'small primary' : 'small'} onClick=${() => onPick(r)}>${freePhase ? 'Holen' : 'Antrag'}</button></li>`)}</ul>
     <p class="muted small">Sortiert nach UCI-Rang, max. 100 Treffer.</p>
   </section>`;
 }
@@ -106,6 +106,26 @@ function ClaimForm({ c, add, onDone, onCancel }) {
   const a = useAction();
   const dropRider = c.riderMap[drop];
   const faab = c.league.waiver_mode === 'faab';
+  const { md, phase } = transferPhase(c);
+  const freeMove = () => a.run(async () => {
+    await rpc('free_move', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop });
+    onDone();
+  });
+  if (phase === 'free') return html`<section class="card stack">
+    <h3>Sofort tauschen</h3>
+    <p class="muted small">Freie Phase: Der Wechsel passiert sofort und gilt ab ${md.name} (Stichtag ${fmtDeadline(md.deadline)}).
+      Bis dahin kannst du beliebig oft tauschen – der abgegebene Fahrer ist sofort für alle frei.</p>
+    <div>Holen: <${RiderCell} r=${add} /></div>
+    <label>Dafür abgeben
+      <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>
+        ${mine.map((r) => html`<option value=${r.rider_slug}>${c.riderMap[r.rider_slug]?.name}</option>`)}
+      </select></label>
+    <div class="row">
+      <button class="primary" disabled=${a.busy || !drop} onClick=${freeMove}>Jetzt tauschen</button>
+      <button class="ghost" onClick=${onCancel}>Abbrechen</button>
+    </div>
+    <${Msg} msg=${a.msg} />
+  </section>`;
   const submit = (immediate) => a.run(async () => {
     await rpc('submit_waiver', { p_league: c.league.id, p_add: add.pcs_slug, p_drop: drop, p_bid: faab ? +bid : 0, p_immediate: immediate });
     onDone();

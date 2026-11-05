@@ -152,6 +152,11 @@ create table if not exists leagues (
 );
 
 alter table leagues add column if not exists draft_at timestamptz;
+-- Transfers: nur Waiver (Stichtag = Sperre) oder zweiteilig: Waiver-Runde, danach freie Phase bis zum Spieltagstart
+alter table leagues add column if not exists transfer_mode text not null default 'waiver_free';
+do $$ begin
+  alter table leagues add constraint leagues_transfer_mode_check check (transfer_mode in ('waiver', 'waiver_free'));
+exception when duplicate_object then null; end $$;
 alter table leagues add column if not exists prev_league uuid references leagues (id) on delete set null;  -- Vorsaison
 alter table leagues add column if not exists keeper_count int not null default 0;      -- Fahrer, die man behalten darf
 alter table leagues add column if not exists keeper_surcharge int not null default 5;  -- Aufschlag auf den Vorjahrespreis
@@ -244,12 +249,15 @@ create table if not exists roster_entries (
   manager_id  uuid not null references managers (id) on delete cascade,
   rider_slug  text not null references riders (pcs_slug),
   price       int  not null default 0,
-  source      text not null check (source in ('draft', 'offline', 'waiver', 'trade', 'admin')),
+  source      text not null,
   acquired_on date not null,
   acquired_at timestamptz not null default now(),
   released_on date,
   released_at timestamptz
 );
+alter table roster_entries drop constraint if exists roster_entries_source_check;
+alter table roster_entries add constraint roster_entries_source_check
+  check (source in ('draft', 'offline', 'waiver', 'trade', 'admin', 'free'));
 create unique index if not exists roster_active_rider on roster_entries (league_id, rider_slug) where released_on is null;
 create index if not exists roster_manager on roster_entries (manager_id);
 
@@ -274,6 +282,10 @@ create table if not exists matchdays (
   constraint matchdays_no_overlap exclude using gist (
     league_id with =, daterange(starts_on, ends_on, '[]') with &&)
 );
+
+alter table matchdays add column if not exists waiver_deadline timestamptz;   -- Waiver-Auswertung (null = am Stichtag)
+alter table matchdays add column if not exists locked boolean not null default false;   -- Kader/Aufstellung fest (Stichtag erreicht)
+update matchdays set locked = true where not locked and waivers_done and deadline <= now();
 
 create table if not exists lineups (
   matchday_id uuid not null references matchdays (id) on delete cascade,
@@ -536,7 +548,7 @@ declare v_id uuid; s jsonb := coalesce(p_settings, '{}');
 begin
   if auth.uid() is null then raise exception 'Bitte zuerst anmelden.'; end if;
   insert into leagues (name, admin_user, max_managers, roster_size, scoring_mode, lineup_size, max_per_team,
-                       draft_mode, draft_order, bid_seconds, waiver_mode, gender, season_start, season_end)
+                       draft_mode, draft_order, bid_seconds, waiver_mode, gender, season_start, season_end, transfer_mode)
   values (p_name, auth.uid(),
           coalesce((s->>'max_managers')::int, 8),
           coalesce((s->>'roster_size')::int, 15),
@@ -549,7 +561,8 @@ begin
           coalesce(s->>'waiver_mode', 'priority'),
           coalesce(s->>'gender', 'men'),
           coalesce((s->>'season_start')::date, make_date(extract(year from current_date)::int + 1, 1, 1)),
-          coalesce((s->>'season_end')::date, make_date(extract(year from current_date)::int + 1, 10, 31)))
+          coalesce((s->>'season_end')::date, make_date(extract(year from current_date)::int + 1, 10, 31)),
+          coalesce(s->>'transfer_mode', 'waiver_free'))
   returning id into v_id;
   insert into managers (league_id, user_id, team_name) values (v_id, auth.uid(), p_team_name);
   insert into draft_state (league_id) values (v_id);
@@ -667,8 +680,13 @@ begin
     scoring_mode = coalesce(s->>'scoring_mode', scoring_mode),
     lineup_size  = case when s ? 'lineup_size' then (s->>'lineup_size')::int else lineup_size end,
     waiver_mode  = coalesce(s->>'waiver_mode', waiver_mode),
+    transfer_mode = coalesce(s->>'transfer_mode', transfer_mode),
     season_end   = coalesce((s->>'season_end')::date, season_end)
   where id = p_league;
+  -- Transfermodus geändert: künftige Spieltage mit Standard-Fristen neu berechnen
+  if s ? 'transfer_mode' and s->>'transfer_mode' is distinct from l.transfer_mode then
+    perform _reset_default_deadlines(p_league, l.transfer_mode);
+  end if;
   if (select scoring_mode = 'lineup' and lineup_size is null from leagues where id = p_league) then
     raise exception 'Im Aufstellungsmodus muss die Zahl der wertenden Fahrer gesetzt sein.';
   end if;
@@ -1100,23 +1118,59 @@ end $$;
 -- Spieltage
 -- =====================================================================
 
+-- Standard-Stichtag (Kader und Aufstellung fest):
+--   nur Waiver:          Vortag des Spieltags, 20:00 Uhr
+--   Waiver + frei:       Spieltagstart, 00:00 Uhr
+create or replace function _default_deadline(p_league uuid, p_start date) returns timestamptz
+language sql stable security definer set search_path = public as $$
+  select case when (select transfer_mode from leagues where id = p_league) = 'waiver_free'
+              then p_start::timestamp at time zone 'Europe/Berlin'
+              else (p_start - 1 + time '20:00')::timestamp at time zone 'Europe/Berlin' end;
+$$;
+
+-- Standard-Waiver-Auswertung im zweiteiligen Modus: 7 Tage vor Start, 20:00 Uhr.
+-- Ist der vorige Spieltag kürzer als 14 Tage: nach der Hälfte seiner Dauer. Nie vor dem vorigen Stichtag.
+create or replace function _default_waiver_deadline(p_league uuid, p_start date, p_except uuid default null) returns timestamptz
+language plpgsql stable security definer set search_path = public as $$
+declare prev matchdays; v timestamptz; v_lock timestamptz := _default_deadline(p_league, p_start);
+begin
+  if (select transfer_mode from leagues where id = p_league) <> 'waiver_free' then return null; end if;
+  select * into prev from matchdays where league_id = p_league and starts_on < p_start
+     and id is distinct from p_except order by starts_on desc limit 1;
+  if found and prev.ends_on - prev.starts_on + 1 < 14 then
+    v := (prev.starts_on + (prev.ends_on - prev.starts_on + 1) / 2 + time '20:00')::timestamp at time zone 'Europe/Berlin';
+  else
+    v := (p_start - 7 + time '20:00')::timestamp at time zone 'Europe/Berlin';
+  end if;
+  if prev.id is not null and v <= prev.deadline then
+    v := (((prev.deadline + (v_lock - prev.deadline) / 2) at time zone 'Europe/Berlin')::date + time '20:00')
+         ::timestamp at time zone 'Europe/Berlin';
+    if v <= prev.deadline or v >= v_lock then v := prev.deadline + (v_lock - prev.deadline) / 2; end if;
+  end if;
+  return least(v, v_lock);
+end $$;
+
 create or replace function upsert_matchday(p_league uuid, p_id uuid, p_name text, p_start date, p_end date,
-                                           p_deadline timestamptz default null)
+                                           p_deadline timestamptz default null, p_waiver_deadline timestamptz default null)
 returns uuid language plpgsql security definer set search_path = public as $$
-declare v uuid; m matchdays; v_deadline timestamptz;
+declare v uuid; m matchdays; v_deadline timestamptz; v_wd timestamptz;
 begin
   perform _require_admin(p_league);
-  -- Standard-Stichtag: Vortag des Spieltags, 20:00 Uhr (Berliner Zeit)
-  v_deadline := coalesce(p_deadline, (p_start - 1 + time '20:00')::timestamp at time zone 'Europe/Berlin');
+  v_deadline := coalesce(p_deadline, _default_deadline(p_league, p_start));
+  v_wd := coalesce(p_waiver_deadline, _default_waiver_deadline(p_league, p_start, p_id));
+  if v_wd > v_deadline then raise exception 'Die Waiver-Auswertung muss vor dem Stichtag liegen.'; end if;
   if p_end < p_start then raise exception 'Das Enddatum liegt vor dem Startdatum.'; end if;
   if p_id is null then
-    insert into matchdays (league_id, name, starts_on, ends_on, deadline)
-    values (p_league, p_name, p_start, p_end, v_deadline) returning id into v;
+    insert into matchdays (league_id, name, starts_on, ends_on, deadline, waiver_deadline)
+    values (p_league, p_name, p_start, p_end, v_deadline, v_wd) returning id into v;
   else
     select * into m from matchdays where id = p_id and league_id = p_league;
     if not found then raise exception 'Spieltag nicht gefunden.'; end if;
-    if m.waivers_done or m.deadline <= now() then raise exception 'Laufende und abgeschlossene Spieltage sind gesperrt.'; end if;
-    update matchdays set name = p_name, starts_on = p_start, ends_on = p_end, deadline = v_deadline where id = p_id;
+    if m.waivers_done or coalesce(m.waiver_deadline, m.deadline) <= now() then
+      raise exception 'Laufende und abgeschlossene Spieltage sind gesperrt.';
+    end if;
+    update matchdays set name = p_name, starts_on = p_start, ends_on = p_end, deadline = v_deadline, waiver_deadline = v_wd
+     where id = p_id;
     v := p_id;
   end if;
   return v;
@@ -1131,7 +1185,9 @@ begin
   select * into m from matchdays where id = p_id;
   if not found then raise exception 'Spieltag nicht gefunden.'; end if;
   perform _require_admin(m.league_id);
-  if m.waivers_done or m.deadline <= now() then raise exception 'Laufende und abgeschlossene Spieltage sind gesperrt.'; end if;
+  if m.waivers_done or coalesce(m.waiver_deadline, m.deadline) <= now() then
+    raise exception 'Laufende und abgeschlossene Spieltage sind gesperrt.';
+  end if;
   delete from matchdays where id = p_id;
 end $$;
 
@@ -1497,10 +1553,84 @@ begin
   if l.waiver_mode = 'faab' then
     update managers set budget_left = budget_left - c.bid where id = c.manager_id;
   end if;
+  -- steht der abgegebene Fahrer in einer Aufstellung ab diesem Spieltag, rückt der neue nach
+  update lineups x set rider_slug = c.add_rider
+    from matchdays m where m.id = x.matchday_id and m.league_id = l.id and m.starts_on >= md.starts_on
+     and x.manager_id = c.manager_id and x.rider_slug = c.drop_rider;
   update waiver_claims set status = 'won', processed_at = now(), matchday_id = md.id where id = c.id;
   -- andere Anträge mit demselben abzugebenden Fahrer werden ungültig
   update waiver_claims set status = 'lost', note = 'Abzugebender Fahrer schon getauscht', processed_at = now(), matchday_id = md.id
    where manager_id = c.manager_id and status = 'pending' and drop_rider = c.drop_rider;
+end $$;
+
+-- Phase für den nächsten Spieltag: 'waiver' (Anträge sammeln), 'free' (sofort tauschen), null (kein Spieltag)
+create or replace function transfer_phase(p_league uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare l leagues; md matchdays;
+begin
+  select * into l from leagues where id = p_league;
+  select * into md from matchdays where league_id = p_league and deadline > now() order by deadline limit 1;
+  if not found then return jsonb_build_object('phase', null); end if;
+  return jsonb_build_object('matchday', md.id,
+    'phase', case when l.transfer_mode = 'waiver_free' and md.waivers_done then 'free' else 'waiver' end,
+    'waiver_deadline', coalesce(md.waiver_deadline, md.deadline), 'deadline', md.deadline);
+end $$;
+
+-- Freie Phase: freien Fahrer sofort holen und dafür einen abgeben – gilt ab dem nächsten Spieltag
+create or replace function free_move(p_league uuid, p_add text, p_drop text) returns void
+language plpgsql security definer set search_path = public as $$
+declare l leagues; md matchdays; v_me uuid; e roster_entries;
+begin
+  v_me := _require_member(p_league);
+  perform process_due(p_league);
+  select * into l from leagues where id = p_league;
+  if l.transfer_mode <> 'waiver_free' or l.status <> 'active' then raise exception 'In dieser Liga gibt es keine freie Phase.'; end if;
+  select * into md from matchdays where league_id = p_league and deadline > now() order by deadline limit 1;
+  if not found or not md.waivers_done then raise exception 'Die freie Phase beginnt erst nach der Waiver-Runde.'; end if;
+  select * into e from roster_entries where manager_id = v_me and rider_slug = p_drop and released_on is null;
+  if not found then raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.'; end if;
+  -- frei = in keinem Kader für den nächsten Spieltag (abgegebene Fahrer sind sofort wieder frei)
+  if exists (select 1 from roster_entries where league_id = p_league and rider_slug = p_add and released_on is null) then
+    raise exception 'Dieser Fahrer ist schon vergeben.';
+  end if;
+  if not exists (select 1 from riders r where r.pcs_slug = p_add and r.gender = l.gender and not r.inactive) then
+    raise exception 'Fahrer nicht verfügbar.';
+  end if;
+  if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  -- abgeben: erst in dieser Phase geholt → Eintrag entfernen, sonst endet er mit dem Spieltagstart
+  if e.acquired_on >= md.starts_on then
+    delete from roster_entries where id = e.id;
+  else
+    update roster_entries set released_on = md.starts_on, released_at = now() where id = e.id;
+  end if;
+  -- holen: eigenen, gerade abgegebenen Fahrer zurücknehmen oder neu eintragen
+  update roster_entries set released_on = null, released_at = null
+   where manager_id = v_me and rider_slug = p_add and released_on = md.starts_on
+     and released_at >= coalesce(md.waiver_deadline, md.deadline);
+  if not found then
+    insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+    values (p_league, v_me, p_add, 0, 'free', md.starts_on);
+  end if;
+  update lineups set rider_slug = p_add
+   where matchday_id = md.id and manager_id = v_me and rider_slug = p_drop;
+  insert into waiver_claims (league_id, manager_id, add_rider, drop_rider, status, note, processed_at, matchday_id)
+  values (p_league, v_me, p_add, p_drop, 'won', 'Freie Phase', now(), md.id);
+end $$;
+
+-- Nach Wechsel des Transfermodus: Standard-Fristen künftiger Spieltage neu setzen
+create or replace function _reset_default_deadlines(p_league uuid, p_old_mode text) returns void
+language plpgsql security definer set search_path = public as $$
+declare m matchdays;
+begin
+  for m in select * from matchdays where league_id = p_league and status = 'planned' and not waivers_done
+             and coalesce(waiver_deadline, deadline) > now() order by starts_on loop
+    -- nur Standardwerte ersetzen, eigene Fristen des Admins bleiben
+    if m.deadline in (m.starts_on::timestamp at time zone 'Europe/Berlin',
+                      (m.starts_on - 1 + time '20:00')::timestamp at time zone 'Europe/Berlin') then
+      update matchdays set deadline = _default_deadline(p_league, m.starts_on) where id = m.id;
+    end if;
+    update matchdays set waiver_deadline = _default_waiver_deadline(p_league, m.starts_on, m.id) where id = m.id;
+  end loop;
 end $$;
 
 create or replace function _process_waivers(p_md uuid) returns void
@@ -1520,7 +1650,7 @@ begin
       -- obersten gültigen Antrag dieses Managers suchen
       c := null;
       for c in select * from waiver_claims
-                where manager_id = v_mgr and status = 'pending' and created_at <= md.deadline
+                where manager_id = v_mgr and status = 'pending' and created_at <= coalesce(md.waiver_deadline, md.deadline)
                 order by priority, created_at loop
         v_why := _claim_valid(c, l);
         if v_why is null then exit; end if;
@@ -1648,22 +1778,30 @@ language plpgsql security definer set search_path = public as $$
 declare md matchdays; n int := 0;
 begin
   for md in select m.* from matchdays m join leagues l on l.id = m.league_id
-             where not m.waivers_done and m.deadline <= now() and l.status = 'active'
-               and (p_league is null or m.league_id = p_league)
+             where ((not m.waivers_done and coalesce(m.waiver_deadline, m.deadline) <= now())
+                    or (not m.locked and m.deadline <= now()))
+               and l.status = 'active' and (p_league is null or m.league_id = p_league)
              order by m.deadline
              for update of m skip locked loop
-    update matchdays m set scoring_mode = l.scoring_mode, lineup_size = l.lineup_size
-      from leagues l where l.id = m.league_id and m.id = md.id;
-    perform _process_trades(md.id);
-    perform _process_waivers(md.id);
-    perform _notify(w.manager_id, '📋 Waiver-Ergebnis',
-        coalesce('Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
-        || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'lost'), ''),
-        '#/league/' || md.league_id || '/waiver')
-       from waiver_claims w where w.matchday_id = md.id and w.processed_at >= now() - interval '1 minute'
-       group by w.manager_id;
-    update matchdays set waivers_done = true where id = md.id;
-    update leagues set last_waiver_run = now() where id = md.league_id;
+    -- Stichtag: Tausche ausführen, Wertungsmodus festhalten, Kader und Aufstellung sind ab jetzt fest
+    if not md.locked and md.deadline <= now() then
+      update matchdays m set scoring_mode = l.scoring_mode, lineup_size = l.lineup_size
+        from leagues l where l.id = m.league_id and m.id = md.id;
+      perform _process_trades(md.id);
+    end if;
+    -- Waiver-Runde (im zweiteiligen Modus vor dem Stichtag, danach beginnt die freie Phase)
+    if not md.waivers_done and coalesce(md.waiver_deadline, md.deadline) <= now() then
+      perform _process_waivers(md.id);
+      perform _notify(w.manager_id, '📋 Waiver-Ergebnis',
+          coalesce('Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
+          || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'lost'), ''),
+          '#/league/' || md.league_id || '/waiver')
+         from waiver_claims w where w.matchday_id = md.id and w.processed_at >= now() - interval '1 minute'
+         group by w.manager_id;
+      update matchdays set waivers_done = true where id = md.id;
+      update leagues set last_waiver_run = now() where id = md.league_id;
+    end if;
+    if md.deadline <= now() then update matchdays set locked = true where id = md.id; end if;
     n := n + 1;
   end loop;
   update matchdays set status = 'running'
@@ -1868,7 +2006,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop
@@ -1886,3 +2024,13 @@ begin
   alter publication supabase_realtime add table draft_state;
 exception when duplicate_object or undefined_object then null;
 end $$;
+
+-- Einmalig: künftige Spieltage in Ligen mit zweiteiligen Transfers ohne Waiver-Frist bekommen die Standardfristen
+do $$ declare lg uuid; begin
+  for lg in select distinct m.league_id from matchdays m join leagues l on l.id = m.league_id
+             where l.transfer_mode = 'waiver_free' and m.waiver_deadline is null and m.status = 'planned'
+               and not m.waivers_done and m.deadline > now() loop
+    perform _reset_default_deadlines(lg, 'waiver');
+  end loop;
+end $$;
+

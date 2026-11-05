@@ -49,7 +49,7 @@ function CreateLeague({ onCancel }) {
   const y = new Date().getMonth() >= 9 ? new Date().getFullYear() + 1 : new Date().getFullYear();
   const [f, setF] = useState({
     name: '', team_name: '', max_managers: 8, roster_size: 15, scoring_mode: 'full', lineup_size: 9,
-    max_per_team: '', draft_mode: 'live', draft_order: 'ranking', bid_seconds: 15, waiver_mode: 'priority',
+    max_per_team: '', draft_mode: 'live', draft_order: 'ranking', bid_seconds: 15, waiver_mode: 'priority', transfer_mode: 'waiver_free',
     gender: 'men', season_start: `${y}-01-01`, season_end: `${y}-10-31`,
   });
   const a = useAction();
@@ -64,7 +64,7 @@ function CreateLeague({ onCancel }) {
         max_managers: +f.max_managers, roster_size: +f.roster_size, scoring_mode: f.scoring_mode,
         lineup_size: f.scoring_mode === 'lineup' ? +f.lineup_size : null,
         max_per_team: f.max_per_team ? +f.max_per_team : null, draft_mode: f.draft_mode, draft_order: f.draft_order,
-        bid_seconds: +f.bid_seconds, waiver_mode: f.waiver_mode, gender: f.gender,
+        bid_seconds: +f.bid_seconds, waiver_mode: f.waiver_mode, transfer_mode: f.transfer_mode, gender: f.gender,
         season_start: f.season_start, season_end: f.season_end,
       };
       const id = await rpc('create_league', { p_name: f.name, p_team_name: f.team_name, p_settings: s });
@@ -112,6 +112,10 @@ export function LeagueSettingsFields({ f, set, locked }) {
           <option value="ranking">nach UCI-Rangliste</option><option value="nominate">reihum nominieren</option>
         </select></label>
       <label>Sekunden pro Gebot<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
+    <label>Transfers
+      <select value=${f.transfer_mode || 'waiver_free'} onChange=${set('transfer_mode')}>
+        <option value="waiver_free">Waiver-Runde + freie Phase</option><option value="waiver">Nur Waiver (bis zum Stichtag)</option>
+      </select></label>
     <label>Waiver-Modus
       <select value=${f.waiver_mode} onChange=${set('waiver_mode')}>
         <option value="priority">Priorität (Tabellenletzter zuerst)</option><option value="faab">FAAB (Bieten mit Restbudget)</option>

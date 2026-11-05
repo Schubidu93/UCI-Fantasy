@@ -78,7 +78,9 @@ function Schedule({ c, current }) {
       <span class="md-no">${i + 1}</span>
       <span class="md-what"><strong>${m.name}</strong>
         <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
-        <small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''}: ${windowStart(c, m) ? `${fmtDateTime(windowStart(c, m))} – ` : 'bis '}${fmtDateTime(m.deadline)}</small></span>
+        ${c.league.transfer_mode === 'waiver_free'
+          ? html`<small>Waiver bis ${fmtDateTime(m.waiver_deadline || m.deadline)} · frei bis ${fmtDateTime(m.deadline)}</small>`
+          : html`<small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''}: ${windowStart(c, m) ? `${fmtDateTime(windowStart(c, m))} – ` : 'bis '}${fmtDateTime(m.deadline)}</small>`}</span>
       ${tag(m)}</li>`)}</ul>
   </section>`;
 }
