@@ -112,12 +112,26 @@ export const Loading = ({ error }) =>
 // Fahrer-Fenster öffnen (Ergebnisse und Punkte der Saison), siehe views/rider.js
 export const openRider = (slug) => dispatchEvent(new CustomEvent('rider:open', { detail: slug }));
 
+// Teamnamen lesbarer: "UAE TEAM EMIRATES XRG" → "UAE Team Emirates XRG" (bekannte Kürzel bleiben groß)
+const ACRONYMS = new Set(['UAE', 'XRG', 'CMA', 'CGM', 'EF', 'BMC', 'NSN', 'DSM', 'MBH', 'JCL', 'TDT', 'UNO', 'X', 'BB', 'SD',
+  'VF', 'GW', 'TBV', 'KTM', 'TNL', 'AG', 'CCC', 'SPS', 'DMT', 'ABB', 'USA', 'GB', 'II', 'III', 'FDJ', 'ISD']);
+export function teamName(t) {
+  if (!t || t !== t.toUpperCase()) return t || '';
+  return t.replace(/[A-ZÀ-Ý0-9.]+/g, (w) => (ACRONYMS.has(w) || /\d/.test(w) ? w : w[0] + w.slice(1).toLowerCase()));
+}
+
 export function RiderCell({ r }) {
   if (!r) return html`<span class="muted">unbekannt</span>`;
+  const meta = [r.nation && withFlag(r.nation), r.birth_date && r.birth_date.slice(0, 4)].filter(Boolean).join(' · ');
   return html`<span class="rider">
-    <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
-      onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>${r.inactive ? html` <span class="tag warn">inaktiv</span>` : ''}
-    <span class="rider-meta">${[r.nation && withFlag(r.nation), r.birth_date && `Jg. ${r.birth_date.slice(0, 4)}`, r.team, r.uci_rank && `UCI #${r.uci_rank}`].filter(Boolean).join(' · ')}</span>
+    <span class="rider-line">
+      <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
+        onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>
+      ${r.uci_rank && html`<span class="rank-chip" title="Platz im UCI-Ranking">#${r.uci_rank}</span>`}
+      ${r.inactive && html`<span class="tag warn">inaktiv</span>`}
+    </span>
+    ${meta && html`<span class="rider-meta">${meta}</span>`}
+    ${r.team && html`<span class="rider-team" title=${r.team}>${teamName(r.team)}</span>`}
   </span>`;
 }
 

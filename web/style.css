@@ -124,9 +124,12 @@ button.small { padding: 4px 10px; font-size: .85rem; }
 .list li:last-child { border-bottom: 0; }
 .list.compact li { padding: 4px 0; font-size: .9rem; }
 ol.list { counter-reset: n; }
-.rider { display: inline-flex; flex-direction: column; min-width: 0; }
+.rider { display: inline-flex; flex-direction: column; min-width: 0; max-width: 100%; gap: 1px; }
+.rider-line { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .rider-name { font-weight: 600; }
+.rank-chip { font-size: .7rem; font-weight: 600; color: var(--muted); background: var(--surface-2); padding: 0 6px; border-radius: 99px; white-space: nowrap; }
 .rider-meta { font-size: .8rem; color: var(--muted); }
+.rider-team { font-size: .78rem; color: var(--muted); opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .picker { display: flex; flex-direction: column; gap: 8px; }
 .picker .list { max-height: 360px; overflow-y: auto; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
