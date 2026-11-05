@@ -6,6 +6,14 @@ import { describeEvent } from './races.js';
 // Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
 const FIRST_YEAR = 2025;
 
+// Platz 1–3 als Gold/Silber/Bronze – nicht bei Zwischenständen in Rundfahrten (z. B. „Etappe 7 · GC“)
+function placeLabel(x) {
+  if (x.rank_text && !/^\d+$/.test(x.rank_text)) return x.rank_text;
+  const interim = / · /.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && /^(Etappe \d+|Prolog)/.test(describeEvent(x.ev.stage_name, x.ev.event_name));
+  return x.rank >= 1 && x.rank <= 3 && !interim
+    ? html`<span class=${`medal m${x.rank}`}>Platz ${x.rank}</span>` : `Platz ${x.rank}`;
+}
+
 const leagueId = () => (location.hash.match(/^#\/league\/([^/]+)/) || [])[1];
 
 async function loadRider(slug) {
@@ -103,7 +111,7 @@ export function RiderModal() {
               <div class="row between"><strong>${g.race?.name || g.slug}${g.race?.uci_class ? html` <span class="tag">${g.race.uci_class}</span>` : ''}</strong>
                 <span>${g.sum ? fmtPts(g.sum) : ''}</span></div>
               <ul class="list compact">${g.rows.map((x) => html`<li class=${L ? 'clickable' : ''} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
-                <span>${describeEvent(x.ev.stage_name, x.ev.event_name)} <span class="muted">· ${x.rank_text && !/^\d+$/.test(x.rank_text) ? x.rank_text : `Platz ${x.rank}`}${x.result ? ` · ${x.result}` : ''}</span></span>
+                <span>${describeEvent(x.ev.stage_name, x.ev.event_name)} <span class="muted">· ${placeLabel(x)}${x.result ? ` · ${x.result}` : ''}</span></span>
                 <span class="muted">${fmtDate(x.ev.event_date)}${Number(x.uci_points) ? html` · <strong>${fmtPts(x.uci_points)}</strong>` : ''}${L ? ' ›' : ''}</span></li>`)}</ul>
             </div>`)}</div>`}`}
       <p class="muted small">Quelle: UCI DataRide. Antippen öffnet das ganze Ergebnis.</p>

@@ -229,3 +229,9 @@ a.race-link:hover strong { color: var(--accent); }
   .clock { font-size: 2.2rem; }
   .card { padding: 14px; }
 }
+
+/* Podiumsplätze */
+.medal { display: inline-block; padding: 0 7px; border-radius: 99px; font-weight: 700; font-size: .85em; }
+.medal.m1 { background: linear-gradient(135deg, #ffe58a, #f2c230); color: #5c4300; }
+.medal.m2 { background: linear-gradient(135deg, #f1f3f5, #c4cad1); color: #3a4048; }
+.medal.m3 { background: linear-gradient(135deg, #f3c9a2, #cd8a52); color: #4a2a10; }
