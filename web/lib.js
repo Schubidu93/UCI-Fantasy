@@ -47,6 +47,10 @@ export function normName(s) {
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Budget spielt nur eine Rolle, wenn Fahrer im Draft etwas kosten (Auktion/Offline) oder Waiver per FAAB laufen
+export const draftCosts = (l) => l.draft_mode !== 'snake';
+export const budgetRelevant = (l) => draftCosts(l) || l.waiver_mode === 'faab';
+
 export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 'Waiver', trade: 'Tausch', admin: 'Admin' };
 
 // ---- Flaggen ---------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker, draftCosts } from '../lib.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
 let clockOffset = 0;
@@ -345,7 +345,7 @@ function DraftSummary({ c }) {
       <p class="muted">Ab jetzt laufen Kaderänderungen über Waiver und Tausch.</p></div>
     <div class="cards">${c.managers.map((m) => html`<div class="card" key=${m.id}>
       <h3>${m.team_name}</h3>
-      <p class="muted small">Ausgegeben: ${c.active.filter((r) => r.manager_id === m.id).reduce((s, r) => s + r.price, 0)} · Rest: ${m.budget_left}</p>
+      ${draftCosts(c.league) && html`<p class="muted small">Ausgegeben: ${c.active.filter((r) => r.manager_id === m.id).reduce((s, r) => s + r.price, 0)} · Rest: ${m.budget_left}</p>`}
       <${RosterMini} c=${c} managerId=${m.id} />
     </div>`)}</div>
   </section>`;

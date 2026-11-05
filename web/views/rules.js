@@ -1,6 +1,6 @@
 // Spielregeln – allgemeine Regeln plus die Einstellungen der aktuellen Liga
 import { html } from '../vendor/preact-htm.js';
-import { fmtDate } from '../lib.js';
+import { fmtDate, draftCosts } from '../lib.js';
 
 const DRAFT = {
   live: 'Live-Auktion',
@@ -29,7 +29,7 @@ export function Rules({ c }) {
         ${row('Wertungsmodus', l.scoring_mode === 'lineup' ? `Aufstellung: ${l.lineup_size} von ${l.roster_size} Fahrern werten` : 'Gesamtkader zählt')}
         ${row('Draft', DRAFT[l.draft_mode] + (l.draft_mode === 'live' ? ` · ${l.draft_order === 'ranking' ? 'Reihenfolge nach UCI-Rang' : 'reihum nominieren'}` : ''))}
         ${l.draft_mode !== 'offline' && row(l.draft_mode === 'snake' ? 'Zeit pro Pick' : 'Zeit pro Gebot', `${l.bid_seconds} Sekunden`)}
-        ${row('Budget', `${l.budget} Punkte pro Manager`)}
+        ${draftCosts(l) ? row('Budget', `${l.budget} Punkte pro Manager`) : l.waiver_mode === 'faab' && row('FAAB-Budget', `${l.budget} Punkte pro Manager für Waiver-Gebote`)}
         ${row('Waiver', l.waiver_mode === 'faab' ? 'FAAB – verdeckt mit dem Restbudget bieten' : 'Priorität – Tabellenletzter zuerst')}
         ${l.keeper_count > 0 && row('Keeper', `bis zu ${l.keeper_count} Fahrer aus der Vorsaison, Preis Vorjahr + ${l.keeper_surcharge}`)}
       </tbody></table>
@@ -46,7 +46,7 @@ export function Rules({ c }) {
       : l.draft_mode === 'snake' ? html`<ul>
           <li>Die Manager wählen reihum je einen Fahrer; in jeder Runde dreht sich die Reihenfolge um (1–2–3 … 3–2–1). Die Reihenfolge wird beim Start ausgelost.</li>
           <li>Pro Pick gibt es ${l.bid_seconds} Sekunden. Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</li>
-          <li>Fahrer kosten im Snake-Draft nichts; das Budget bleibt für FAAB-Waiver.</li>
+          <li>Fahrer kosten im Snake-Draft nichts${l.waiver_mode === 'faab' ? `; die ${l.budget} Budgetpunkte bleiben für FAAB-Waiver` : ''}.</li>
         </ul>`
       : html`<p>Der Draft findet offline statt. Der Admin trägt danach die Kader samt Preisen ein (oder lädt eine CSV hoch).</p>`}
       <p class="muted small">Der Admin kann einen Draft-Termin festlegen – dann läuft für alle ein Countdown und der Draft startet automatisch.</p>
@@ -70,7 +70,7 @@ export function Rules({ c }) {
         <li>Der Admin legt Spieltage als Zeiträume fest (z. B. Klassiker, Giro, Tour, Vuelta). Punkte zwischen zwei Spieltagen verfallen.</li>
         <li>Jeder Spieltag hat einen <strong>Stichtag</strong> (Standard: Start um 00:00 Uhr). Waiver, Tausch und Aufstellung wirken ab diesem Spieltag.</li>
         <li>Ein Spieltag schließt nach seinem Ende und wird 7 Tage später eingefroren; bis dahin werden Korrekturen automatisch übernommen.</li>
-        <li>Gleichstand in der Tabelle: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag, dann weniger ausgegebenes Budget.</li>
+        <li>Gleichstand in der Tabelle: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(l) ? ', dann weniger ausgegebenes Budget' : ''}.</li>
       </ul>
     </section>
 

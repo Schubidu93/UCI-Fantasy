@@ -1,5 +1,5 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtPts } from '../lib.js';
+import { rpc, useLoad, Loading, fmtPts, draftCosts } from '../lib.js';
 
 const COLORS = ['#2a6fdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599', '#f08c00', '#5c940d',
   '#d6336c', '#1971c2', '#e67700', '#087f5b', '#9c36b5', '#c92a2a', '#364fc7', '#66a80f', '#a61e4d', '#0b7285', '#5f3dc4', '#862e9c'];
@@ -22,12 +22,12 @@ export function Table({ c }) {
         </div></div>
       ${view === 'total' ? html`<table class="tbl">
         <thead><tr><th>#</th><th>Team</th><th class="num">Punkte</th><th class="num" title="Spieltagssiege">Siege</th>
-          <th class="num" title="bester Spieltag">Bester</th><th class="num" title="im Draft ausgegeben">Budget</th></tr></thead>
+          <th class="num" title="bester Spieltag">Bester</th>${draftCosts(c.league) && html`<th class="num" title="im Draft ausgegeben">Budget</th>`}</tr></thead>
         <tbody>${table.data.map((r) => html`<tr key=${r.manager_id} class=${r.manager_id === c.me?.id ? 'me' : ''}>
           <td>${r.position}</td><td>${r.team_name}</td><td class="num"><strong>${fmtPts(r.total)}</strong></td>
-          <td class="num">${r.matchday_wins}</td><td class="num">${fmtPts(r.best_matchday)}</td><td class="num">${r.spent}</td></tr>`)}</tbody>
+          <td class="num">${r.matchday_wins}</td><td class="num">${fmtPts(r.best_matchday)}</td>${draftCosts(c.league) && html`<td class="num">${r.spent}</td>`}</tr>`)}</tbody>
       </table>
-      <p class="muted small">Gleichstand: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag, dann weniger ausgegebenes Budget.</p>`
+      <p class="muted small">Gleichstand: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(c.league) ? ', dann weniger ausgegebenes Budget' : ''}.</p>`
       : html`<div class="scroll-x"><table class="tbl">
         <thead><tr><th>Team</th>${mds.map((m) => html`<th class="num">${m.name}</th>`)}</tr></thead>
         <tbody>${table.data.map((r) => {

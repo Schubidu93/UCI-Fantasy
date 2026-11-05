@@ -1,5 +1,5 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtDateTime, fmtPts, SOURCE_LABEL } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtDateTime, fmtPts, SOURCE_LABEL , budgetRelevant } from '../lib.js';
 
 export function Team({ c }) {
   const [mid, setMid] = useState(c.me?.id || c.managers[0]?.id);
@@ -13,7 +13,7 @@ export function Team({ c }) {
         <select value=${mid} onChange=${(e) => setMid(e.target.value)}>
           ${c.managers.map((x) => html`<option value=${x.id}>${x.team_name}${x.id === c.me?.id ? ' (du)' : ''}</option>`)}
         </select></label>
-      ${m && html`<span class="muted">Restbudget ${m.budget_left}${c.league.waiver_mode === 'faab' ? ' (FAAB)' : ''}</span>`}
+      ${m && budgetRelevant(c.league) && html`<span class="muted">Restbudget ${m.budget_left}${c.league.waiver_mode === 'faab' ? ' (FAAB)' : ''}</span>`}
     </div>
     ${!pts.data ? html`<${Loading} error=${pts.error} />` : html`<${Roster} c=${c} managerId=${mid} points=${pts.data} />`}
     ${isMe && c.league.scoring_mode === 'lineup' && html`<${Lineup} c=${c} />`}
