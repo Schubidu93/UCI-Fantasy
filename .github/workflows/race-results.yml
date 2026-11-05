@@ -12,6 +12,10 @@ on:
         description: "Auch schon geladene Rennen neu holen"
         type: boolean
         default: false
+      saison:
+        description: "Andere Saison laden, z. B. 2025 (leer = aktuelle)"
+        required: false
+        default: ""
       klassen:
         description: "Nur diese Rennklassen, z. B. CN,CC,CM (leer = alle)"
         required: false
@@ -36,5 +40,6 @@ jobs:
         env:
           REFRESH: ${{ inputs.neu_laden && '1' || '' }}
           CLASSES: ${{ inputs.klassen }}
+          SEASON_YEAR: ${{ inputs.saison }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

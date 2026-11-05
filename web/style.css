@@ -134,7 +134,11 @@ button.linkish:hover, button.linkish:focus-visible { color: var(--accent); text-
 .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center;
   padding: 40px 16px; z-index: 50; overflow-y: auto; }
 .modal { width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 12px; }
-.modal-head h2 { margin: 0; }
+.modal-head { display: flex; align-items: flex-start; gap: 10px; }
+.modal-title { flex: 1; min-width: 0; }
+.modal-head h2 { margin: 0; overflow-wrap: anywhere; }
+.list li.clickable { cursor: pointer; }
+.list li.clickable:hover { background: var(--surface-2); }
 .modal-body { display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 720px) { .modal-back { padding: 12px 8px; } }
 

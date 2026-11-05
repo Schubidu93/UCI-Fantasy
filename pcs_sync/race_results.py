@@ -11,6 +11,7 @@ Umgebung:
   GENDERS=men,women   welche Wertungen
   LIMIT=5             nur so viele Rennen je Wertung (zum Testen)
   REFRESH=1           auch schon geladene Rennen neu holen
+  SEASON_YEAR=2025    andere Saison laden (Standard: aktuelle)
   CLASSES=CN,CC,CM    nur diese Rennklassen (z. B. Meisterschaften gezielt neu laden)
   DRY_RUN=1           nichts speichern, nur anzeigen
 """
@@ -47,7 +48,7 @@ def stage_order(race):
 
 def main():
     dr = DataRide()
-    season = dr.season()
+    season = dr.season(int(os.environ["SEASON_YEAR"])) if os.environ.get("SEASON_YEAR") else dr.season()
     today = date.today()
     started = time.time()
     print(f"Saison {season['Name']} (ID {season['Id']})")
@@ -76,9 +77,11 @@ def main():
         comps = dr.competitions(gender, season["Id"])
         # Kalender: kommende Rennen dieser und der nächsten Saison (ohne Ergebnisse) speichern
         upcoming = [c for c in comps if (ms_date(c.get("EndDate")) or today) > today]
-        nxt = dr.season(today.year + 1)
+        nxt = dr.season(season["Year"] + 1)
         if nxt["Id"] != season["Id"]:
-            upcoming += dr.competitions(gender, nxt["Id"])
+            nxt_comps = dr.competitions(gender, nxt["Id"])
+            upcoming += nxt_comps
+            comps += nxt_comps   # die UCI-Saison beginnt im Herbst – schon gefahrene Rennen gleich mitladen
         cal = []
         for c in upcoming:
             start, end = ms_date(c.get("StartDate")), ms_date(c.get("EndDate"))

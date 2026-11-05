@@ -65,7 +65,7 @@ const TABS = [
   ['results', 'Ergebnisse'], ['table', 'Tabelle'], ['rules', 'Regeln'], ['admin', 'Admin'],
 ];
 
-function LeagueShell({ id, tab, sub, session }) {
+function LeagueShell({ id, tab, sub, sub2, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
   if (!ctx.data) return html`<main class="wrap"><${Loading} error=${ctx.error} /></main>`;
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
@@ -91,7 +91,7 @@ function LeagueShell({ id, tab, sub, session }) {
           html`<a href=${`#/league/${id}/${k}`} class=${k === t ? 'active' : ''}>${label}</a>`)}
       </nav>
     </header>
-    <main class="wrap"><${View} c=${c} sub=${sub} /></main>`;
+    <main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} /></main>`;
 }
 
 function App() {
@@ -109,7 +109,7 @@ function App() {
     location.hash = `#/join/${pending}`;
   }
   if (parts[0] === 'join') return html`<${Join} code=${parts[1]} session=${session} />`;
-  if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} session=${session} />`;
+  if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} sub2=${parts[4]} session=${session} />`;
   return html`<${Home} session=${session} />`;
 }
 

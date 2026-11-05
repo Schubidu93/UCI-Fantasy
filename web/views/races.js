@@ -18,12 +18,12 @@ const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g
 
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
-export function Races({ c, sub }) {
+export function Races({ c, sub, sub2 }) {
   const year = new Date().getFullYear();
   const races = useLoad(() => all(() => sb.from('races').select('pcs_slug,name,uci_class,country,start_date,end_date')
     .eq('gender', c.league.gender).not('dataride_id', 'is', null)
     .gte('start_date', `${year}-01-01`).order('start_date', { ascending: false })), [c.league.gender, year]);
-  if (sub) return html`<${RaceDetail} c=${c} slug=${decodeURIComponent(sub)} />`;
+  if (sub) return html`<${RaceDetail} key=${sub + (sub2 || '')} c=${c} slug=${decodeURIComponent(sub)} initialEvent=${sub2 ? +sub2 : null} />`;
   if (!races.data) return html`<${Loading} error=${races.error} />`;
   return html`<${RaceList} c=${c} races=${races.data} />`;
 }
@@ -57,6 +57,8 @@ function RaceList({ c, races }) {
         <button class=${mode === 'calendar' ? 'active' : ''} onClick=${() => setMode('calendar')}>Kalender</button>
       </div></div>
     <p class="muted small">${list.length} von ${byMode.length} Rennen${mode === 'calendar' ? ' · Startlisten liefert die UCI leider nicht' : ''}</p>
+    ${mode === 'calendar' && byMode.length < 10 && html`<p class="note small">Die UCI trägt den Rennkalender der nächsten Saison erst nach und nach ein.
+      Neue Rennen erscheinen hier automatisch (Abruf mittwochs).</p>`}
     <div class="filters">
       <input type="search" placeholder="Rennen suchen" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${group} onChange=${(e) => setGroup(e.target.value)}>${CLASS_GROUPS.map(([k, l]) => html`<option value=${k}>${l}</option>`)}</select>
@@ -74,13 +76,13 @@ function RaceList({ c, races }) {
   </section>`;
 }
 
-function RaceDetail({ c, slug }) {
+function RaceDetail({ c, slug, initialEvent }) {
   const data = useLoad(async () => {
     const [race] = await q(sb.from('races').select('*').eq('pcs_slug', slug));
     const events = await q(sb.from('race_events').select('*').eq('race_slug', slug).order('stage_no').order('id'));
     return { race, events };
   }, [slug]);
-  const [eventId, setEventId] = useState(null);
+  const [eventId, setEventId] = useState(initialEvent);
   if (!data.data) return html`<${Loading} error=${data.error} />`;
   const { race, events } = data.data;
   // Etappen (stage_name) mit ihren Wertungen
@@ -104,7 +106,7 @@ function RaceDetail({ c, slug }) {
       ${stages.length > 1 && html`<label class="inline">Etappe
         <select value=${current ? stages.findIndex((s) => s.events.includes(current)) : 0}
           onChange=${(e) => setEventId(preferred(stages[+e.target.value]).id)}>
-          ${stages.map((s, i) => html`<option value=${i}>${/final/i.test(s.name || '') ? 'GC' : labelText(s.name || '')}${s.date ? ` · ${fmtDate(s.date)}` : ''}</option>`)}
+          ${stages.map((s, i) => html`<option value=${i}>${stageLabel(s.name)}${s.date ? ` · ${fmtDate(s.date)}` : ''}</option>`)}
         </select></label>`}
       ${current && html`<div class="seg small wrap-seg">${stages.find((s) => s.events.includes(current)).events.map((e) =>
         html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${eventLabel(e.event_name)}</button>`)}</div>`}
@@ -126,7 +128,7 @@ const EVENT_LABELS = [
   [/Youth|Young Riders?|Best Young/i, 'Nachwuchs', 4],
   [/Team/i, 'Team', 5],
 ];
-const eventLabel = (n) => {
+export const eventLabel = (n) => {
   const name = n || '';
   const hit = EVENT_LABELS.find(([re]) => re.test(name));
   if (!hit) return name.replace(/^(Stage|Overall)\s+/i, '').replace(/\s+Classification$/i, '') || name;
@@ -134,6 +136,24 @@ const eventLabel = (n) => {
   if (/^Stage\b/i.test(name) && !['Etappe', 'GC'].includes(hit[1])) return `Etappe ${hit[1]}`;
   return hit[1];
 };
+// Etappen-/Renntag-Namen der UCI auf Deutsch (Meisterschaften: Straßenrennen, Einzelzeitfahren …)
+export const stageLabel = (name) => {
+  const n = name || '';
+  if (/final classification/i.test(n)) return 'GC';
+  if (/individual time trial|\bITT\b/i.test(n)) return 'Einzelzeitfahren';
+  if (/team time trial|\bTTT\b|mixed relay/i.test(n)) return 'Mannschaftszeitfahren';
+  if (/road race/i.test(n)) return 'Straßenrennen';
+  return labelText(n);
+};
+
+// "Etappe 6", "Etappe 6 · GC", "GC", "Punkte", "Straßenrennen" … für eine Ergebniszeile
+export function describeEvent(stage, event) {
+  const s = stageLabel(stage), e = eventLabel(event);
+  if (s === 'GC') return e === 'Ergebnis' ? 'Ergebnis' : e;
+  if (/^Etappe \d+|^Prolog/.test(s)) return e === 'Etappe' ? s : `${s} · ${e.replace(/^Etappe /, '')}`;
+  return e === 'Ergebnis' || e === 'GC' ? s : `${s} · ${e}`;
+}
+
 const eventOrder = (n) => (EVENT_LABELS.find(([re]) => re.test(n || ''))?.[2] ?? 9);
 
 function ResultTable({ c, event }) {
