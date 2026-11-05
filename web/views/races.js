@@ -67,12 +67,12 @@ function RaceList({ c, races }) {
         ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
     </div>
     ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf „Rennergebnisse laden“ läuft bzw. startet mittwochs.</p>` : html`
-    <ul class="list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
+    <ul class="list race-list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
       <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.pcs_slug)}`}>
         <strong>${r.name}</strong>
         <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${withFlag(r.country)}` : ''}</span>
       </a>
-      <span class="row">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}${r.provisional ? html`<span class="tag warn" title="Termin aus dem veröffentlichten UCI-Kalender – wird ersetzt, sobald die UCI das Rennen in DataRide einträgt">vorläufig</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
+      <span class="race-tags">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}${r.provisional ? html`<span class="tag warn" title="Termin aus dem veröffentlichten UCI-Kalender – wird ersetzt, sobald die UCI das Rennen in DataRide einträgt">vorläufig</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
   </section>`;
 }
 

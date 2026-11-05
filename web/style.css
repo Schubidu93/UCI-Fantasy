@@ -268,3 +268,8 @@ a.race-link:hover strong { color: var(--accent); }
 .res-what b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 label.sort-select { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; color: var(--muted); margin: 0; }
 label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
+
+/* Rennliste: Name darf umbrechen, Schilder (läuft/vorläufig/Klasse) bleiben immer rechts */
+.race-list li { flex-wrap: nowrap; }
+.race-list .race-link { flex: 1; min-width: 0; }
+.race-tags { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
