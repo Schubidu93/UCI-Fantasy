@@ -260,3 +260,6 @@ a.race-link:hover strong { color: var(--accent); }
 .res-place { text-align: center; font-variant-numeric: tabular-nums; }
 .res-pts { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .res-table { margin-top: 2px; }
+.res-head button.linkish { font-weight: 600; color: var(--muted); font-size: inherit; }
+.res-head button.sorted { color: var(--accent); }
+.res-what b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
