@@ -12,6 +12,7 @@ import { Admin } from './views/admin.js';
 import { RiderModal } from './views/rider.js';
 import { Riders } from './views/riders.js';
 import { Races } from './views/races.js';
+import { Rules } from './views/rules.js';
 import { registerServiceWorker } from './views/push.js';
 
 function useHash() {
@@ -61,7 +62,7 @@ async function loadLeague(id, userId) {
 
 const TABS = [
   ['draft', 'Draft'], ['team', 'Team'], ['riders', 'Fahrer'], ['races', 'Rennen'], ['waiver', 'Waiver'],
-  ['results', 'Ergebnisse'], ['table', 'Tabelle'], ['admin', 'Admin'],
+  ['results', 'Ergebnisse'], ['table', 'Tabelle'], ['rules', 'Regeln'], ['admin', 'Admin'],
 ];
 
 function LeagueShell({ id, tab, sub, session }) {
@@ -70,7 +71,7 @@ function LeagueShell({ id, tab, sub, session }) {
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'setup' || c.league.status === 'drafting' ? 'draft' : 'table';
   const t = tab || defaultTab;
-  const View = { draft: Draft, team: Team, riders: Riders, races: Races, waiver: Waiver, results: Results, table: Table, admin: Admin }[t] || Table;
+  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results, table: Table, admin: Admin }[t] || Table;
   return html`
     <header class="league-head">
       <div class="wrap row between">
@@ -86,7 +87,7 @@ function LeagueShell({ id, tab, sub, session }) {
         </div>
       </div>
       <nav class="tabs wrap" aria-label="Bereiche">
-        ${TABS.filter(([k]) => k !== 'admin' || c.isAdmin).map(([k, label]) =>
+        ${TABS.filter(([k]) => (k !== 'admin' || c.isAdmin) && (k !== 'waiver' || ['active', 'finished'].includes(c.league.status))).map(([k, label]) =>
           html`<a href=${`#/league/${id}/${k}`} class=${k === t ? 'active' : ''}>${label}</a>`)}
       </nav>
     </header>

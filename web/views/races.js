@@ -28,13 +28,19 @@ export function Races({ c, sub }) {
   return html`<${RaceList} c=${c} races=${races.data} />`;
 }
 
+// Filter bleiben beim Zurückkehren aus einem Rennen erhalten
+const saved = { mode: 'results', group: 'top', country: '', month: '', term: '' };
+const keep = (key, setter) => (v) => { saved[key] = v; setter(v); };
+
 function RaceList({ c, races }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [mode, setMode] = useState('results');      // results | calendar
-  const [group, setGroup] = useState('top');
-  const [country, setCountry] = useState('');
-  const [month, setMonth] = useState('');
-  const [term, setTerm] = useState('');
+  const [mode, setModeRaw] = useState(saved.mode);      // results | calendar
+  const [group, setGroupRaw] = useState(saved.group);
+  const [country, setCountryRaw] = useState(saved.country);
+  const [month, setMonthRaw] = useState(saved.month);
+  const [term, setTermRaw] = useState(saved.term);
+  const setMode = keep('mode', setModeRaw), setGroup = keep('group', setGroupRaw), setCountry = keep('country', setCountryRaw);
+  const setMonth = keep('month', setMonthRaw), setTerm = keep('term', setTermRaw);
   const countries = useMemo(() => [...new Set(races.map((r) => r.country).filter(Boolean))].sort(), [races]);
   const t = normName(term);
   const byMode = mode === 'calendar'
@@ -121,8 +127,12 @@ const EVENT_LABELS = [
   [/Team/i, 'Team', 5],
 ];
 const eventLabel = (n) => {
-  const hit = EVENT_LABELS.find(([re]) => re.test(n || ''));
-  return hit ? hit[1] : (n || '').replace(/^(Stage|Overall)\s+/i, '').replace(/\s+Classification$/i, '') || n;
+  const name = n || '';
+  const hit = EVENT_LABELS.find(([re]) => re.test(name));
+  if (!hit) return name.replace(/^(Stage|Overall)\s+/i, '').replace(/\s+Classification$/i, '') || name;
+  // Tageswertungen einer Etappe (außer Etappe selbst und GC) als "Etappe Berg", "Etappe Punkte" …
+  if (/^Stage\b/i.test(name) && !['Etappe', 'GC'].includes(hit[1])) return `Etappe ${hit[1]}`;
+  return hit[1];
 };
 const eventOrder = (n) => (EVENT_LABELS.find(([re]) => re.test(n || ''))?.[2] ?? 9);
 

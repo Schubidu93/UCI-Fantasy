@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from dataride import DataRide, rider_slug
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
-MAX_RIDERS = 1000           # reicht für 20 Teams à 30 Fahrer plus Pool freier Fahrer
+MAX_RIDERS = 6000           # alle Fahrer mit UCI-Punkten (Männer ca. 3400, Frauen weniger)
 GENDERS = os.environ.get("GENDERS", "men,women").split(",")
 
 
@@ -43,6 +43,9 @@ def main():
         # aus den Top-Plätzen gefallene Fahrer behalten ihren Eintrag ohne Rang
         db.update("riders", {"gender": f"eq.{gender}", "updated_at": f"lt.{now}"}, {"uci_rank": None})
         print("  gespeichert.")
+    if not DRY_RUN:
+        import db
+        print(f"{db.rpc('relink_event_riders')} Ergebniszeilen neu mit Fahrern verknüpft.")
 
 
 if __name__ == "__main__":

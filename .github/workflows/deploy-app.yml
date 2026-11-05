@@ -35,6 +35,13 @@ jobs:
           URL="$(echo "$SUPABASE_URL" | tr -d '[:space:]')"
           URL="${URL%/}"; URL="${URL%/rest/v1}"; URL="${URL%/auth/v1}"
           printf 'export default {\n  url: "%s",\n  anonKey: "%s",\n};\n' "$URL" "$(echo "$SUPABASE_ANON_KEY" | tr -d '[:space:]')" > web/config.js
+      - name: Versionsnummer an alle Dateien hängen (neue Version wird sofort geladen)
+        run: |
+          V="${GITHUB_SHA::8}"
+          find web -name '*.js' -not -path 'web/vendor/*' -print0 | xargs -0 sed -i -E \
+            "s#(from '(\./|\.\./)[^']+\.js)'#\1?v=$V'#g"
+          sed -i -E "s#(src|href)=\"(app\.js|style\.css|vendor/supabase\.js|manifest\.webmanifest)\"#\1=\"\2?v=$V\"#g" web/index.html
+          grep -c "?v=$V" web/app.js web/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

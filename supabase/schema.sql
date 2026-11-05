@@ -1256,6 +1256,29 @@ begin
   return query select * from _waiver_order(p_league);
 end $$;
 
+-- Namen vergleichbar machen: 'POGAČAR Tadej' = 'Tadej Pogacar' (Akzente weg, Wörter sortiert)
+create extension if not exists unaccent with schema extensions;
+create or replace function norm_name(p text) returns text
+language sql immutable parallel safe set search_path = public, extensions as $$
+  select array_to_string(array(select w from unnest(regexp_split_to_array(
+           lower(extensions.unaccent('extensions.unaccent'::regdictionary, coalesce(p, ''))), '[^a-z0-9]+')) w
+         where w <> '' order by w), ' ');
+$$;
+create index if not exists riders_norm_name on riders (gender, norm_name(name));
+
+-- Ergebniszeilen ohne Fahrer-Verknüpfung über den Namen zuordnen (nach Fahrer- oder Rennimport)
+create or replace function relink_event_riders() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  update event_results er set rider_slug = x.pcs_slug
+    from race_events ev join races ra on ra.pcs_slug = ev.race_slug, riders x
+   where er.event_id = ev.id and er.rider_slug is null
+     and x.gender = ra.gender and norm_name(x.name) = norm_name(er.rider_name);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
 -- UCI-Punkte pro Fahrer in einem Jahr (für die Fahrerliste der App)
 create or replace function rider_points(p_gender text, p_year int)
 returns table (rider_slug text, points numeric, results int)
@@ -1682,7 +1705,7 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()', '_notify(uuid,text,text,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop

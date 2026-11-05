@@ -11,6 +11,7 @@ Umgebung:
   GENDERS=men,women   welche Wertungen
   LIMIT=5             nur so viele Rennen je Wertung (zum Testen)
   REFRESH=1           auch schon geladene Rennen neu holen
+  CLASSES=CN,CC,CM    nur diese Rennklassen (z. B. Meisterschaften gezielt neu laden)
   DRY_RUN=1           nichts speichern, nur anzeigen
 """
 import os
@@ -24,6 +25,8 @@ DRY_RUN = os.environ.get("DRY_RUN") == "1"
 GENDERS = os.environ.get("GENDERS", "men,women").split(",")
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 REFRESH = os.environ.get("REFRESH") == "1"
+CLASSES = {c for c in os.environ.get("CLASSES", "").split(",") if c}
+CATEGORY_NAME = {"men": "Men Elite", "women": "Women Elite"}
 FERTIG_NACH_TAGEN = 21     # so lange nach Rennende wird ein Rennen noch aktualisiert (Korrekturen)
 
 
@@ -99,6 +102,8 @@ def main():
                 and prev["loaded_at"] > (end + timedelta(days=FERTIG_NACH_TAGEN)).isoformat()
             if REFRESH or not done:
                 todo.append(c)
+        if CLASSES:
+            todo = [c for c in todo if c.get("ClassCode") in CLASSES]
         if LIMIT:
             todo = todo[:LIMIT]
         print(f"  davon zu laden: {len(todo)}")
@@ -113,6 +118,10 @@ def main():
             events, results = [], []
             try:
                 for race in dr.races(c["CompetitionId"]):
+                    # Meisterschaften enthalten alle Kategorien (Elite, U23, Junioren, Frauen) – nur die passende
+                    cat = (race.get("CategoryCode") or "").strip()
+                    if cat and cat != CATEGORY_NAME[gender]:
+                        continue
                     day = ms_date(race.get("StartDate"))
                     for ev in dr.events(race["Id"]):
                         events.append({"id": ev["EventId"], "race_slug": slug, "stage_name": race.get("RaceName"),
@@ -144,6 +153,8 @@ def main():
                     print(f"      {row['rank_text']:>4} {row['rider_name']:<26} {row['team'] or '':<28} {row['result'] or '':>10} {row['uci_points']}")
                 continue
             db.upsert("races", [race_row], "pcs_slug")
+            # alte Wertungen dieses Rennens entfernen (auch fälschlich zugeordnete anderer Kategorien)
+            db.delete("race_events", {"race_slug": f"eq.{slug}"})
             if events:
                 db.upsert("race_events", events, "id")
                 ids = ",".join(str(e["id"]) for e in events)
@@ -153,6 +164,9 @@ def main():
                 db.upsert("event_results", uniq, "event_id,sort_order")
             db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
+    if not DRY_RUN:
+        n = db.rpc("relink_event_riders")
+        print(f"{n} Ergebniszeilen neu mit Fahrern verknüpft.")
     print(f"\nFertig nach {int(time.time() - started) // 60} Minuten.")
 
 

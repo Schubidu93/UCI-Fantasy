@@ -12,6 +12,10 @@ on:
         description: "Auch schon geladene Rennen neu holen"
         type: boolean
         default: false
+      klassen:
+        description: "Nur diese Rennklassen, z. B. CN,CC,CM (leer = alle)"
+        required: false
+        default: ""
 
 concurrency:
   group: race-results
@@ -31,5 +35,6 @@ jobs:
         working-directory: pcs_sync
         env:
           REFRESH: ${{ inputs.neu_laden && '1' || '' }}
+          CLASSES: ${{ inputs.klassen }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

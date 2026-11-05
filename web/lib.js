@@ -51,26 +51,10 @@ export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 
 
 // ---- Flaggen ---------------------------------------------------------------
 // UCI nutzt bei Fahrern IOC-Codes (SLO, GER, NED …), bei Rennen ISO-3-Codes (SVN, DEU …).
-const ISO2 = {
-  ALB:'AL',ALG:'DZ',DZA:'DZ',AND:'AD',ARG:'AR',ARM:'AM',AUS:'AU',AUT:'AT',AZE:'AZ',BAH:'BS',BHS:'BS',BHR:'BH',BRN:'BH',
-  BLR:'BY',BEL:'BE',BEN:'BJ',BER:'BM',BMU:'BM',BOL:'BO',BIH:'BA',BOT:'BW',BWA:'BW',BRA:'BR',BRU:'BN',BRN2:'BN',BUL:'BG',
-  BGR:'BG',BUR:'BF',BFA:'BF',CAM:'KH',KHM:'KH',CMR:'CM',CAN:'CA',CHI:'CL',CHL:'CL',CHN:'CN',COL:'CO',CRC:'CR',CRI:'CR',
-  CRO:'HR',HRV:'HR',CUB:'CU',CYP:'CY',CZE:'CZ',DEN:'DK',DNK:'DK',DOM:'DO',ECU:'EC',EGY:'EG',ERI:'ER',ESA:'SV',SLV:'SV',
-  ESP:'ES',EST:'EE',ETH:'ET',FIN:'FI',FRA:'FR',GAB:'GA',GEO:'GE',GER:'DE',DEU:'DE',GBR:'GB',GRE:'GR',GRC:'GR',GUA:'GT',
-  GTM:'GT',HKG:'HK',HUN:'HU',INA:'ID',IDN:'ID',IND:'IN',IRI:'IR',IRN:'IR',IRL:'IE',ISL:'IS',ISR:'IL',ITA:'IT',JPN:'JP',
-  KAZ:'KZ',KEN:'KE',KGZ:'KG',KOR:'KR',KOS:'XK',KSA:'SA',SAU:'SA',KUW:'KW',KWT:'KW',LAT:'LV',LVA:'LV',LBN:'LB',LIB:'LB',
-  LIE:'LI',LTU:'LT',LUX:'LU',MAC:'MO',MAR:'MA',MAS:'MY',MYS:'MY',MDA:'MD',MEX:'MX',MGL:'MN',MNG:'MN',MKD:'MK',MLT:'MT',
-  MNE:'ME',MON:'MC',MCO:'MC',NAM:'NA',NED:'NL',NLD:'NL',NZL:'NZ',NCA:'NI',NIC:'NI',NGR:'NG',NGA:'NG',NOR:'NO',OMA:'OM',
-  OMN:'OM',PAN:'PA',PAR:'PY',PRY:'PY',PER:'PE',PHI:'PH',PHL:'PH',POL:'PL',POR:'PT',PRT:'PT',PUR:'PR',PRI:'PR',QAT:'QA',
-  ROU:'RO',RSA:'ZA',ZAF:'ZA',RUS:'RU',RWA:'RW',SMR:'SM',SRB:'RS',SGP:'SG',SIN:'SG',SLO:'SI',SVN:'SI',SVK:'SK',SUI:'CH',
-  CHE:'CH',SWE:'SE',SYR:'SY',TPE:'TW',TWN:'TW',THA:'TH',TUN:'TN',TUR:'TR',UAE:'AE',ARE:'AE',UGA:'UG',UKR:'UA',URU:'UY',
-  URY:'UY',USA:'US',UZB:'UZ',VEN:'VE',VIE:'VN',VNM:'VN',ZIM:'ZW',ZWE:'ZW',BEN2:'BJ',MRI:'MU',MUS:'MU',TJK:'TJ',TKM:'TM',
-  LAO:'LA',NEP:'NP',NPL:'NP',PAK:'PK',SRI:'LK',LKA:'LK',BAN:'BD',BGD:'BD',JOR:'JO',IRQ:'IQ',ANG:'AO',AGO:'AO',CIV:'CI',
-  SEN:'SN',MLI:'ML',GHA:'GH',TAN:'TZ',TZA:'TZ',BDI:'BI',SUD:'SD',SDN:'SD',LBA:'LY',LBY:'LY',FIJ:'FJ',FJI:'FJ',
-};
+const ISO2 = {ABW:'AW',AFG:'AF',AGO:'AO',ALB:'AL',ALG:'DZ',AND:'AD',ANG:'AO',ANT:'AG',ARE:'AE',ARG:'AR',ARM:'AM',ARU:'AW',ASA:'AS',ATG:'AG',AUS:'AU',AUT:'AT',AZE:'AZ',BAH:'BS',BAN:'BD',BAR:'BB',BDI:'BI',BEL:'BE',BEN:'BJ',BER:'BM',BFA:'BF',BGD:'BD',BGR:'BG',BHR:'BH',BHS:'BS',BHU:'BT',BIH:'BA',BIZ:'BZ',BLR:'BY',BOL:'BO',BOT:'BW',BRA:'BR',BRB:'BB',BRN:'BH',BRU:'BN',BUL:'BG',BUR:'BF',CAF:'CF',CAM:'KH',CAN:'CA',CAY:'KY',CGO:'CG',CHA:'TD',CHE:'CH',CHI:'CL',CHL:'CL',CHN:'CN',CIV:'CI',CMR:'CM',COD:'CD',COK:'CK',COL:'CO',COM:'KM',CPV:'CV',CRC:'CR',CRI:'CR',CRO:'HR',CUB:'CU',CUW:'CW',CYP:'CY',CZE:'CZ',DEN:'DK',DEU:'DE',DJI:'DJ',DMA:'DM',DNK:'DK',DOM:'DO',DZA:'DZ',ECU:'EC',EGY:'EG',ERI:'ER',ESA:'SV',ESP:'ES',EST:'EE',ETH:'ET',FIJ:'FJ',FIN:'FI',FJI:'FJ',FRA:'FR',FRO:'FO',FSM:'FM',GAB:'GA',GAM:'GM',GBR:'GB',GBS:'GW',GEO:'GE',GEQ:'GQ',GER:'DE',GHA:'GH',GIB:'GI',GLP:'GP',GMB:'GM',GNB:'GW',GRC:'GR',GRE:'GR',GRL:'GL',GRN:'GD',GTM:'GT',GUA:'GT',GUI:'GN',GUM:'GU',GUY:'GY',HAI:'HT',HKG:'HK',HND:'HN',HON:'HN',HRV:'HR',HUN:'HU',IDN:'ID',INA:'ID',IND:'IN',IRI:'IR',IRL:'IE',IRN:'IR',IRQ:'IQ',ISL:'IS',ISR:'IL',ISV:'VI',ITA:'IT',IVB:'VG',JAM:'JM',JOR:'JO',JPN:'JP',KAZ:'KZ',KEN:'KE',KGZ:'KG',KHM:'KH',KIR:'KI',KNA:'KN',KOR:'KR',KOS:'XK',KSA:'SA',KUW:'KW',KWT:'KW',LAO:'LA',LAT:'LV',LBA:'LY',LBN:'LB',LBR:'LR',LBY:'LY',LCA:'LC',LES:'LS',LIE:'LI',LKA:'LK',LSO:'LS',LTU:'LT',LUX:'LU',LVA:'LV',MAC:'MO',MAD:'MG',MAR:'MA',MAS:'MY',MAW:'MW',MCO:'MC',MDA:'MD',MDG:'MG',MDV:'MV',MEX:'MX',MGL:'MN',MHL:'MH',MKD:'MK',MLI:'ML',MLT:'MT',MMR:'MM',MNE:'ME',MNG:'MN',MON:'MC',MOZ:'MZ',MRI:'MU',MRT:'MR',MTN:'MR',MTQ:'MQ',MUS:'MU',MWI:'MW',MYA:'MM',MYS:'MY',NAM:'NA',NCA:'NI',NCL:'NC',NED:'NL',NEP:'NP',NER:'NE',NGA:'NG',NGR:'NG',NIC:'NI',NIG:'NE',NLD:'NL',NOR:'NO',NRU:'NR',NZL:'NZ',OMA:'OM',OMN:'OM',PAK:'PK',PAN:'PA',PAR:'PY',PER:'PE',PHI:'PH',PHL:'PH',PLE:'PS',PLW:'PW',PNG:'PG',POL:'PL',POR:'PT',PRI:'PR',PRK:'KP',PRT:'PT',PRY:'PY',PSE:'PS',PUR:'PR',PYF:'PF',QAT:'QA',REU:'RE',ROU:'RO',RSA:'ZA',RUS:'RU',RWA:'RW',SAM:'WS',SAU:'SA',SDN:'SD',SEN:'SN',SEY:'SC',SGP:'SG',SKN:'KN',SLB:'SB',SLE:'SL',SLO:'SI',SLV:'SV',SMR:'SM',SOL:'SB',SOM:'SO',SRB:'RS',SRI:'LK',SSD:'SS',STP:'ST',SUD:'SD',SUI:'CH',SUR:'SR',SVK:'SK',SVN:'SI',SWE:'SE',SWZ:'SZ',SXM:'SX',SYC:'SC',SYR:'SY',TAN:'TZ',TGA:'TO',THA:'TH',TJK:'TJ',TKM:'TM',TLS:'TL',TOG:'TG',TON:'TO',TPE:'TW',TTO:'TT',TUN:'TN',TUR:'TR',TUV:'TV',TWN:'TW',TZA:'TZ',UAE:'AE',UGA:'UG',UKR:'UA',URU:'UY',URY:'UY',USA:'US',UZB:'UZ',VAN:'VU',VCT:'VC',VEN:'VE',VGB:'VG',VIE:'VN',VIN:'VC',VIR:'VI',VNM:'VN',WSM:'WS',YEM:'YE',ZAF:'ZA',ZAM:'ZM',ZIM:'ZW',ZMB:'ZM',ZWE:'ZW'};
 export function flag(code) {
   const iso = ISO2[(code || '').trim().toUpperCase()];
-  if (!iso || iso === 'XK') return iso === 'XK' ? '🇽🇰' : '';
+  if (!iso) return '';
   return String.fromCodePoint(...[...iso].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 export const withFlag = (code) => (code ? `${flag(code)} ${code.trim()}`.trim() : '');
