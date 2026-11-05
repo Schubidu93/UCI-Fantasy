@@ -22,12 +22,6 @@
 html { -webkit-text-size-adjust: 100%; }
 /* Installierte App (iPhone): Inhalt nicht unter Statusleiste/Notch legen */
 body { padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-/* iOS blendet unter der Statusleiste einen Unschärfe-Verlauf ein – etwas zusätzlicher Abstand */
-@media (display-mode: standalone) {
-  body { padding-top: calc(env(safe-area-inset-top) + 30px); }
-  /* Liga-Kopf reicht weiß bis unter die Statusleiste */
-  .league-head { margin-top: calc(-1 * (env(safe-area-inset-top) + 30px)); padding-top: calc(env(safe-area-inset-top) + 30px); }
-}
 /* Seite füllt immer den ganzen Bildschirm – sonst sitzt die feste Menüleiste auf iOS bei kurzen Seiten zu hoch */
 html { min-height: 100%; }
 body { min-height: 100vh; min-height: 100dvh; }
