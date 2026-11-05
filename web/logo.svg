@@ -3,7 +3,7 @@
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6bff"/><stop offset="1" stop-color="#1238b8"/></linearGradient>
   </defs>
   <rect width="128" height="128" rx="28" fill="url(#bg)"/>
-  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" transform="translate(0,-1)">
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" transform="translate(0,-7)">
     <g stroke-width="4"><circle cx="33" cy="76" r="20"/><circle cx="95" cy="76" r="20"/></g>
     <g stroke-width="4">
       <path d="M33 76 L60 76 L51 45 L33 76"/>
@@ -12,6 +12,10 @@
       <path d="M84 40 L86 47"/>
       <path d="M79 40 H88 Q94 40 94 46 Q94 51 89 51"/>
     </g>
-    <path d="M44 41 H57" stroke="#ffd60a" stroke-width="5"/>
+    <path d="M44 41 H57" stroke="#fff" stroke-width="5"/>
   </g>
+
+  <!-- Regenbogenstreifen des Weltmeistertrikots -->
+  <clipPath id="band"><rect x="34" y="100" width="60" height="6" rx="3"/></clipPath>
+  <g clip-path="url(#band)"><rect x="34" y="100" width="12" height="6" fill="#4da3ff"/><rect x="46" y="100" width="12" height="6" fill="#ff3b30"/><rect x="58" y="100" width="12" height="6" fill="#111111"/><rect x="70" y="100" width="12" height="6" fill="#ffd60a"/><rect x="82" y="100" width="12" height="6" fill="#30d158"/></g>
 </svg>
