@@ -47,7 +47,12 @@ def stage_order(race):
     return 999
 
 
+FIRST_YEAR = 2025          # ältere Ergebnisse werden nicht gespeichert (Speicherplatz)
+
+
 def main():
+    if os.environ.get("SEASON_YEAR") and int(os.environ["SEASON_YEAR"]) < FIRST_YEAR:
+        raise SystemExit(f"Ergebnisse vor {FIRST_YEAR} werden bewusst nicht geladen.")
     dr = DataRide()
     season = dr.season(int(os.environ["SEASON_YEAR"])) if os.environ.get("SEASON_YEAR") else dr.season()
     today = date.today()
