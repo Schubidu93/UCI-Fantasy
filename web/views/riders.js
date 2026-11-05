@@ -1,6 +1,6 @@
 // Fahrer-Übersicht: alle Fahrer der Wertung mit UCI-Punkten der Saison und Besitzer in der Liga
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag } from '../lib.js';
+import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName } from '../lib.js';
 
 export function Riders({ c }) {
   const year = new Date().getFullYear();
@@ -20,7 +20,7 @@ export function Riders({ c }) {
   const t = normName(term);
   const list = c.riders
     .filter((r) => r.uci_rank || pmap[r.pcs_slug] || c.owner[r.pcs_slug])
-    .filter((r) => (!team || r.team === team) && (!nation || r.nation === nation))
+    .filter((r) => (!team || normName(team).split(' ').every((w) => normName(r.team || '').includes(w))) && (!nation || r.nation === nation))
     .filter((r) => !owner || (owner === 'free' ? !c.owner[r.pcs_slug] : owner === 'mine' ? c.owner[r.pcs_slug] === c.me?.id : c.owner[r.pcs_slug] === owner))
     .filter((r) => !t || t.split(' ').every((w) => normName(r.name).includes(w)))
     .sort((a, b) => sort === 'rank'
@@ -31,7 +31,8 @@ export function Riders({ c }) {
     <div class="row between"><h2>Fahrer</h2><span class="muted small">${list.length} Fahrer · UCI-Punkte ${year}</span></div>
     <div class="filters">
       <input type="search" placeholder="Name" value=${term} onInput=${(e) => { setTerm(e.target.value); setLimit(100); }} />
-      <select value=${team} onChange=${(e) => setTeam(e.target.value)}><option value="">Alle Teams</option>${teams.map((x) => html`<option>${x}</option>`)}</select>
+      <input type="search" list=${`teams-riders`} placeholder="Team (z. B. UAE)" value=${team} onInput=${(e) => setTeam(e.target.value)} />
+      <datalist id=${`teams-riders`}>${teams.map((x) => html`<option value=${teamName(x)} />`)}</datalist>
       <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
       <select value=${owner} onChange=${(e) => setOwner(e.target.value)}>
         <option value="">Alle Fahrer</option><option value="free">Nur freie</option>

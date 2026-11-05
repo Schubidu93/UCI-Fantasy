@@ -1,6 +1,6 @@
 // Rennen der Saison mit Ergebnislisten (Rang, Fahrer, Team, Zeit, UCI-Punkte)
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, all, useLoad, Loading, fmtDate, fmtPts, openRider, normName, flag, withFlag } from '../lib.js';
+import { sb, q, all, useLoad, Loading, fmtDate, fmtPts, openRider, normName, flag, withFlag, nationCode } from '../lib.js';
 import { labelText } from './results.js';
 
 // Standard: WorldTour (Männer/Frauen), WM, EM
@@ -25,7 +25,7 @@ export function Races({ c, sub, sub2 }) {
     .gte('start_date', `${year}-01-01`).order('start_date', { ascending: false })), [c.league.gender, year]);
   if (sub) return html`<${RaceDetail} key=${sub + (sub2 || '')} c=${c} slug=${decodeURIComponent(sub)} initialEvent=${sub2 ? +sub2 : null} />`;
   if (!races.data) return html`<${Loading} error=${races.error} />`;
-  return html`<${RaceList} c=${c} races=${races.data} />`;
+  return html`<${RaceList} c=${c} races=${races.data.map((r) => ({ ...r, country: r.country && nationCode(r.country) }))} />`;
 }
 
 // Filter bleiben beim Zurückkehren aus einem Rennen erhalten
@@ -97,6 +97,9 @@ function RaceDetail({ c, slug, initialEvent }) {
     && !/Points|Mountain|Youth|Team/.test(e.event_name)) || s.events[0];
   // Standard: Schlusswertung (bzw. letzte Etappe), sonst das Ergebnis des Eintagesrennens
   const current = events.find((e) => e.id === eventId) || (stages.length ? preferred(stages[stages.length - 1]) : null);
+  const stageEvents = current ? stages.find((s) => s.events.includes(current)).events : [];
+  // Eintagesrennen haben kein GC – dort heißt die Wertung „Ergebnis“
+  const label = (n) => (/^1\./.test(race?.uci_class || '') && eventLabel(n) === 'GC' ? 'Ergebnis' : eventLabel(n));
 
   return html`<div class="stack">
     <a href=${`#/league/${c.league.id}/races`} class="muted small-link">← Alle Rennen</a>
@@ -108,8 +111,8 @@ function RaceDetail({ c, slug, initialEvent }) {
           onChange=${(e) => setEventId(preferred(stages[+e.target.value]).id)}>
           ${stages.map((s, i) => html`<option value=${i}>${stageLabel(s.name)}${s.date ? ` · ${fmtDate(s.date)}` : ''}</option>`)}
         </select></label>`}
-      ${current && html`<div class="seg small wrap-seg">${stages.find((s) => s.events.includes(current)).events.map((e) =>
-        html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${eventLabel(e.event_name)}</button>`)}</div>`}
+      ${current && stageEvents.length > 1 && html`<div class="seg small wrap-seg">${stageEvents.map((e) =>
+        html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${label(e.event_name)}</button>`)}</div>`}
     </section>
     ${current ? html`<${ResultTable} c=${c} event=${current} />`
       : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)

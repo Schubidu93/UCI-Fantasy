@@ -11,6 +11,7 @@ export function Table({ c }) {
   if (!table.data || !pts.data) return html`<${Loading} error=${table.error || pts.error} />`;
 
   const mds = c.matchdays.filter((m) => m.status !== 'planned');
+  const faab = c.league.waiver_mode === 'faab';   // Budget zählt nach dem Draft nur noch für FAAB-Gebote
   const sum = (mid, md) => pts.data.filter((p) => p.manager_id === mid && p.matchday_id === md).reduce((s, p) => s + Number(p.points), 0);
 
   return html`<div class="stack">
@@ -22,10 +23,10 @@ export function Table({ c }) {
         </div></div>
       ${view === 'total' ? html`<table class="tbl">
         <thead><tr><th>#</th><th>Team</th><th class="num">Punkte</th><th class="num" title="Spieltagssiege">Siege</th>
-          <th class="num" title="bester Spieltag">Bester</th>${draftCosts(c.league) && html`<th class="num" title="im Draft ausgegeben">Budget</th>`}</tr></thead>
+          <th class="num" title="bester Spieltag">Bester</th>${faab && html`<th class="num" title="Restbudget für FAAB-Gebote">Budget</th>`}</tr></thead>
         <tbody>${table.data.map((r) => html`<tr key=${r.manager_id} class=${r.manager_id === c.me?.id ? 'me' : ''}>
           <td>${r.position}</td><td>${r.team_name}</td><td class="num"><strong>${fmtPts(r.total)}</strong></td>
-          <td class="num">${r.matchday_wins}</td><td class="num">${fmtPts(r.best_matchday)}</td>${draftCosts(c.league) && html`<td class="num">${r.spent}</td>`}</tr>`)}</tbody>
+          <td class="num">${r.matchday_wins}</td><td class="num">${fmtPts(r.best_matchday)}</td>${faab && html`<td class="num">${c.managerMap[r.manager_id]?.budget_left}</td>`}</tr>`)}</tbody>
       </table>
       <p class="muted small">Gleichstand: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(c.league) ? ', dann weniger ausgegebenes Budget' : ''}.</p>`
       : html`<div class="scroll-x"><table class="tbl">

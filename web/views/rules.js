@@ -124,6 +124,7 @@ export function Rules({ c }) {
             <li>täglich um 20 Uhr: neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage</li>
             <li>mittwochs: alle Rennen der letzten 3 Wochen neu – so kommen Korrekturen der UCI an</li>
             <li>erscheinen, sobald die UCI sie veröffentlicht – bei großen Rennen meist am selben Abend, bei kleinen manchmal 1–2 Tage später</li>
+            <li>WorldTour, ProSeries und WM mit vollständigen Ergebnislisten, alle anderen Rennen mit den Top 25 und allen Plätzen mit Punkten</li>
           </ul></li>
         <li><strong>Kalender:</strong>
           <ul>

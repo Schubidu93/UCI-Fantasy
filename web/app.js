@@ -112,7 +112,7 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
         <div class="muted small right">
           ${c.me ? html`<div><strong>${c.me.team_name}</strong></div>` : ''}
           <div title="Letzter Abruf der Ergebnisse von UCI DataRide">
-            Stand vom ${fmtDateTime(c.sync?.last_run)}${c.sync && c.sync.ok === false ? ' ⚠︎' : ''}
+            Ergebnisse vom ${fmtDateTime(c.sync?.last_run)}${c.sync && c.sync.ok === false ? ' ⚠︎' : ''}
           </div>
         </div>
       </div>

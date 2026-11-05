@@ -1353,6 +1353,31 @@ $$;
 create index if not exists riders_norm_name on riders (gender, norm_name(name));
 
 -- Ergebniszeilen ohne Fahrer-Verknüpfung über den Namen zuordnen (nach Fahrer- oder Rennimport)
+-- Punkte aus den Ergebnislisten in die Wertung übernehmen, die dort noch fehlen
+-- (z. B. weil der Fahrername erst später einem Fahrer zugeordnet werden konnte).
+-- Bezeichnung wie in race_results.py: „Etappe · Wertung“ bzw. nur eins davon.
+create or replace function results_from_events() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  insert into results (rider_slug, race_slug, label, result_date, rank, uci_points)
+  select er.rider_slug, e.race_slug,
+         left(coalesce(nullif(case
+           when coalesce(trim(e.stage_name), '') = '' or trim(e.stage_name) = trim(e.event_name) then trim(e.event_name)
+           when coalesce(trim(e.event_name), '') = '' then trim(e.stage_name)
+           else trim(e.stage_name) || ' · ' || trim(e.event_name) end, ''), 'Ergebnis'), 200),
+         e.event_date, er.rank, er.uci_points
+    from event_results er join race_events e on e.id = er.event_id
+   where er.rider_slug is not null and er.uci_points > 0 and e.event_date >= date '2025-01-01'
+     and exists (select 1 from riders x where x.pcs_slug = er.rider_slug)
+     -- nicht doppelt zählen: gleiches Ergebnis (Fahrer, Tag, Punkte) schon unter anderem Namen gespeichert
+     and not exists (select 1 from results r where r.rider_slug = er.rider_slug and r.result_date = e.event_date
+                       and r.uci_points = er.uci_points)
+  on conflict do nothing;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
 create or replace function relink_event_riders() returns int
 language plpgsql security definer set search_path = public as $$
 declare n int;
@@ -1385,7 +1410,7 @@ insert into races (pcs_slug, name, gender, uci_class, country, start_date, end_d
 select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true from (values
   ('santos-tour-down-under/2027', 'Santos Tour Down Under', 'men', '2.UWT', 'AUS', '2027-01-19', '2027-01-24'),
   ('cadel-evans-great-ocean-road-race/2027', 'Cadel Evans Great Ocean Road Race', 'men', '1.UWT', 'AUS', '2027-01-31', '2027-01-31'),
-  ('uae-tour/2027', 'UAE Tour', 'men', '2.UWT', 'ARE', '2027-02-15', '2027-02-21'),
+  ('uae-tour/2027', 'UAE Tour', 'men', '2.UWT', 'UAE', '2027-02-15', '2027-02-21'),
   ('omloop-het-nieuwsblad/2027', 'Omloop Het Nieuwsblad', 'men', '1.UWT', 'BEL', '2027-02-27', '2027-02-27'),
   ('strade-bianche/2027', 'Strade Bianche', 'men', '1.UWT', 'ITA', '2027-03-06', '2027-03-06'),
   ('paris-nice/2027', 'Paris-Nice', 'men', '2.UWT', 'FRA', '2027-03-07', '2027-03-14'),
@@ -1398,19 +1423,19 @@ select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true fr
   ('ronde-van-vlaanderen/2027', 'Ronde van Vlaanderen', 'men', '1.UWT', 'BEL', '2027-04-04', '2027-04-04'),
   ('itzulia-basque-country/2027', 'Itzulia Basque Country', 'men', '2.UWT', 'ESP', '2027-04-05', '2027-04-10'),
   ('paris-roubaix/2027', 'Paris-Roubaix', 'men', '1.UWT', 'FRA', '2027-04-11', '2027-04-11'),
-  ('amstel-gold-race/2027', 'Amstel Gold Race', 'men', '1.UWT', 'NLD', '2027-04-18', '2027-04-18'),
+  ('amstel-gold-race/2027', 'Amstel Gold Race', 'men', '1.UWT', 'NED', '2027-04-18', '2027-04-18'),
   ('la-fleche-wallonne/2027', 'La Flèche Wallonne', 'men', '1.UWT', 'BEL', '2027-04-21', '2027-04-21'),
   ('liege-bastogne-liege/2027', 'Liège-Bastogne-Liège', 'men', '1.UWT', 'BEL', '2027-04-25', '2027-04-25'),
-  ('tour-de-romandie/2027', 'Tour de Romandie', 'men', '2.UWT', 'CHE', '2027-04-27', '2027-05-02'),
-  ('eschborn-frankfurt/2027', 'Eschborn-Frankfurt', 'men', '1.UWT', 'DEU', '2027-05-02', '2027-05-02'),
+  ('tour-de-romandie/2027', 'Tour de Romandie', 'men', '2.UWT', 'SUI', '2027-04-27', '2027-05-02'),
+  ('eschborn-frankfurt/2027', 'Eschborn-Frankfurt', 'men', '1.UWT', 'GER', '2027-05-02', '2027-05-02'),
   ('giro-d-italia/2027', 'Giro d''Italia', 'men', '2.UWT', 'ITA', '2027-05-08', '2027-05-30'),
   ('tour-auvergne-rhone-alpes/2027', 'Tour Auvergne-Rhône-Alpes', 'men', '2.UWT', 'FRA', '2027-06-06', '2027-06-13'),
-  ('copenhagen-sprint/2027', 'Copenhagen Sprint', 'men', '1.UWT', 'DNK', '2027-06-13', '2027-06-13'),
-  ('tour-de-suisse/2027', 'Tour de Suisse', 'men', '2.UWT', 'CHE', '2027-06-16', '2027-06-20'),
+  ('copenhagen-sprint/2027', 'Copenhagen Sprint', 'men', '1.UWT', 'DEN', '2027-06-13', '2027-06-13'),
+  ('tour-de-suisse/2027', 'Tour de Suisse', 'men', '2.UWT', 'SUI', '2027-06-16', '2027-06-20'),
   ('tour-de-france/2027', 'Tour de France', 'men', '2.UWT', 'FRA', '2027-07-02', '2027-07-25'),
   ('clasica-san-sebastian/2027', 'Clásica San Sebastián', 'men', '1.UWT', 'ESP', '2027-07-31', '2027-07-31'),
   ('tour-de-pologne/2027', 'Tour de Pologne', 'men', '2.UWT', 'POL', '2027-08-02', '2027-08-08'),
-  ('adac-cyclassics/2027', 'ADAC Cyclassics', 'men', '1.UWT', 'DEU', '2027-08-15', '2027-08-15'),
+  ('adac-cyclassics/2027', 'ADAC Cyclassics', 'men', '1.UWT', 'GER', '2027-08-15', '2027-08-15'),
   ('uci-road-world-championships/2027', 'UCI Road World Championships', 'men', 'CM', 'FRA', '2027-08-24', '2027-09-05'),
   ('la-vuelta-ciclista-a-espana/2027', 'La Vuelta Ciclista a España', 'men', '2.UWT', 'ESP', '2027-09-04', '2027-09-26'),
   ('grand-prix-cycliste-de-quebec/2027', 'Grand Prix Cycliste de Québec', 'men', '1.UWT', 'CAN', '2027-09-10', '2027-09-10'),
@@ -1422,7 +1447,7 @@ select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true fr
   ('liege-bastogne-liege-femmes/2027/w', 'Liège-Bastogne-Liège Femmes', 'women', '1.WWT', 'BEL', '2027-04-25', '2027-04-25'),
   ('vuelta-a-burgos-feminas/2027/w', 'Vuelta a Burgos Feminas', 'women', '2.WWT', 'ESP', '2027-05-06', '2027-05-10'),
   ('giro-d-italia-women/2027/w', 'Giro d''Italia Women', 'women', '2.WWT', 'ITA', '2027-05-29', '2027-06-06'),
-  ('copenhagen-sprint/2027/w', 'Copenhagen Sprint', 'women', '1.WWT', 'DNK', '2027-06-12', '2027-06-12'),
+  ('copenhagen-sprint/2027/w', 'Copenhagen Sprint', 'women', '1.WWT', 'DEN', '2027-06-12', '2027-06-12'),
   ('tour-de-france-femmes/2027/w', 'Tour de France Femmes', 'women', '2.WWT', 'FRA', '2027-07-30', '2027-08-07'),
   ('uci-road-world-championships/2027/w', 'UCI Road World Championships', 'women', 'CM', 'FRA', '2027-08-24', '2027-09-05'),
   ('la-vuelta-femenina/2027/w', 'La Vuelta Femenina', 'women', '2.WWT', 'ESP', '2027-10-03', '2027-10-10')
@@ -1430,6 +1455,10 @@ select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true fr
 where not exists (select 1 from races r where r.gender = v.gender and r.dataride_id is not null
                     and r.uci_class = v.cls and abs(r.start_date - v.s::date) <= 3)
 on conflict (pcs_slug) do nothing;
+-- Ländercodes einheitlich wie bei der UCI (IOC): frühere ISO-Codes der vorläufigen Einträge korrigieren
+update races set country = case country when 'DEU' then 'GER' when 'NLD' then 'NED' when 'CHE' then 'SUI'
+                                        when 'DNK' then 'DEN' when 'ARE' then 'UAE' end
+ where country in ('DEU', 'NLD', 'CHE', 'DNK', 'ARE');
 
 -- Einmalig: künftige Spieltage mit dem alten Standard-Stichtag (Start 00:00) auf den neuen (Vortag 20:00) umstellen
 update matchdays set deadline = ((starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin'
@@ -2006,7 +2035,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop
@@ -2034,3 +2063,9 @@ do $$ declare lg uuid; begin
   end loop;
 end $$;
 
+-- Einmalig/bei jedem Einspielen: fehlende Punkte nachtragen
+select results_from_events();
+
+-- Ergebnisse vor 2025 werden nicht gespeichert (auch keine Rennen der Saison 2025, die schon im Herbst 2024 lagen)
+delete from results where result_date < date '2025-01-01';
+delete from races where coalesce(end_date, start_date) < date '2025-01-01';

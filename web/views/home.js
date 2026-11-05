@@ -1,13 +1,27 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, fmtDate } from '../lib.js';
+import { sb, q, rpc, useLoad, useAction, Msg, Loading, fmtDate, fmtDateTime } from '../lib.js';
 import { PushToggle } from './push.js';
 
-const STATUS = { setup: 'Vor dem Draft', drafting: 'Draft läuft', active: 'Saison läuft', finished: 'Beendet' };
+// Echter Stand der Liga: Draft geplant/läuft/abgeschlossen, Saison läuft mit aktuellem Spieltag, beendet
+function leagueStatus(l, mds) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (l.status === 'setup') return [l.draft_at ? `Draft am ${fmtDateTime(l.draft_at)}` : 'Draft steht bevor', ''];
+  if (l.status === 'drafting') return ['Draft läuft', 'ok'];
+  if (l.status === 'finished' || today > l.season_end) return ['Saison beendet', ''];
+  if (today < l.season_start) return [`Draft abgeschlossen · Saisonstart ${fmtDate(l.season_start)}`, ''];
+  const now = mds.find((m) => m.starts_on <= today && m.ends_on >= today);
+  if (now) return [`Saison läuft · ${now.name}`, 'ok'];
+  const next = mds.find((m) => m.starts_on > today);
+  return [next ? `Saison läuft · nächster Spieltag ${next.name} ab ${fmtDate(next.starts_on)}` : 'Saison läuft', 'ok'];
+}
 
 export function Home({ session }) {
   const leagues = useLoad(() => q(sb.from('managers')
-    .select('team_name, leagues(id, name, status, season_start, season_end, gender)')
+    .select('team_name, leagues(id, name, status, season_start, season_end, gender, draft_at)')
     .eq('user_id', session.user.id)), [session.user.id]);
+  const ids = (leagues.data || []).map((m) => m.leagues?.id).filter(Boolean);
+  const mds = useLoad(() => (ids.length ? q(sb.from('matchdays').select('league_id,name,starts_on,ends_on').in('league_id', ids).order('starts_on'))
+    : Promise.resolve([])), [ids.join()]);
   const [creating, setCreating] = useState(false);
   const [code, setCode] = useState('');
 
@@ -23,7 +37,7 @@ export function Home({ session }) {
           <a class="card link" href=${`#/league/${m.leagues.id}`}>
             <strong>${m.leagues.name}</strong>
             <span class="muted">${m.team_name} · ${m.leagues.gender === 'women' ? 'Frauen' : 'Männer'}</span>
-            <span class="tag">${STATUS[m.leagues.status]}</span>
+            ${(([text, cls]) => html`<span class=${`tag ${cls}`}>${text}</span>`)(leagueStatus(m.leagues, (mds.data || []).filter((x) => x.league_id === m.leagues.id)))}
             <span class="muted small">${fmtDate(m.leagues.season_start)} – ${fmtDate(m.leagues.season_end)}</span>
           </a></li>`)}</ul>`}
 

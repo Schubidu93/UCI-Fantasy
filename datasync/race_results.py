@@ -126,6 +126,16 @@ def notify_points(fresh, race_name):
         print(f"  {len(out)} Punkte-Benachrichtigungen vorgemerkt.")
 
 
+# Vollständige Ergebnislisten (statt Top 25 + Plätze mit Punkten) für die wichtigsten Rennen –
+# nur Etappen-, Gesamt- und Tagesergebnis, Nebenwertungen (Punkte, Berg, Nachwuchs, Team) bleiben gekürzt
+FULL_CLASSES = {"1.UWT", "2.UWT", "1.WWT", "2.WWT", "1.Pro", "2.Pro", "CM"}
+
+
+def full_list(comp, ev):
+    return comp.get("ClassCode") in FULL_CLASSES and not re.search(
+        r"Points|Mountain|Young|Youth|Team|Sprint|Combativ", ev.get("EventName") or "", re.I)
+
+
 def rank_int(text):
     return int(text) if text and str(text).strip().isdigit() else None
 
@@ -197,7 +207,8 @@ def main():
             db.upsert("races", cal, "pcs_slug")
             replace_provisional(gender, cal, today)
         # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
-        comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today]
+        comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today
+                 and (ms_date(c.get("EndDate")) or today).year >= FIRST_YEAR]
         print(f"{gender}: {len(comps)} gestartete Rennen")
         todo, final_pass = [], set()
         for c in comps:
@@ -247,7 +258,7 @@ def main():
                                        "stage_no": stage_order(race), "event_name": ev.get("EventName") or "",
                                        "event_date": day.isoformat() if day else None,
                                        "winner": ev.get("WinnerName") or ev.get("IndividualWinner")})
-                        for r in dr.results(ev["EventId"]):
+                        for r in dr.results(ev["EventId"], keep_top=None if full_list(c, ev) else 25):
                             name = (r.get("DisplayName") or r.get("IndividualDisplayName") or "").strip()
                             if not name:
                                 continue
@@ -289,7 +300,9 @@ def main():
     if not DRY_RUN:
         n = db.rpc("relink_event_riders")
         print(f"{n} Ergebniszeilen neu mit Fahrern verknüpft.")
+        print(f"{db.rpc('results_from_events')} fehlende Punkte-Ergebnisse nachgetragen.")
         db.rpc("run_maintenance")     # Stichtage, Spieltage abschließen, Stand aktualisieren
+        db.update("sync_status", {"id": "eq.1"}, {"last_run": datetime.now(timezone.utc).isoformat(), "ok": True, "message": None})
     print(f"\nFertig nach {int(time.time() - started) // 60} Minuten.")
 
 

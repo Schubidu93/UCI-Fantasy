@@ -47,6 +47,7 @@ def main():
     if not DRY_RUN:
         import db
         print(f"{db.rpc('relink_event_riders')} Ergebniszeilen neu mit Fahrern verknüpft.")
+        print(f"{db.rpc('results_from_events')} fehlende Punkte-Ergebnisse nachgetragen.")
 
 
 if __name__ == "__main__":

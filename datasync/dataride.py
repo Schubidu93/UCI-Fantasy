@@ -107,16 +107,20 @@ class DataRide:
         return self._call("POST", "/iframe/Events/", {"disciplineId": ROAD, "raceId": race_id}) or []
 
     def results(self, event_id, keep_top=25, page_size=100):
-        """Ergebnisliste: Top `keep_top` plus alle weiteren Plätze mit UCI-Punkten."""
+        """Ergebnisliste: Top `keep_top` plus alle weiteren Plätze mit UCI-Punkten (keep_top=None: vollständig)."""
         out = []
         while True:
             data = {"disciplineId": ROAD, "eventId": event_id, "take": page_size, "skip": len(out),
                     "page": len(out) // page_size + 1, "pageSize": page_size}
             rows = (self._call("POST", "/iframe/Results/", data) or {}).get("data") or []
             out += rows
-            beyond = [r for r in rows if (r.get("SortOrder") or 0) > keep_top]
-            if len(rows) < page_size or (beyond and not any((r.get("PointPcR") or 0) > 0 for r in beyond)):
+            if len(rows) < page_size:
                 break
+            beyond = [r for r in rows if (r.get("SortOrder") or 0) > (keep_top or 10 ** 9)]
+            if beyond and not any((r.get("PointPcR") or 0) > 0 for r in beyond):
+                break
+        if keep_top is None:
+            return out
         return [r for r in out if (r.get("SortOrder") or 0) <= keep_top or (r.get("PointPcR") or 0) > 0]
 
 
