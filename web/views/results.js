@@ -1,5 +1,5 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtDate, fmtPts } from '../lib.js';
+import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts } from '../lib.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
 
@@ -27,7 +27,12 @@ export function Results({ c }) {
   const pts = useLoad(() => rpc('league_points', { p_league: c.league.id }), [c.league.id]);
   const [open, setOpen] = useState(null);
 
-  if (!started.length) return html`<p class="card muted">Noch kein Spieltag begonnen.</p>`;
+  if (!started.length) return html`<div class="stack">
+    <p class="card muted">${c.matchdays.length
+      ? `Noch kein Spieltag begonnen – der erste startet am ${fmtDate(c.matchdays[0].starts_on)}.`
+      : 'Noch keine Spieltage angelegt.'}</p>
+    <${Schedule} c=${c} />
+  </div>`;
   const md = c.matchdays.find((m) => m.id === mdId);
   const rows = (pts.data || []).filter((p) => p.matchday_id === mdId);
   const teams = c.managers.map((m) => ({
@@ -51,7 +56,27 @@ export function Results({ c }) {
           ${open === m.id && html`<tr><td></td><td colspan="2"><${TeamDetail} c=${c} rows=${rows.filter((r) => r.manager_id === m.id)}
               details=${details.data.filter((d) => d.manager_id === m.id)} /></td></tr>`}`)}
         </tbody></table></section>`}
+    <${Schedule} c=${c} current=${mdId} />
   </div>`;
+}
+
+// Spielplan: alle Spieltage mit Zeitraum, Stichtag und Status – auch künftige
+function Schedule({ c, current }) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!c.matchdays.length) return html`<section class="card"><h3>Spielplan</h3>
+    <p class="muted small">${c.isAdmin ? 'Lege die Spieltage unter Mehr → Admin an (z. B. Klassiker, Giro, Tour, Vuelta).' : 'Der Admin hat noch keine Spieltage festgelegt.'}</p></section>`;
+  const next = c.matchdays.find((m) => m.ends_on >= today);
+  const tag = (m) => m.frozen ? html`<span class="tag">eingefroren</span>`
+    : m.status === 'closed' ? html`<span class="tag">abgeschlossen</span>`
+    : m.starts_on <= today && m.ends_on >= today ? html`<span class="tag ok">läuft</span>`
+    : m === next ? html`<span class="tag warn">als Nächstes</span>` : html`<span class="tag">geplant</span>`;
+  return html`<section class="card"><h3>Spielplan</h3>
+    <ul class="list md-plan">${c.matchdays.map((m, i) => html`<li key=${m.id} class=${m.id === current ? 'me' : ''}>
+      <span class="md-no">${i + 1}</span>
+      <span class="md-what"><strong>${m.name}</strong>
+        <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small><small>Stichtag ${fmtDateTime(m.deadline)}</small></span>
+      ${tag(m)}</li>`)}</ul>
+  </section>`;
 }
 
 function TeamDetail({ c, rows, details }) {
