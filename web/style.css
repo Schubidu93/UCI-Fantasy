@@ -263,3 +263,5 @@ a.race-link:hover strong { color: var(--accent); }
 .res-head button.linkish { font-weight: 600; color: var(--muted); font-size: inherit; }
 .res-head button.sorted { color: var(--accent); }
 .res-what b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+label.sort-select { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; color: var(--muted); margin: 0; }
+label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }

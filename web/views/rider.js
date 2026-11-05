@@ -50,7 +50,7 @@ export function RiderModal() {
   const [season, setSeason] = useState({});      // Jahr → { season_rank, points, riders }
 
   useEffect(() => {
-    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); setSeason({}); };
+    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); setSeason({}); setByPoints(false); };
     const esc = (e) => { if (e.key === 'Escape') setSlug(null); };
     addEventListener('rider:open', open);
     addEventListener('keydown', esc);
@@ -124,10 +124,12 @@ export function RiderModal() {
           <div><span class="big">${fmtPts(total)}</span> <span class="muted small">UCI-Punkte${y ? ` ${y}` : ''}</span></div>
         </div>
         <div class="row between">
-          <div class="seg small">
-            <button class=${!byPoints ? 'active' : ''} onClick=${() => setByPoints(false)}>Chronologisch</button>
-            <button class=${byPoints ? 'active' : ''} onClick=${() => setByPoints(true)}>Nach Punkten</button>
-          </div>
+          <label class="sort-select small">Sortieren:
+            <select value=${byPoints ? 'points' : 'date'} onChange=${(e) => setByPoints(e.target.value === 'points')}>
+              <option value="date">nach Datum</option>
+              <option value="points">nach Punkten</option>
+            </select>
+          </label>
           ${!byPoints && html`<label class="check small"><input type="checkbox" checked=${allPlaces} onChange=${(e) => setAllPlaces(e.target.checked)} /> ohne Punkte</label>`}
         </div>
         ${(byPoints ? best : shown).length === 0 ? html`<p class="muted">Keine Ergebnisse${y ? ` in ${y}` : ''}.</p>` : html`<div class="modal-body">
