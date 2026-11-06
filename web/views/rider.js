@@ -85,7 +85,7 @@ export function RiderModal() {
   // Oben immer die aktuelle UCI-Weltrangliste, darunter Punkte und Platz im gewählten Jahr
   const sr = data?.season?.[y];
   const rankLine = r && (r.uci_rank ? `UCI-Rang ${r.uci_rank} · ${fmtPts(r.ranking_points)} Ranking-Punkte` : 'Kein aktueller UCI-Rang');
-  const yearLine = y && `${y}: ${fmtPts(total)} Punkte${sr ? ` · Platz ${sr.season_rank} von ${sr.riders}` : ''}`;
+  const yearLine = y && `${y}: ${fmtPts(total)} Punkte${sr ? ` · Platz ${sr.season_rank}` : ''}`;
   const groups = [];
   for (const x of shown) {
     let g = groups.find((g) => g.slug === x.ev.race_slug);
