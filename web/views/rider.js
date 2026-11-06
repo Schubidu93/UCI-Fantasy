@@ -73,8 +73,8 @@ export function RiderModal() {
   }, [slug]);
 
   const r = data?.rider;
-  // UCI-Saison des Rennens (beginnt im Herbst), sonst Kalenderjahr
-  const yearOf = (x) => x.race?.season || +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
+  // Kalenderjahr des Ergebnisses
+  const yearOf = (x) => +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
   const withPoints = (data?.results || []).filter((x) => Number(x.uci_points) > 0);
   const years = [...new Set(withPoints.map(yearOf))].filter((yy) => yy >= FIRST_YEAR).sort();
   const thisYear = new Date().getFullYear();
@@ -82,12 +82,10 @@ export function RiderModal() {
   const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y && !interimSide(x))
     .sort((a, b) => (b.ev.event_date || '').localeCompare(a.ev.event_date || '') || a.ev.id - b.ev.id);
   const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.uci_points), 0);
-  const current = !y || y === thisYear;
-  // Vergangene Jahre: Platz in der Saisonwertung statt der aktuellen Weltrangliste
+  // Oben immer die aktuelle UCI-Weltrangliste, darunter Punkte und Platz im gewählten Jahr
   const sr = data?.season?.[y];
-  const rankLine = r && (current
-    ? [r.uci_rank && `UCI-Rang ${r.uci_rank}`, r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte (52 Wochen)`]
-    : [sr ? `Platz ${sr.season_rank} in der Saison ${y}` : `Saison ${y}`]).filter(Boolean).join(' · ');
+  const rankLine = r && (r.uci_rank ? `UCI-Rang ${r.uci_rank} · ${fmtPts(r.ranking_points)} Ranking-Punkte` : 'Kein aktueller UCI-Rang');
+  const yearLine = y && `${y}: ${fmtPts(total)} Punkte${sr ? ` · Platz ${sr.season_rank} von ${sr.riders}` : ''}`;
   const groups = [];
   for (const x of shown) {
     let g = groups.find((g) => g.slug === x.ev.race_slug);
@@ -118,6 +116,7 @@ export function RiderModal() {
             r.birth_date && `${r.birth_date.slice(0, 4)} (${Math.floor((Date.now() - new Date(r.birth_date)) / 31557600000)} J.)`,
             teamName(r.team)].filter(Boolean).join(' · ')}</div>`}
           ${rankLine && html`<div class="small"><strong>${rankLine}</strong></div>`}
+          ${yearLine && html`<div class="small">${yearLine}</div>`}
         </div>
         <button class="ghost small" onClick=${() => setSlug(null)} aria-label="Schließen">✕</button>
       </div>

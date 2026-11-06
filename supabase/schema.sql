@@ -1401,12 +1401,11 @@ end $$;
 create or replace function rider_points(p_gender text, p_year int)
 returns table (rider_slug text, points numeric, results int)
 language sql stable security definer set search_path = public as $$
-  -- Punkte einer UCI-Saison (wie die Weltrangliste); ohne bekannte Saison zählt das Kalenderjahr
+  -- Punkte aus Rennen des Kalenderjahres (1.1. bis 31.12.)
   select r.rider_slug, sum(r.uci_points), count(*)::int
     from results r join riders x on x.pcs_slug = r.rider_slug
-    left join races ra on ra.pcs_slug = r.race_slug
    where x.gender = p_gender
-     and coalesce(ra.season, extract(year from r.result_date)::int) = p_year
+     and r.result_date >= make_date(p_year, 1, 1) and r.result_date <= make_date(p_year, 12, 31)
    group by r.rider_slug
    order by r.rider_slug;
 $$;
@@ -1500,8 +1499,7 @@ begin
       from event_results er
       join race_events e on e.id = er.event_id
       join riders x on x.pcs_slug = er.rider_slug
-      left join races ra on ra.pcs_slug = e.race_slug
-     where coalesce(ra.season, extract(year from e.event_date)::int) = p_year
+     where e.event_date >= make_date(p_year, 1, 1) and e.event_date <= make_date(p_year, 12, 31)
        and er.uci_points > 0
      group by 1, 2)
   select rider_slug, p_year, (rank() over (partition by gender order by pts desc))::int, pts,
@@ -1510,6 +1508,12 @@ begin
   get diagnostics n = row_count;
   return n;
 end $$;
+
+-- Jahre, für die Ergebnisse gespeichert sind (Auswahl „Sortiert nach Punkten …“)
+create or replace function result_years() returns setof int
+language sql stable security definer set search_path = public as $$
+  select distinct extract(year from result_date)::int from results order by 1 desc;
+$$;
 
 create or replace function rider_season_rank(p_slug text, p_year int)
 returns table (season_rank int, points numeric, riders int)

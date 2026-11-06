@@ -3,13 +3,18 @@ import { html, useState, useMemo } from '../vendor/preact-htm.js';
 import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName, SearchSelect, rpcAll } from '../lib.js';
 
 export function Riders({ c }) {
-  const year = new Date().getFullYear();
+  const years = useLoad(() => rpc('result_years'), []);
+  const [sort, setSort] = useState(String(new Date().getFullYear()));   // Jahr oder 'rank'
+  // Punkte des gewählten Jahres; bei Sortierung nach UCI-Rang die des laufenden Jahres
+  // gewähltes Jahr noch ohne Ergebnisse (z. B. Jahresanfang) → neuestes Jahr mit Ergebnissen
+  const ys = (years.data || []).map(String);
+  const sel = sort === 'rank' || !ys.length || ys.includes(sort) ? sort : ys[0];
+  const year = sel === 'rank' ? +(ys[0] || new Date().getFullYear()) : +sel;
   const pts = useLoad(() => rpcAll('rider_points', { p_gender: c.league.gender, p_year: year }), [c.league.gender, year]);
   const [term, setTerm] = useState('');
   const [team, setTeam] = useState('');
   const [nation, setNation] = useState('');
   const [owner, setOwner] = useState('');          // '' alle, 'free' frei, 'mine' meine, sonst Manager-ID
-  const [sort, setSort] = useState('points');
   const [limit, setLimit] = useState(100);
 
   const pmap = useMemo(() => Object.fromEntries((pts.data || []).map((p) => [p.rider_slug, p])), [pts.data]);
@@ -23,7 +28,7 @@ export function Riders({ c }) {
     .filter((r) => (!team || normName(team).split(' ').every((w) => normName(r.team || '').includes(w))) && (!nation || r.nation === nation))
     .filter((r) => !owner || (owner === 'free' ? !c.owner[r.pcs_slug] : owner === 'mine' ? c.owner[r.pcs_slug] === c.me?.id : c.owner[r.pcs_slug] === owner))
     .filter((r) => !t || t.split(' ').every((w) => normName(r.name).includes(w)))
-    .sort((a, b) => sort === 'rank'
+    .sort((a, b) => sel === 'rank'
       ? (a.uci_rank ?? 1e9) - (b.uci_rank ?? 1e9)
       : (Number(pmap[b.pcs_slug]?.points) || 0) - (Number(pmap[a.pcs_slug]?.points) || 0) || (a.uci_rank ?? 1e9) - (b.uci_rank ?? 1e9));
 
@@ -38,8 +43,9 @@ export function Riders({ c }) {
         ${c.me && html`<option value="mine">Mein Kader</option>`}
         ${c.managers.filter((m) => m.id !== c.me?.id).map((m) => html`<option value=${m.id}>Kader ${m.team_name}</option>`)}
       </select>
-      <select value=${sort} onChange=${(e) => setSort(e.target.value)}>
-        <option value="points">Sortiert nach Punkten ${year}</option><option value="rank">Sortiert nach UCI-Rang</option>
+      <select value=${sel} onChange=${(e) => setSort(e.target.value)}>
+        ${(years.data?.length ? years.data : [year]).map((yy) => html`<option value=${String(yy)}>Sortiert nach Punkten ${yy}</option>`)}
+        <option value="rank">Sortiert nach UCI-Rang (aktuell)</option>
       </select>
     </div>
     <div class="scroll-x"><table class="tbl riders-tbl">

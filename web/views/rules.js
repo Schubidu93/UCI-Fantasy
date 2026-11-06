@@ -136,7 +136,7 @@ export function Rules({ c }) {
           </ul></li>
         <li><strong>Fahrer:</strong> täglich um 6 Uhr alle Fahrer mit UCI-Punkten – Rang, Team, Nation, Geburtsdatum; neue Fahrer sind automatisch frei.</li>
         <li><strong>Abgleich:</strong> Danach werden die Punkte mit der UCI-Weltrangliste verglichen; Punkte aus Mannschaftswertungen (z. B. Mixed-Staffel der WM), die in keiner Einzel-Ergebnisliste stehen, werden nachgetragen.</li>
-        <li><strong>Saison:</strong> „Punkte 2026“ meint die UCI-Saison 2026 – sie beginnt im Herbst 2025 (z. B. zählen Meisterschaften Ende Oktober schon zur nächsten Saison).</li>
+        <li><strong>Jahre:</strong> „Punkte 2026“ zählt alle Rennen vom 1.1. bis 31.12.2026. Die UCI-Weltrangliste (52 Wochen) wird davon getrennt angezeigt.</li>
         <li><strong>Zeitraum:</strong> Ergebnisse werden ab der Saison 2025 gespeichert.</li>
         <li><strong>Korrekturen:</strong> Bei falschen Daten kann der Admin Punkte manuell korrigieren – jede Korrektur wird protokolliert.</li>
       </ul>
