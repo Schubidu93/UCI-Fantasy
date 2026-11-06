@@ -1,5 +1,5 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtPts, draftCosts } from '../lib.js';
+import { rpc, useLoad, Loading, fmtPts, fmtDate, draftCosts } from '../lib.js';
 
 const COLORS = ['#2a6fdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599', '#f08c00', '#5c940d',
   '#d6336c', '#1971c2', '#e67700', '#087f5b', '#9c36b5', '#c92a2a', '#364fc7', '#66a80f', '#a61e4d', '#0b7285', '#5f3dc4', '#862e9c'];
@@ -17,7 +17,7 @@ export function Table({ c }) {
   const empty = !c.matchdays.some((m) => m.starts_on <= new Date().toISOString().slice(0, 10));
   return html`<div class="stack">
     ${empty && html`<p class="note small">${c.matchdays.length
-      ? `Die Tabelle füllt sich ab dem ersten Spieltag (${c.matchdays[0].name}, ab ${new Date(c.matchdays[0].starts_on).toLocaleDateString('de-DE')}).`
+      ? `Die Tabelle füllt sich ab dem ersten Spieltag (${c.matchdays[0].name}, ab ${fmtDate(c.matchdays[0].starts_on)}).`
       : 'Noch keine Spieltage angelegt – ohne Spieltage gibt es keine Punkte.'}${!c.matchdays.length && c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Spieltage anlegen →</a>` : ''}</p>`}
     <section class="card">
       <div class="row between"><h2>Tabelle</h2>

@@ -46,7 +46,9 @@ export function useRiderPoints(gender) {
 
 // ---- Formatierung --------------------------------------------------------
 
-export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('de-DE') : '–');
+// Einheitlich TT.MM.JJ (z. B. 04.07.26)
+export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d)
+  .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '–');
 export const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
 export const fmtPts = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString('de-DE');
