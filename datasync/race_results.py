@@ -301,6 +301,9 @@ def main():
         n = db.rpc("relink_event_riders")
         print(f"{n} Ergebniszeilen neu mit Fahrern verknüpft.")
         print(f"{db.rpc('results_from_events')} fehlende Punkte-Ergebnisse nachgetragen.")
+        for y in sorted({today.year, today.year - 1, season["Year"]}):
+            if y >= FIRST_YEAR:
+                db.rpc("refresh_season_stats", {"p_year": y})
         db.rpc("run_maintenance")     # Stichtage, Spieltage abschließen, Stand aktualisieren
         db.update("sync_status", {"id": "eq.1"}, {"last_run": datetime.now(timezone.utc).isoformat(), "ok": True, "message": None})
     print(f"\nFertig nach {int(time.time() - started) // 60} Minuten.")

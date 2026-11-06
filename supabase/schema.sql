@@ -1475,20 +1475,42 @@ update matchdays set deadline = ((starts_on - 1) + time '20:00')::timestamp at t
 
 -- Platz eines Fahrers in der Saisonwertung eines Jahres (Summe der UCI-Punkte aus den Rennergebnissen)
 create index if not exists race_events_date on race_events (event_date);
-create or replace function rider_season_rank(p_slug text, p_year int)
-returns table (season_rank int, points numeric, riders int)
-language sql stable security definer set search_path = public as $$
+-- Saisonwertung je Jahr fest gespeichert (Rang und Punkte je Fahrer), damit das Fahrerfenster sie sofort zeigt.
+-- Wird nach jedem Ergebnisabruf für das laufende und das vorige Jahr neu berechnet.
+create table if not exists rider_season_stats (
+  rider_slug  text not null references riders (pcs_slug) on delete cascade,
+  year        int  not null,
+  season_rank int  not null,
+  points      numeric not null,
+  riders      int  not null,       -- Fahrer mit Punkten in dieser Wertung und Saison
+  primary key (rider_slug, year)
+);
+
+create or replace function refresh_season_stats(p_year int) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  delete from rider_season_stats where year = p_year;
+  insert into rider_season_stats (rider_slug, year, season_rank, points, riders)
   with s as (
-    select er.rider_slug, sum(er.uci_points) pts
+    select er.rider_slug, x.gender, sum(er.uci_points) pts
       from event_results er
       join race_events e on e.id = er.event_id
       join riders x on x.pcs_slug = er.rider_slug
      where e.event_date >= make_date(p_year, 1, 1) and e.event_date <= make_date(p_year, 12, 31)
        and er.uci_points > 0
-       and x.gender = (select gender from riders where pcs_slug = p_slug)
-     group by er.rider_slug)
-  select (select count(*) + 1 from s where s.pts > me.pts)::int, me.pts, (select count(*) from s)::int
-    from s me where me.rider_slug = p_slug;
+     group by 1, 2)
+  select rider_slug, p_year, (rank() over (partition by gender order by pts desc))::int, pts,
+         (count(*) over (partition by gender))::int
+    from s;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+create or replace function rider_season_rank(p_slug text, p_year int)
+returns table (season_rank int, points numeric, riders int)
+language sql stable security definer set search_path = public as $$
+  select season_rank, points, riders from rider_season_stats where rider_slug = p_slug and year = p_year;
 $$;
 
 -- Herkunft der Punkte (einzelne Rennergebnisse)
@@ -2116,6 +2138,7 @@ end $$;
 
 alter table riders          enable row level security;
 alter table races           enable row level security;
+alter table rider_season_stats enable row level security;
 alter table results         enable row level security;
 alter table sync_status     enable row level security;
 alter table leagues         enable row level security;
@@ -2142,7 +2165,7 @@ do $$
 declare t text;
 begin
   -- öffentliche Stammdaten: lesbar für angemeldete Nutzer
-  foreach t in array array['riders', 'races', 'results', 'sync_status', 'race_events', 'event_results'] loop
+  foreach t in array array['riders', 'races', 'results', 'sync_status', 'race_events', 'event_results', 'rider_season_stats'] loop
     execute format('drop policy if exists read_all on %I', t);
     execute format('create policy read_all on %I for select to authenticated using (true)', t);
   end loop;
@@ -2179,7 +2202,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop
@@ -2216,3 +2239,6 @@ select results_from_events();
 -- Ergebnisse vor 2025 werden nicht gespeichert (auch keine Rennen der Saison 2025, die schon im Herbst 2024 lagen)
 delete from results where result_date < date '2025-01-01';
 delete from races where coalesce(end_date, start_date) < date '2025-01-01';
+
+-- Saisonwertungen beim Einspielen aufbauen (bzw. aktualisieren)
+select refresh_season_stats(y) from generate_series(2025, extract(year from current_date)::int) y;

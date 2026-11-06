@@ -147,7 +147,7 @@ export const eventLabel = (n) => {
 // Etappen-/Renntag-Namen der UCI auf Deutsch (Meisterschaften: Straßenrennen, Einzelzeitfahren …)
 export const stageLabel = (name) => {
   const n = name || '';
-  if (/final classification/i.test(n)) return 'GC';
+  if (/final (classification|result)/i.test(n)) return 'GC';
   if (/individual time trial|\bITT\b/i.test(n)) return 'Einzelzeitfahren';
   if (/team time trial|\bTTT\b|mixed relay/i.test(n)) return 'Mannschaftszeitfahren';
   if (/road race/i.test(n)) return 'Straßenrennen';

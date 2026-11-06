@@ -1,6 +1,6 @@
 // Fahrer-Fenster: Stammdaten und alle Ergebnisse (Rang, Zeit, UCI-Punkte) – Klick springt ins Rennen
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, all, rpc, fmtPts, flag, teamName } from '../lib.js';
+import { sb, q, all, fmtPts, flag, teamName } from '../lib.js';
 import { describeEvent } from './races.js';
 
 // Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
@@ -42,8 +42,11 @@ async function loadRider(slug) {
   for (let i = 0; i < slugs.length; i += 100) {
     for (const r of await q(sb.from('races').select('pcs_slug,name,uci_class,start_date').in('pcs_slug', slugs.slice(i, i + 100)))) races[r.pcs_slug] = r;
   }
+  // Saisonplätze aller Jahre direkt mitladen (fest gespeichert, keine Berechnung nötig)
+  const season = Object.fromEntries((await q(sb.from('rider_season_stats').select('year,season_rank,points,riders').eq('rider_slug', slug)))
+    .map((x) => [x.year, x]));
   const results = rows.filter((r) => events[r.event_id]).map((r) => ({ ...r, ev: events[r.event_id], race: races[events[r.event_id].race_slug] }));
-  return { rider, results };
+  return { rider, results, season };
 }
 
 export function RiderModal() {
@@ -53,10 +56,9 @@ export function RiderModal() {
   const [byPoints, setByPoints] = useState(false);   // false = nach Datum (je Rennen), true = beste Ergebnisse zuerst
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [season, setSeason] = useState({});      // Jahr → { season_rank, points, riders }
 
   useEffect(() => {
-    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); setSeason({}); setByPoints(false); };
+    const open = (e) => { setSlug(e.detail); setData(null); setError(null); setYear(null); setByPoints(false); };
     const esc = (e) => { if (e.key === 'Escape') setSlug(null); };
     addEventListener('rider:open', open);
     addEventListener('keydown', esc);
@@ -81,12 +83,7 @@ export function RiderModal() {
   const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.uci_points), 0);
   const current = !y || y === thisYear;
   // Vergangene Jahre: Platz in der Saisonwertung statt der aktuellen Weltrangliste
-  useEffect(() => {
-    if (!slug || current || season[y] !== undefined) return;
-    rpc('rider_season_rank', { p_slug: slug, p_year: y })
-      .then((rows) => setSeason((s) => ({ ...s, [y]: rows?.[0] || null }))).catch(() => {});
-  }, [slug, y]);
-  const sr = season[y];
+  const sr = data?.season?.[y];
   const rankLine = r && (current
     ? [r.uci_rank && `UCI-Rang ${r.uci_rank}`, r.ranking_points && `${fmtPts(r.ranking_points)} Ranking-Punkte (52 Wochen)`]
     : [sr ? `Platz ${sr.season_rank} in der Saison ${y}` : `Saison ${y}`]).filter(Boolean).join(' · ');
