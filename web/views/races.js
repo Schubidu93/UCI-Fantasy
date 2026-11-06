@@ -83,11 +83,14 @@ function RaceDetail({ c, slug, initialEvent }) {
   const data = useLoad(async () => {
     const [race] = await q(sb.from('races').select('*').eq('pcs_slug', slug));
     const events = await q(sb.from('race_events').select('*').eq('race_slug', slug).order('stage_no').order('id'));
-    return { race, events };
+    // Rennen ohne Elite-Ergebnisliste (z. B. U23): nur die UCI-Punkte, die Elite-Fahrer dort geholt haben
+    const points = events.length ? [] : await q(sb.from('results').select('rider_slug,label,result_date,rank,uci_points')
+      .eq('race_slug', slug).order('uci_points', { ascending: false }).limit(300));
+    return { race, events, points };
   }, [slug]);
   const [eventId, setEventId] = useState(initialEvent);
   if (!data.data) return html`<${Loading} error=${data.error} />`;
-  const { race, events } = data.data;
+  const { race, events, points } = data.data;
   // Etappen (stage_name) mit ihren Wertungen
   const stages = [];
   for (const e of events) {
@@ -118,6 +121,13 @@ function RaceDetail({ c, slug, initialEvent }) {
         html`<button class=${e.id === current.id ? 'active' : ''} onClick=${() => setEventId(e.id)}>${label(e.event_name)}</button>`)}</div>`}
     </section>
     ${current ? html`<${ResultTable} c=${c} event=${current} race=${race} />`
+      : points.length ? html`<section class="card">
+          <p class="muted small">Für dieses Rennen führt die UCI keine Elite-Ergebnisliste (z. B. U23-Rennen). Hier die UCI-Punkte, die Fahrer dort für die Weltrangliste geholt haben:</p>
+          <table class="tbl"><thead><tr><th class="num">Platz</th><th>Fahrer</th><th class="hide-sm">Wertung</th><th class="num">Pkt.</th></tr></thead>
+          <tbody>${points.map((p, i) => html`<tr key=${i}><td class="num">${p.rank || ''}</td>
+            <td><button class="linkish" onClick=${() => openRider(p.rider_slug)}>${c.riderMap[p.rider_slug]?.name || p.rider_slug}</button></td>
+            <td class="small hide-sm">${labelText(p.label)}</td><td class="num"><strong>${fmtPts(p.uci_points)}</strong></td></tr>`)}</tbody></table>
+        </section>`
       : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)
         ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem Rennen beim täglichen Abruf um 20 Uhr.'
         : race?.loaded_at
