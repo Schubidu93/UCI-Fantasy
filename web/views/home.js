@@ -70,7 +70,8 @@ function CreateLeague({ onCancel }) {
   const a = useAction();
   // Beim Wechsel auf Snake-Draft eine sinnvolle Pick-Zeit vorschlagen
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value,
-    ...(k === 'draft_mode' && e.target.value === 'snake' && +f.bid_seconds === 15 ? { bid_seconds: 60 } : {}) });
+    ...(k === 'draft_mode' && e.target.value === 'snake' && +f.bid_seconds === 15 ? { bid_seconds: 60 } : {}),
+    ...(k === 'draft_mode' && e.target.value === 'blind' && +f.bid_seconds === 15 ? { bid_seconds: 20 } : {}) });
 
   const submit = (e) => {
     e.preventDefault();
@@ -117,16 +118,16 @@ export function LeagueSettingsFields({ f, set, locked }) {
     ${f.scoring_mode === 'lineup' && html`<label>Wertende Fahrer<input type="number" min="1" max=${f.roster_size} value=${f.lineup_size ?? ''} onInput=${set('lineup_size')} /></label>`}
     <label>Draft-Modus
       <select value=${f.draft_mode} onChange=${set('draft_mode')} disabled=${locked}>
-        <option value="live">Live-Auktion</option><option value="snake">Snake-Draft</option><option value="offline">Offline-Import</option>
+        <option value="live">Live-Auktion</option><option value="blind">Blind-Auktion (verdeckt)</option><option value="snake">Snake-Draft</option><option value="offline">Offline-Import</option>
       </select></label>
     ${f.draft_mode === 'snake' && html`
       <label>Sekunden pro Pick<input type="number" min="5" max="600" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
-    ${f.draft_mode === 'live' && html`
+    ${(f.draft_mode === 'live' || f.draft_mode === 'blind') && html`
       <label>Reihenfolge
         <select value=${f.draft_order} onChange=${set('draft_order')} disabled=${locked}>
           <option value="ranking">nach UCI-Rangliste</option><option value="nominate">reihum nominieren</option>
         </select></label>
-      <label>Sekunden pro Gebot<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
+      <label>${f.draft_mode === 'blind' ? 'Sekunden pro Fahrer' : 'Sekunden pro Gebot'}<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
     <label>Transfers
       <select value=${f.transfer_mode || 'waiver_free'} onChange=${set('transfer_mode')}>
         <option value="waiver_free">Waiver-Runde + freie Phase</option><option value="waiver">Nur Waiver (bis zum Stichtag)</option>

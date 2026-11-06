@@ -29,6 +29,10 @@ function DraftLobby({ c }) {
       ? html`<p><strong>Snake-Draft:</strong> Die Manager wählen reihum je einen Fahrer, in jeder Runde dreht sich die
           Reihenfolge um (1–2–3 … 3–2–1). Pro Pick gibt es ${c.league.bid_seconds} Sekunden – danach wird automatisch der
           beste freie Fahrer nach UCI-Rang gewählt. Die Reihenfolge wird beim Start ausgelost.</p>`
+      : c.league.draft_mode === 'blind'
+      ? html`<p><strong>Blind-Auktion</strong> mit ${c.league.budget} Budgetpunkten pro Manager. Pro Fahrer haben alle
+          ${c.league.bid_seconds} Sekunden für ein verdecktes Gebot – das höchste gewinnt sofort. Bei Gleichstand wird um +1 gestochen.
+          Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`
       : html`<p>Live-Auktion mit ${c.league.budget} Budgetpunkten pro Manager. Jedes Gebot setzt
           die Uhr auf ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`}
     ${!offline && html`<${DraftSchedule} c=${c} />`}
@@ -143,8 +147,16 @@ function DraftRoom({ c }) {
   const [lots, setLots] = useState([]);
   const [now, setNow] = useState(serverNow());
   const [amount, setAmount] = useState('');
+  const [sealed, setSealed] = useState(null);      // Blind-Auktion: eigenes verdecktes Gebot
+  const [lastBids, setLastBids] = useState([]);    // Blind-Auktion: offengelegte Gebote des letzten Fahrers
   const a = useAction();
   const lastLot = useRef(null);
+  const blind = c.league.draft_mode === 'blind';
+  const loadSealed = async () => {
+    if (!blind || !c.me) return;
+    const [x] = await q(sb.from('draft_sealed').select('amount').eq('league_id', L).eq('manager_id', c.me.id));
+    setSealed(x ? x.amount : null);
+  };
   const ticking = useRef(false);
 
   const load = async () => {
@@ -153,7 +165,10 @@ function DraftRoom({ c }) {
     const key = st && `${st.lot_no}|${st.status}|${st.phase}|${st.nominator}`;
     if (st && key !== lastLot.current) {
       lastLot.current = key;
-      setLots(await q(sb.from('draft_lots').select('*').eq('league_id', L).order('lot_no', { ascending: false }).limit(200)));
+      const ls = await q(sb.from('draft_lots').select('*').eq('league_id', L).order('lot_no', { ascending: false }).limit(200));
+      setLots(ls);
+      if (blind && ls[0]) setLastBids(await q(sb.from('draft_bids').select('*').eq('league_id', L).eq('lot_no', ls[0].lot_no).order('id')));
+      await loadSealed();
       c.reload();
       setAmount('');
     }
@@ -221,7 +236,11 @@ function DraftRoom({ c }) {
           ${d.status === 'running' ? 'Pausieren' : 'Fortsetzen'}</button>`}
       </div>
 
-      ${rider ? html`
+      ${rider && blind ? html`
+        <${BlindLot} c=${c} d=${d} rider=${rider} remaining=${remaining} sealed=${sealed} maxBid=${maxBid} open=${open}
+          onBid=${(v) => a.run(async () => { await rpc('draft_blind_bid', { p_league: L, p_amount: v }); await loadSealed(); await load(); })}
+          onRaise=${(v) => a.run(async () => { await rpc('draft_bid', { p_league: L, p_amount: v }); await load(); })} busy=${a.busy} />
+      ` : rider ? html`
         <div class="lot">
           <div class="lot-rider"><${RiderCell} r=${rider} /></div>
           <div class=${`clock ${remaining !== null && remaining < 5 ? 'hot' : ''}`} aria-live="off">
@@ -252,7 +271,7 @@ function DraftRoom({ c }) {
       ` : html`
         ${myTurn && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         <p>An der Reihe zum Nominieren: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
-        ${(myTurn || c.isAdmin) && html`<p class="muted small">Der nominierte Fahrer startet mit deinem Gebot 1.</p>
+        ${(myTurn || c.isAdmin) && html`<p class="muted small">${blind ? 'Danach bieten alle verdeckt.' : 'Der nominierte Fahrer startet mit deinem Gebot 1.'}</p>
           <${RiderPicker} riders=${free.filter((r) => !drafted.has(r.pcs_slug))} action="Nominieren"
           onPick=${(r) => asAdmin(r, 'nominieren') && a.run(async () => { await rpc('draft_nominate', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
       `}
@@ -275,11 +294,58 @@ function DraftRoom({ c }) {
 
     <section class="card">
       <h3>Letzte Zuschläge</h3>
+      ${blind && lots[0] && lastBids.length > 0 && html`<p class="muted small">Gebote für ${c.riderMap[lots[0].rider_slug]?.name || lots[0].rider_slug}:
+        ${lastBids.map((b, i) => html`${i ? ' · ' : ''}${c.managerMap[b.manager_id]?.team_name} <strong>${b.amount}</strong>`)}</p>`}
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
         <span>${c.riderMap[l.rider_slug]?.name || l.rider_slug}</span>
         <span class="muted">${l.manager_id ? `${c.managerMap[l.manager_id]?.team_name} · ${l.price}` : 'übersprungen'}</span></li>`)}</ul>
     </section>
   </div>`;
+}
+
+// Blind-Auktion: verdeckt bieten; bei Gleichstand Stechen um +1
+function BlindLot({ c, d, rider, remaining, sealed, maxBid, open, onBid, onRaise, busy }) {
+  const [val, setVal] = useState('');
+  const me = c.me;
+  const running = d.status === 'running' && remaining > 0;
+  const clock = html`<div class=${`clock ${remaining !== null && remaining < 5 ? 'hot' : ''}`} aria-live="off">
+    ${d.status === 'paused' ? '⏸' : remaining !== null ? Math.ceil(remaining) : ''}</div>`;
+  const head = html`<div class="lot"><div class="lot-rider"><${RiderCell} r=${rider} /></div>${clock}</div>`;
+
+  if (d.phase === 'tiebreak') {
+    const tied = (d.tie_bidders || []).map((id) => c.managerMap[id]?.team_name).join(', ');
+    const leader = c.managerMap[d.current_bidder]?.team_name;
+    const iAmIn = me && (d.tie_bidders || []).includes(me.id);
+    const iLead = me && d.current_bidder === me.id;
+    const next = d.current_bid + 1;
+    return html`${head}
+      <div class="bid-now">⚖️ Gleichstand – Stechen zwischen <strong>${tied}</strong></div>
+      <p>Vorn: <strong>${leader}</strong>${iLead ? ' (du)' : ''} mit <strong>${d.current_bid}</strong>.</p>
+      <p class="muted small">Erhöht niemand um 1, ${iLead ? 'bekommst du' : `bekommt ${leader}`} den Fahrer.</p>
+      ${iAmIn && !iLead && html`<div class="bid-controls">
+        <button class="primary" disabled=${!running || busy || maxBid(me) < next} onClick=${() => onRaise(next)}>Auf ${next} erhöhen</button>
+        <span class="muted small">${maxBid(me) < next ? 'Dein Budget reicht nicht für mehr.' : 'Nichts tun = aussteigen.'}</span></div>`}`;
+  }
+
+  const done = new Set(d.sealed_done || []);
+  const bidders = c.managers.filter((m) => open(m) > 0 && maxBid(m) >= 1);
+  const canBid = me && running && open(me) > 0 && maxBid(me) >= 1;
+  const send = (v) => { onBid(v); setVal(''); };
+  return html`${head}
+    <div class="bid-now">${sealed ? html`Dein verdecktes Gebot: <strong>${sealed}</strong>` : html`<span class="muted">Verdeckt bieten – niemand sieht dein Gebot. Ohne Gebot wird der Fahrer übersprungen.</span>`}</div>
+    ${me && html`<div class="bid-controls">
+      ${[1, 5, 10, 20].filter((v) => v <= maxBid(me)).map((v) => html`
+        <button class=${sealed === v ? 'primary' : ''} disabled=${!canBid || busy} onClick=${() => send(v)}>${v}</button>`)}
+      <form class="row" onSubmit=${(e) => { e.preventDefault(); if (val) send(+val); }}>
+        <input type="number" min="1" max=${maxBid(me)} placeholder="eigenes Gebot" value=${val}
+          onInput=${(e) => setVal(e.target.value)} disabled=${!canBid} />
+        <button disabled=${!canBid || busy || !val}>${sealed ? 'Ändern' : 'Bieten'}</button>
+      </form>
+      ${sealed && html`<button class="ghost small" disabled=${!canBid || busy} onClick=${() => send(0)}>Gebot zurückziehen</button>`}
+      <span class="muted small">Dein Höchstgebot: ${maxBid(me)}</span>
+    </div>`}
+    <p class="muted small">Geboten: ${bidders.map((m, i) => html`${i ? ' · ' : ''}${done.has(m.id) ? '✓' : '…'} ${m.team_name}`)}
+      ${' '}– haben alle geboten, wird sofort ausgewertet.</p>`;
 }
 
 // Admin wählt für einen anderen Manager: erst nachfragen, damit das nicht versehentlich passiert

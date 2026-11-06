@@ -138,7 +138,7 @@ create table if not exists leagues (
   budget          int  not null default 100 check (budget = 100),
   min_bid         int  not null default 1   check (min_bid = 1),
   max_per_team    int  check (max_per_team is null or max_per_team between 1 and roster_size),
-  draft_mode      text not null default 'live' check (draft_mode in ('live', 'snake', 'offline')),
+  draft_mode      text not null default 'live' check (draft_mode in ('live', 'blind', 'snake', 'offline')),
   draft_order     text not null default 'ranking' check (draft_order in ('ranking', 'nominate')),
   bid_seconds     int  not null default 15  check (bid_seconds between 5 and 600),  -- Sekunden pro Gebot bzw. Pick
   waiver_mode     text not null default 'priority' check (waiver_mode in ('priority', 'faab')),
@@ -211,12 +211,25 @@ create table if not exists draft_state (
 do $$
 begin
   alter table leagues drop constraint if exists leagues_draft_mode_check;
-  alter table leagues add constraint leagues_draft_mode_check check (draft_mode in ('live', 'snake', 'offline'));
+  alter table leagues add constraint leagues_draft_mode_check check (draft_mode in ('live', 'blind', 'snake', 'offline'));
   alter table leagues drop constraint if exists leagues_bid_seconds_check;
   alter table leagues add constraint leagues_bid_seconds_check check (bid_seconds between 5 and 600);
   alter table draft_state drop constraint if exists draft_state_phase_check;
-  alter table draft_state add constraint draft_state_phase_check check (phase in ('auction', 'fill', 'snake'));
+  alter table draft_state add constraint draft_state_phase_check check (phase in ('auction', 'fill', 'snake', 'tiebreak'));
 end $$;
+
+-- Blind-Auktion: verdeckte Gebote je Fahrer; bei Gleichstand Stechen (+1) unter den Gleichauf-Bietern
+alter table draft_state add column if not exists sealed_done uuid[] not null default '{}';  -- wer schon geboten hat (ohne Betrag)
+alter table draft_state add column if not exists tie_bidders uuid[];                      -- Teilnehmer am Stechen
+alter table draft_state add column if not exists tie_ptr int not null default 0;          -- reihum: Draft-Position des letzten Vorrangs
+create table if not exists draft_sealed (
+  league_id  uuid not null references leagues (id) on delete cascade,
+  lot_no     int  not null,
+  manager_id uuid not null references managers (id) on delete cascade,
+  amount     int  not null check (amount > 0),
+  created_at timestamptz not null default now(),
+  primary key (league_id, manager_id)
+);
 
 create table if not exists draft_lots (
   id         bigint generated always as identity primary key,
@@ -760,7 +773,7 @@ begin
     raise exception 'Nur Fahrer aus deinem Vorjahreskader.';
   end if;
   select coalesce(sum(o.price), 0) into v_sum from keeper_options(p_league) o where o.rider_slug = any (p_riders);
-  if l.draft_mode = 'live' and v_sum > l.budget - (l.roster_size - v_n) then
+  if l.draft_mode in ('live', 'blind') and v_sum > l.budget - (l.roster_size - v_n) then
     raise exception 'Zu teuer: Keeper kosten %, es muss Budget für die restlichen Plätze bleiben.', v_sum;
   end if;
   delete from keepers where manager_id = v_me;
@@ -780,6 +793,8 @@ declare l leagues; d draft_state; v_rider text; v_cur_pos int; v_next uuid;
         v_n int; v_pick int; v_round int; v_idx int; v_pos int;
 begin
   select * into l from leagues where id = p_league;
+  delete from draft_sealed where league_id = p_league;
+  update draft_state set sealed_done = '{}', tie_bidders = null where league_id = p_league;
   select * into d from draft_state where league_id = p_league;
 
   if not exists (select 1 from managers m where m.league_id = p_league and _open_slots(m.id) > 0) then
@@ -935,6 +950,11 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' then raise exception 'Der Draft läuft gerade nicht.'; end if;
   if d.current_rider is null or d.deadline is null or now() >= d.deadline then raise exception 'Gerade wird kein Fahrer versteigert.'; end if;
+  if l.draft_mode = 'blind' then
+    if d.phase <> 'tiebreak' then raise exception 'In der Blind-Auktion wird verdeckt geboten.'; end if;
+    if not (v_me = any (d.tie_bidders)) then raise exception 'Nur die Manager mit Gleichstand bieten im Stechen.'; end if;
+    if p_amount <> d.current_bid + 1 then raise exception 'Im Stechen wird genau um 1 erhöht (auf %).', d.current_bid + 1; end if;
+  end if;
   if d.current_bidder = v_me then raise exception 'Du bist schon Höchstbietender.'; end if;
   if _open_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll.'; end if;
   if p_amount < greatest(l.min_bid, d.current_bid + 1) then
@@ -948,6 +968,100 @@ begin
          deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
    where league_id = p_league;
   insert into draft_bids (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no, v_me, p_amount);
+  -- Stechen: kann kein anderer mehr erhöhen, sofort Zuschlag
+  if l.draft_mode = 'blind' and not exists (select 1 from unnest(d.tie_bidders) t
+       where t <> v_me and _max_bid(t) >= p_amount + 1 and _team_limit_ok(t, d.current_rider)) then
+    perform _draft_award(p_league, v_me, p_amount);
+  end if;
+end $$;
+
+-- Zuschlag für den aktuellen Fahrer (Blind-Auktion) und weiter zum nächsten
+create or replace function _draft_award(p_league uuid, p_manager uuid, p_price int) returns void
+language plpgsql security definer set search_path = public as $$
+declare d draft_state; l leagues;
+begin
+  select * into l from leagues where id = p_league;
+  select * into d from draft_state where league_id = p_league;
+  if p_manager is not null then
+    insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+    values (p_league, p_manager, d.current_rider, p_price, 'draft', l.season_start);
+    update managers set budget_left = budget_left - p_price where id = p_manager;
+  end if;
+  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
+  values (p_league, d.lot_no, d.current_rider, p_manager, case when p_manager is null then 0 else p_price end);
+  update draft_state set phase = case when phase = 'tiebreak' then 'auction' else phase end where league_id = p_league;
+  perform _draft_next(p_league);
+end $$;
+
+-- Blind-Auktion: verdeckte Gebote auswerten. Höchstgebot gewinnt; bei Gleichstand Stechen um +1,
+-- den Vorrang (wer ohne Erhöhung gewinnt) bekommen die Gleichauf-Bieter reihum.
+create or replace function _blind_resolve(p_league uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare d draft_state; l leagues; v_max int; v_tied uuid[]; v_lead uuid; v_pos int;
+begin
+  select * into l from leagues where id = p_league;
+  select * into d from draft_state where league_id = p_league;
+  -- Gebote offenlegen
+  insert into draft_bids (league_id, lot_no, manager_id, amount)
+    select league_id, d.lot_no, manager_id, amount from draft_sealed where league_id = p_league order by amount desc;
+  select max(amount) into v_max from draft_sealed where league_id = p_league;
+  if v_max is null then
+    perform _draft_award(p_league, null, 0);            -- niemand hat geboten: übersprungen
+    return;
+  end if;
+  select array_agg(s.manager_id order by m.draft_position) into v_tied
+    from draft_sealed s join managers m on m.id = s.manager_id
+   where s.league_id = p_league and s.amount = v_max;
+  if array_length(v_tied, 1) = 1 then
+    perform _draft_award(p_league, v_tied[1], v_max);
+    return;
+  end if;
+  -- reihum: erster Gleichauf-Bieter nach dem letzten Vorrang
+  select m.id, m.draft_position into v_lead, v_pos from managers m where m.id = any (v_tied)
+   order by case when m.draft_position > d.tie_ptr then 0 else 1 end, m.draft_position limit 1;
+  update draft_state set tie_ptr = v_pos where league_id = p_league;
+  delete from draft_sealed where league_id = p_league;
+  if not exists (select 1 from unnest(v_tied) t where t <> v_lead and _max_bid(t) >= v_max + 1) then
+    perform _draft_award(p_league, v_lead, v_max);      -- niemand kann erhöhen
+    return;
+  end if;
+  update draft_state set phase = 'tiebreak', tie_bidders = v_tied, sealed_done = '{}',
+         current_bid = v_max, current_bidder = v_lead,
+         deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
+   where league_id = p_league;
+end $$;
+
+-- Blind-Auktion: verdecktes Gebot abgeben, ändern oder zurückziehen (0)
+create or replace function draft_blind_bid(p_league uuid, p_amount int) returns void
+language plpgsql security definer set search_path = public as $$
+declare d draft_state; l leagues; v_me uuid; v_max int;
+begin
+  v_me := _require_member(p_league);
+  select * into l from leagues where id = p_league;
+  select * into d from draft_state where league_id = p_league for update;
+  if l.draft_mode <> 'blind' then raise exception 'Diese Liga nutzt keine Blind-Auktion.'; end if;
+  if d.status <> 'running' or d.phase <> 'auction' or d.current_rider is null or d.deadline is null or now() >= d.deadline then
+    raise exception 'Gerade wird kein Fahrer versteigert.';
+  end if;
+  if coalesce(p_amount, 0) <= 0 then
+    delete from draft_sealed where league_id = p_league and manager_id = v_me;
+    update draft_state set sealed_done = array_remove(sealed_done, v_me), updated_at = now() where league_id = p_league;
+    return;
+  end if;
+  if _open_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll.'; end if;
+  v_max := _max_bid(v_me);
+  if p_amount > v_max then raise exception 'Dein Höchstgebot ist %.', v_max; end if;
+  if not _team_limit_ok(v_me, d.current_rider) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
+  insert into draft_sealed (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no, v_me, p_amount)
+  on conflict (league_id, manager_id) do update set amount = excluded.amount, lot_no = excluded.lot_no, created_at = now();
+  update draft_state set sealed_done = array_append(array_remove(sealed_done, v_me), v_me), updated_at = now()
+   where league_id = p_league;
+  -- Haben alle geboten, die noch bieten können? Dann sofort auswerten.
+  if not exists (select 1 from managers m where m.league_id = p_league and _max_bid(m.id) >= 1
+                    and _team_limit_ok(m.id, d.current_rider)
+                    and not exists (select 1 from draft_sealed s where s.league_id = p_league and s.manager_id = m.id)) then
+    perform _blind_resolve(p_league);
+  end if;
 end $$;
 
 -- Wird von allen Clients aufgerufen, wenn die Uhr abläuft. Nur der erste Aufruf wirkt.
@@ -962,6 +1076,11 @@ begin
 
   if d.phase = 'snake' then
     perform _snake_pick(p_league, null);
+    return;
+  end if;
+  if l.draft_mode = 'blind' and d.current_rider is not null then
+    if d.phase = 'tiebreak' then perform _draft_award(p_league, d.current_bidder, d.current_bid);
+    else perform _blind_resolve(p_league); end if;
     return;
   end if;
 
@@ -1032,6 +1151,12 @@ begin
     raise exception 'Dieser Fahrer ist nicht verfügbar.';
   end if;
   if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  if l.draft_mode = 'blind' then
+    update draft_state set lot_no = lot_no + 1, current_rider = p_rider, current_bid = 0, current_bidder = null,
+           deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
+     where league_id = p_league;
+    return;
+  end if;
   update draft_state set lot_no = lot_no + 1, current_rider = p_rider, current_bid = 1, current_bidder = d.nominator,
          deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
    where league_id = p_league;
@@ -2157,6 +2282,11 @@ drop policy if exists members_read on lineups;
 create policy members_read on lineups for select to authenticated
   using (exists (select 1 from matchdays m where m.id = matchday_id and is_member(m.league_id)));
 
+-- Blind-Auktion: verdeckte Gebote sieht nur der Bieter selbst (offengelegt werden sie in draft_bids)
+alter table draft_sealed enable row level security;
+drop policy if exists own_read on draft_sealed;
+create policy own_read on draft_sealed for select to authenticated using (manager_id = my_manager(league_id));
+
 -- Waiver-Anträge: eigene immer, fremde erst nach Abwicklung (Gebote bleiben verdeckt)
 drop policy if exists members_read on waiver_claims;
 create policy members_read on waiver_claims for select to authenticated
@@ -2174,7 +2304,7 @@ begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
+    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_draft_award(uuid,uuid,int)', '_blind_resolve(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
     'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
