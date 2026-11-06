@@ -19,6 +19,9 @@ const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g
 // Rennklassen mit vollständigen Ergebnislisten (siehe datasync/race_results.py)
 const FULL = ['1.UWT', '2.UWT', '1.WWT', '2.WWT', '1.Pro', '2.Pro', 'CM'];
 
+// Rennen läuft (zumindest teilweise) im Monat ym = 'JJJJ-MM'
+const overlapsMonth = (r, ym) => (r.start_date || '').slice(0, 7) <= ym && (r.end_date || r.start_date || '').slice(0, 7) >= ym;
+
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
 export function Races({ c, sub, sub2 }) {
@@ -58,8 +61,8 @@ function RaceList({ c, races }) {
     ? races.filter((r) => (r.end_date || r.start_date) >= today).sort((a, b) => (a.start_date > b.start_date ? 1 : -1))
     : races.filter((r) => r.start_date <= today);
   const list = byMode.filter((r) => matchClass(r, group) && (!country || r.country === country)
-    && (!month || (r.start_date || '').slice(5, 7) === month)
-    && (!year || (r.start_date || '').slice(0, 4) === year || (r.end_date || '').slice(0, 4) === year)
+    && (!year || (month ? overlapsMonth(r, `${year}-${month}`)
+      : (r.start_date || '').slice(0, 4) === year || (r.end_date || '').slice(0, 4) === year))
     && (!md || (r.start_date <= md.ends_on && (r.end_date || r.start_date) >= md.starts_on))
     && (!t || t.split(' ').every((w) => normName(r.name).includes(w))));
 
@@ -76,10 +79,11 @@ function RaceList({ c, races }) {
       <input type="search" placeholder="Rennen suchen" value=${term} onInput=${(e) => setTerm(e.target.value)} />
       <select value=${group} onChange=${(e) => setGroup(e.target.value)}>${CLASS_GROUPS.map(([k, l]) => html`<option value=${k}>${l}</option>`)}</select>
       <select value=${country} onChange=${(e) => setCountry(e.target.value)}><option value="">Alle Länder</option>${countries.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
-      <select value=${month} onChange=${(e) => setMonth(e.target.value)}><option value="">Alle Monate</option>
-        ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
       <select value=${year} onChange=${(e) => setYear(e.target.value)}><option value="">Alle Jahre</option>
         ${years.map((y) => html`<option value=${y}>${y}</option>`)}</select>
+      <select value=${year ? month : ''} disabled=${!year} onChange=${(e) => setMonth(e.target.value)}>
+        <option value="">${year ? `Alle Monate ${year}` : 'Monat (erst Jahr wählen)'}</option>
+        ${year && MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m} ${year}</option>`)}</select>
       ${matchdays.length > 0 && html`<select value=${md ? md.id : ''} onChange=${(e) => setMd(e.target.value)}><option value="">Alle Spieltage</option>
         ${matchdays.map((m) => html`<option value=${m.id}>${m.name} (${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)})</option>`)}</select>`}
     </div>
