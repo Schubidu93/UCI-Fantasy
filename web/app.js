@@ -86,7 +86,7 @@ function sections(c) {
     { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
     { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
     { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
-      ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : []), ['feedback', 'Feedback']] },
+      ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },
   ];
 }
 
@@ -99,7 +99,8 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results,
     table: Table, admin: Admin, more: More, feedback: Feedback, home: Overview }[t] || Overview;
   const secs = sections(c);
-  const current = secs.find((x) => x.tabs.some(([k]) => k === t)) || secs[0];
+  const current = secs.find((x) => x.tabs.some(([k]) => k === t))
+    || (t === 'feedback' && secs.find((x) => x.key === 'more')) || secs[0];
   const href = (k) => `#/league/${id}/${k}`;
   return html`
     <header class="league-head">
