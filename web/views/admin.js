@@ -199,55 +199,58 @@ const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d
 
 function proposal(kind, start, end) {
   const out = [];
-  if (kind === 'blocks') {
-    const y = start.slice(0, 4);
-    const blocks = [
-      ['Saisonauftakt', `${y}-01-01`, `${y}-02-28`], ['Frühjahrsklassiker', `${y}-03-01`, `${y}-04-30`],
-      ['Giro', `${y}-05-01`, `${y}-06-01`], ['Juni-Rundfahrten', `${y}-06-02`, `${y}-07-03`],
-      ['Tour', `${y}-07-04`, `${y}-07-31`], ['Vuelta', `${y}-08-01`, `${y}-09-14`], ['Herbst', `${y}-09-15`, `${y}-10-31`],
-    ];
-    blocks.forEach(([n, s, e]) => {
-      const s2 = s < start ? start : s, e2 = e > end ? end : e;
-      if (s2 <= e2) out.push({ name: n, starts_on: s2, ends_on: e2 });
-    });
-  } else {
-    let s = start, i = 1;
-    while (s <= end) {
-      let e;
-      if (kind === 'weekly') e = addDays(s, 6);
-      else { const d = new Date(s + 'T00:00:00Z'); e = iso(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))); }
-      if (e > end) e = end;
-      out.push({ name: kind === 'weekly' ? `Woche ${i}` : new Date(s + 'T00:00:00Z').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }), starts_on: s, ends_on: e });
-      s = addDays(e, 1); i++;
-    }
+  let s = start, i = 1;
+  while (s <= end) {
+    let e;
+    if (kind === 'weekly') e = addDays(s, 6);
+    else { const d = new Date(s + 'T00:00:00Z'); e = iso(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))); }
+    if (e > end) e = end;
+    out.push({ name: kind === 'weekly' ? `Woche ${i}` : new Date(s + 'T00:00:00Z').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }), starts_on: s, ends_on: e });
+    s = addDays(e, 1); i++;
   }
   return out;
 }
 
-// Rennblöcke aus dem echten Kalender: jede große Rundfahrt (WorldTour, ≥ 7 Tage) ist ein eigener
-// Spieltag, die Zeiträume dazwischen werden zu Blöcken (Saisonstart, Frühjahr, …, Herbst).
+// Rennblöcke aus dem echten Kalender (inkl. vorläufiger Termine): die drei großen Rundfahrten sind je ein
+// eigener Spieltag, dazwischen Blöcke. Grenzen werden so verschoben, dass kein WorldTour-Rennen geteilt wird.
+const GT = [['Giro', /giro d.italia/i, 'Vor dem Giro'], ['Tour', /tour de france/i, 'Vor der Tour'],
+  ['Vuelta', /vuelta.*espa[ñn]a/i, 'Vor der Vuelta']];
 async function calendarProposal(league) {
   const races = await all(() => sb.from('races').select('name,uci_class,start_date,end_date')
-    .eq('gender', league.gender).gte('start_date', league.season_start).lte('start_date', league.season_end)
+    .eq('gender', league.gender).lte('start_date', league.season_end).gte('end_date', league.season_start)
     .not('start_date', 'is', null).order('start_date'));
-  const days = (r) => (new Date(r.end_date) - new Date(r.start_date)) / 864e5 + 1;
-  const tours = races.filter((r) => ['2.UWT', '2.WWT'].includes(r.uci_class) && days(r) >= 7)
-    .filter((r, i, arr) => !arr.slice(0, i).some((x) => x.end_date >= r.start_date));   // keine Überlappung
+  const wt = races.filter((r) => /^[12]\.(UWT|WWT)$/.test(r.uci_class || '')).map((r) => ({ ...r, end_date: r.end_date || r.start_date }));
+  const tours = GT.map(([short, re, gap]) => {
+    const r = wt.find((x) => x.uci_class.startsWith('2.') && re.test(x.name));
+    return r && { short, gap, name: r.name, starts_on: r.start_date, ends_on: r.end_date };
+  }).filter(Boolean).sort((x, y) => (x.starts_on > y.starts_on ? 1 : -1))
+    .filter((t, i, arr) => !arr.slice(0, i).some((x) => x.ends_on >= t.starts_on));
   if (!tours.length) return null;
+  // Grenze (erster Tag eines Blocks) nicht mitten in ein WorldTour-Rennen legen: auf Start oder Tag nach Ende schieben
+  const cut = (d, lo, hi) => {
+    const r = wt.find((x) => x.start_date < d && x.end_date >= d);
+    if (!r) return d;
+    const a = r.start_date, b = addDays(r.end_date, 1);
+    const ok = (x) => x > lo && x <= hi;
+    const da = Math.abs(new Date(d) - new Date(a)), db = Math.abs(new Date(b) - new Date(d));
+    return (da <= db ? [a, b] : [b, a]).find(ok) || d;
+  };
   const out = [];
-  const gap = (from, to, name) => { if (from <= to) out.push({ name, starts_on: from, ends_on: to }); };
+  const block = (from, to, name) => { if (from <= to) out.push({ name, starts_on: from, ends_on: to }); };
   let cursor = league.season_start;
   tours.forEach((t, i) => {
-    const before = addDays(t.start_date, -1);
+    const before = addDays(t.starts_on, -1);
     if (i === 0) {
-      const march = `${cursor.slice(0, 4)}-03-01`;
-      if (march > cursor && march <= before) { gap(cursor, addDays(march, -1), 'Saisonstart'); gap(march, before, 'Frühjahrsklassiker'); }
-      else gap(cursor, before, 'Saisonstart');
-    } else gap(cursor, before, `Vor ${t.name.replace(/^(La |Le )/, '')}`);
-    out.push({ name: t.name, starts_on: t.start_date, ends_on: t.end_date > league.season_end ? league.season_end : t.end_date });
-    cursor = addDays(t.end_date, 1);
+      const march = cut(`${t.starts_on.slice(0, 4)}-03-01`, cursor, before);
+      if (march > addDays(cursor, 13) && addDays(march, 13) <= before) {
+        block(cursor, addDays(march, -1), 'Saisonstart'); block(march, before, 'Frühjahrsklassiker');
+      } else block(cursor, before, 'Saisonstart');
+    } else block(cursor, before, t.gap);
+    block(t.starts_on < league.season_start ? league.season_start : t.starts_on,
+      t.ends_on > league.season_end ? league.season_end : t.ends_on, t.name);
+    cursor = addDays(t.ends_on, 1);
   });
-  gap(cursor, league.season_end, 'Herbst');
+  block(cursor, league.season_end, 'Herbst');
   return out;
 }
 
@@ -313,10 +316,9 @@ function Matchdays({ c }) {
       <div class="row">
         <button class="primary" onClick=${() => a.run(async () => {
           const p = await calendarProposal(c.league);
-          if (!p) throw new Error('Für diese Saison sind noch keine großen Rundfahrten im Kalender – nimm vorerst „Rennblöcke (Richtwerte)“.');
+          if (!p) throw new Error('Für diese Saison sind noch keine großen Rundfahrten im Kalender – nimm vorerst „Monatlich“.');
           setGen(p);
         })}>Aus Rennkalender</button>
-        <button onClick=${() => setGen(proposal('blocks', c.league.season_start, c.league.season_end))}>Rennblöcke (Richtwerte)</button>
         <button onClick=${() => setGen(proposal('monthly', c.league.season_start, c.league.season_end))}>Monatlich</button>
         <button onClick=${() => setGen(proposal('weekly', c.league.season_start, c.league.season_end))}>Wöchentlich</button>
       </div>
