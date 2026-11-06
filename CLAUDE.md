@@ -39,8 +39,9 @@
 
 ## Daten
 
-- Quelle nur **UCI DataRide** (`datasync/dataride.py`), ehrliche Kennung, Pausen zwischen Abfragen. Keine anderen Quellen,
-  keine Umgehung von Bot-Schutz.
+- Quelle nur **UCI**: DataRide (`datasync/dataride.py`) und für künftige Termine das UCI-Wettkampfverzeichnis
+  (`datasync/uci_calendar.py`, uci-competition.tech.uci.ch). Ehrliche Kennung, Pausen zwischen Abfragen. Keine anderen
+  Quellen (kein ProCyclingStats), keine Umgehung von Bot-Schutz.
 - `datasync/race_results.py`: Kalender, Ergebnislisten und Punkte (täglich 20 Uhr; WorldTour/ProSeries/WM vollständig).
   Punkte der Wertung stehen in `results`, die Ergebnislisten in `race_events`/`event_results`.
 - `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr). Fahrer-ID heißt historisch `pcs_slug` (`uci-<id>`).
@@ -51,5 +52,6 @@
 - GitHub-Secret `GH_DISPATCH_TOKEN` muss vom Repo-Besitzer eingetragen werden (Fine-grained Token, nur dieses Repo,
   „Actions: Read and write“, danach „Datenbank einrichten“ einmal starten). Ohne es starten Zeitplaner-Abläufe
   (Ergebnisse 20 Uhr, Fahrerliste 6 Uhr, Push, Wochen-Zusammenfassung) nicht automatisch. Ablauf des Tokens nach ~1 Jahr.
-- Kalender 2027 ist teilweise vorläufig (`races.provisional`), wird automatisch durch DataRide ersetzt.
+- Künftige Rennen sind vorläufig (`races.provisional`, aus dem Wettkampfverzeichnis; Geschlecht ohne Angabe per Name/Klasse
+  geschätzt), werden bei jedem Abruf neu gesetzt und durch DataRide ersetzt (gleiche Klasse, ±3 Tage).
 - Ideen für später: Startlisten (UCI liefert keine), Verletzungen/Pausen markieren, mehrere Admins pro Liga.

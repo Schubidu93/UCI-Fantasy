@@ -71,7 +71,10 @@ dann `python3 -m http.server -d web` und `http://localhost:8000` öffnen.
 ## Hinweise
 
 - DataRide hat keine dokumentierte API; der Abruf nutzt die Abfragen der Website mit ehrlicher
-  Kennung und Pausen zwischen den Abfragen. Andere Quellen (z. B. ProCyclingStats) werden nicht verwendet.
+  Kennung und Pausen zwischen den Abfragen. Künftige Rennen
+  kommen zusätzlich aus dem UCI-Wettkampfverzeichnis (uci-competition.tech.uci.ch, öffentliche Schnittstelle der Website,
+  `datasync/uci_calendar.py`) und gelten als „vorläufig“, bis DataRide sie führt. Andere Quellen (z. B. ProCyclingStats)
+  werden nicht verwendet.
 - Fahrer-IDs heißen aus historischen Gründen `pcs_slug` (Format `uci-<DataRide-ID>`).
 - Ergebnisse werden ab der Saison 2025 gespeichert.
 - Live-Updates im Draft-Raum laufen über Supabase Realtime; fällt das aus, fragt die App alle 1,5 s nach.

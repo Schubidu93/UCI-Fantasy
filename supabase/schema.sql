@@ -1410,60 +1410,10 @@ language sql stable security definer set search_path = public as $$
    order by r.rider_slug;
 $$;
 
--- ---- Vorläufiger WorldTour-Kalender 2027 ---------------------------------------------------
--- Die UCI trägt die nächste Saison erst nach und nach in DataRide ein. Bis dahin stehen hier die
--- bereits veröffentlichten WorldTour-Termine (Quelle: UCI-Kalender, Presseberichte Okt. 2026).
--- race_results.py ersetzt sie automatisch, sobald DataRide das Rennen liefert.
+-- ---- Vorläufige Kalendereinträge -----------------------------------------------------------
+-- Künftige Rennen, die DataRide noch nicht kennt, kommen aus dem UCI-Wettkampfverzeichnis
+-- (datasync/uci_calendar.py, täglich) und werden ersetzt, sobald DataRide das Rennen liefert.
 alter table races add column if not exists provisional boolean not null default false;
-insert into races (pcs_slug, name, gender, uci_class, country, start_date, end_date, provisional)
-select v.slug, v.name, v.gender, v.cls, v.country, v.s::date, v.e::date, true from (values
-  ('santos-tour-down-under/2027', 'Santos Tour Down Under', 'men', '2.UWT', 'AUS', '2027-01-19', '2027-01-24'),
-  ('cadel-evans-great-ocean-road-race/2027', 'Cadel Evans Great Ocean Road Race', 'men', '1.UWT', 'AUS', '2027-01-31', '2027-01-31'),
-  ('uae-tour/2027', 'UAE Tour', 'men', '2.UWT', 'UAE', '2027-02-15', '2027-02-21'),
-  ('omloop-het-nieuwsblad/2027', 'Omloop Het Nieuwsblad', 'men', '1.UWT', 'BEL', '2027-02-27', '2027-02-27'),
-  ('strade-bianche/2027', 'Strade Bianche', 'men', '1.UWT', 'ITA', '2027-03-06', '2027-03-06'),
-  ('paris-nice/2027', 'Paris-Nice', 'men', '2.UWT', 'FRA', '2027-03-07', '2027-03-14'),
-  ('tirreno-adriatico/2027', 'Tirreno-Adriatico', 'men', '2.UWT', 'ITA', '2027-03-08', '2027-03-14'),
-  ('milano-sanremo/2027', 'Milano-Sanremo', 'men', '1.UWT', 'ITA', '2027-03-20', '2027-03-20'),
-  ('volta-ciclista-a-catalunya/2027', 'Volta Ciclista a Catalunya', 'men', '2.UWT', 'ESP', '2027-03-22', '2027-03-28'),
-  ('ronde-van-brugge/2027', 'Ronde van Brugge', 'men', '1.UWT', 'BEL', '2027-03-24', '2027-03-24'),
-  ('e3-saxo-classic/2027', 'E3 Saxo Classic', 'men', '1.UWT', 'BEL', '2027-03-26', '2027-03-26'),
-  ('in-flanders-fields-gent-wevelgem/2027', 'In Flanders Fields (Gent-Wevelgem)', 'men', '1.UWT', 'BEL', '2027-03-28', '2027-03-28'),
-  ('ronde-van-vlaanderen/2027', 'Ronde van Vlaanderen', 'men', '1.UWT', 'BEL', '2027-04-04', '2027-04-04'),
-  ('itzulia-basque-country/2027', 'Itzulia Basque Country', 'men', '2.UWT', 'ESP', '2027-04-05', '2027-04-10'),
-  ('paris-roubaix/2027', 'Paris-Roubaix', 'men', '1.UWT', 'FRA', '2027-04-11', '2027-04-11'),
-  ('amstel-gold-race/2027', 'Amstel Gold Race', 'men', '1.UWT', 'NED', '2027-04-18', '2027-04-18'),
-  ('la-fleche-wallonne/2027', 'La Flèche Wallonne', 'men', '1.UWT', 'BEL', '2027-04-21', '2027-04-21'),
-  ('liege-bastogne-liege/2027', 'Liège-Bastogne-Liège', 'men', '1.UWT', 'BEL', '2027-04-25', '2027-04-25'),
-  ('tour-de-romandie/2027', 'Tour de Romandie', 'men', '2.UWT', 'SUI', '2027-04-27', '2027-05-02'),
-  ('eschborn-frankfurt/2027', 'Eschborn-Frankfurt', 'men', '1.UWT', 'GER', '2027-05-02', '2027-05-02'),
-  ('giro-d-italia/2027', 'Giro d''Italia', 'men', '2.UWT', 'ITA', '2027-05-08', '2027-05-30'),
-  ('tour-auvergne-rhone-alpes/2027', 'Tour Auvergne-Rhône-Alpes', 'men', '2.UWT', 'FRA', '2027-06-06', '2027-06-13'),
-  ('copenhagen-sprint/2027', 'Copenhagen Sprint', 'men', '1.UWT', 'DEN', '2027-06-13', '2027-06-13'),
-  ('tour-de-suisse/2027', 'Tour de Suisse', 'men', '2.UWT', 'SUI', '2027-06-16', '2027-06-20'),
-  ('tour-de-france/2027', 'Tour de France', 'men', '2.UWT', 'FRA', '2027-07-02', '2027-07-25'),
-  ('clasica-san-sebastian/2027', 'Clásica San Sebastián', 'men', '1.UWT', 'ESP', '2027-07-31', '2027-07-31'),
-  ('tour-de-pologne/2027', 'Tour de Pologne', 'men', '2.UWT', 'POL', '2027-08-02', '2027-08-08'),
-  ('adac-cyclassics/2027', 'ADAC Cyclassics', 'men', '1.UWT', 'GER', '2027-08-15', '2027-08-15'),
-  ('uci-road-world-championships/2027', 'UCI Road World Championships', 'men', 'CM', 'FRA', '2027-08-24', '2027-09-05'),
-  ('la-vuelta-ciclista-a-espana/2027', 'La Vuelta Ciclista a España', 'men', '2.UWT', 'ESP', '2027-09-04', '2027-09-26'),
-  ('grand-prix-cycliste-de-quebec/2027', 'Grand Prix Cycliste de Québec', 'men', '1.UWT', 'CAN', '2027-09-10', '2027-09-10'),
-  ('grand-prix-cycliste-de-montreal/2027', 'Grand Prix Cycliste de Montréal', 'men', '1.UWT', 'CAN', '2027-09-12', '2027-09-12'),
-  ('il-lombardia/2027', 'Il Lombardia', 'men', '1.UWT', 'ITA', '2027-10-09', '2027-10-09'),
-  ('tour-of-guangxi/2027', 'Tour of Guangxi', 'men', '2.UWT', 'CHN', '2027-10-12', '2027-10-17'),
-  ('santos-tour-down-under/2027/w', 'Santos Tour Down Under', 'women', '2.WWT', 'AUS', '2027-01-22', '2027-01-24'),
-  ('strade-bianche-donne/2027/w', 'Strade Bianche Donne', 'women', '1.WWT', 'ITA', '2027-03-06', '2027-03-06'),
-  ('liege-bastogne-liege-femmes/2027/w', 'Liège-Bastogne-Liège Femmes', 'women', '1.WWT', 'BEL', '2027-04-25', '2027-04-25'),
-  ('vuelta-a-burgos-feminas/2027/w', 'Vuelta a Burgos Feminas', 'women', '2.WWT', 'ESP', '2027-05-06', '2027-05-10'),
-  ('giro-d-italia-women/2027/w', 'Giro d''Italia Women', 'women', '2.WWT', 'ITA', '2027-05-29', '2027-06-06'),
-  ('copenhagen-sprint/2027/w', 'Copenhagen Sprint', 'women', '1.WWT', 'DEN', '2027-06-12', '2027-06-12'),
-  ('tour-de-france-femmes/2027/w', 'Tour de France Femmes', 'women', '2.WWT', 'FRA', '2027-07-30', '2027-08-07'),
-  ('uci-road-world-championships/2027/w', 'UCI Road World Championships', 'women', 'CM', 'FRA', '2027-08-24', '2027-09-05'),
-  ('la-vuelta-femenina/2027/w', 'La Vuelta Femenina', 'women', '2.WWT', 'ESP', '2027-10-03', '2027-10-10')
-) as v(slug, name, gender, cls, country, s, e)
-where not exists (select 1 from races r where r.gender = v.gender and r.dataride_id is not null
-                    and r.uci_class = v.cls and abs(r.start_date - v.s::date) <= 3)
-on conflict (pcs_slug) do nothing;
 -- Ländercodes einheitlich wie bei der UCI (IOC): frühere ISO-Codes der vorläufigen Einträge korrigieren
 update races set country = case country when 'DEU' then 'GER' when 'NLD' then 'NED' when 'CHE' then 'SUI'
                                         when 'DNK' then 'DEN' when 'ARE' then 'UAE' end

@@ -121,7 +121,7 @@ export function Rules({ c }) {
     <details class="card rule-sec">
       <summary><h3>Daten</h3></summary>
       <ul>
-        <li><strong>Quelle:</strong> Fahrer, Rennen und Ergebnisse kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI.</li>
+        <li><strong>Quelle:</strong> Fahrer, Rennen und Ergebnisse kommen aus <strong>UCI DataRide</strong>, der offiziellen Datenquelle der UCI. Künftige Rennen zusätzlich aus dem <strong>UCI-Wettkampfverzeichnis</strong>.</li>
         <li><strong>Rennergebnisse:</strong>
           <ul>
             <li>täglich um 20 Uhr: neue Rennen, laufende Rundfahrten (Etappe für Etappe) und Rennen der letzten 3 Tage</li>
@@ -132,7 +132,7 @@ export function Rules({ c }) {
         <li><strong>Kalender:</strong>
           <ul>
             <li>wird beim selben Abruf aktualisiert, inklusive der nächsten Saison</li>
-            <li>noch nicht von der UCI eingetragene Termine stehen als „vorläufig“ drin und werden automatisch ersetzt</li>
+            <li>Rennen, die noch nicht in DataRide stehen, kommen aus dem UCI-Wettkampfverzeichnis (dort stehen sie Monate früher) und sind als „vorläufig“ markiert – sie werden automatisch ersetzt, sobald DataRide sie führt</li>
           </ul></li>
         <li><strong>Fahrer:</strong> täglich um 6 Uhr alle Fahrer mit UCI-Punkten – Rang, Team, Nation, Geburtsdatum; neue Fahrer sind automatisch frei.</li>
         <li><strong>Abgleich:</strong> Danach werden die Punkte mit der UCI-Weltrangliste verglichen; Punkte aus Mannschaftswertungen (z. B. Mixed-Staffel der WM), die in keiner Einzel-Ergebnisliste stehen, werden nachgetragen.</li>

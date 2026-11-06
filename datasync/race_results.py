@@ -1,6 +1,8 @@
 """
 Rennkalender und Ergebnislisten (Rang, Zeit, UCI-Punkte) aus UCI DataRide laden.
 
+Künftige Rennen zusätzlich aus dem UCI-Wettkampfverzeichnis (uci_calendar.py, als „vorläufig“).
+
 Für jedes Rennen der Saison (Männer und Frauen Elite, Straße):
   Etappen/Renntage → Wertungen → Ergebnisliste (Top 25 + alle Plätze mit UCI-Punkten)
 
@@ -22,6 +24,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 from dataride import DataRide, ms_date, normalize_name, race_slug
+import uci_calendar
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 GENDERS = os.environ.get("GENDERS", "men,women").split(",")
@@ -195,6 +198,13 @@ def main():
 
     if not DRY_RUN:
         import db
+    # Künftige Rennen aus dem UCI-Wettkampfverzeichnis (Monate früher als in DataRide)
+    try:
+        future = uci_calendar.fetch(today)
+        print(f"UCI-Wettkampfverzeichnis: {len(future)} künftige Straßenrennen")
+    except Exception as e:
+        future = None
+        print(f"UCI-Wettkampfverzeichnis nicht erreichbar ({e}) – vorläufige Termine bleiben unverändert")
     for gender in GENDERS:
         # Fahrernamen → unsere Fahrer-IDs (für Klick auf Fahrer in der App)
         name_to_slug = {}
@@ -239,7 +249,11 @@ def main():
         print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
         if cal and not DRY_RUN:
             db.upsert("races", cal, "pcs_slug")
-            replace_provisional(gender, cal, today)
+        if not DRY_RUN and not LIMIT and not CLASSES:
+            if future is not None:
+                uci_calendar.sync(gender, cal, today, future)
+            else:
+                replace_provisional(gender, cal, today)
         if not DRY_RUN:
             set_seasons(gender, comps)
         if not DRY_RUN and not LIMIT and not CLASSES:
