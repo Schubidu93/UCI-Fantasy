@@ -34,6 +34,20 @@ FERTIG_NACH_TAGEN = 21     # nach so vielen Tagen gilt ein Ergebnis als endgült
 FENSTER = int(os.environ.get("FENSTER") or (FERTIG_NACH_TAGEN if date.today().weekday() == 2 else 3))
 
 
+def remove_unlisted(gender, listed_ids, year):
+    """Rennen der Saison entfernen, die DataRide für diese Wertung nicht (mehr) führt und für die nie Ergebnisse
+    geladen wurden – z. B. reine U23-/Nachwuchs-Meisterschaften. Sie würden sonst ewig ohne Ergebnis im Kalender stehen."""
+    import db
+    rows = db.select("races", {"select": "pcs_slug,dataride_id", "gender": f"eq.{gender}", "provisional": "is.false",
+                               "dataride_id": "not.is.null", "loaded_at": "is.null",
+                               "start_date": f"gte.{year}-01-01", "limit": 5000})
+    gone = [r["pcs_slug"] for r in rows if r["dataride_id"] not in listed_ids]
+    for slug in gone:
+        db.delete("races", {"pcs_slug": f"eq.{slug}", "loaded_at": "is.null"})
+    if gone:
+        print(f"  {len(gone)} Rennen ohne Elite-Wertung bei der UCI entfernt")
+
+
 def replace_provisional(gender, cal, today):
     """Vorläufige Kalendereinträge (von Hand, provisional=true) löschen, sobald DataRide das Rennen liefert:
     gleiche Klasse und Start höchstens 3 Tage auseinander. Abgelaufene Platzhalter ebenfalls entfernen."""
@@ -206,6 +220,8 @@ def main():
         if cal and not DRY_RUN:
             db.upsert("races", cal, "pcs_slug")
             replace_provisional(gender, cal, today)
+        if not DRY_RUN and not LIMIT and not CLASSES:
+            remove_unlisted(gender, {c["CompetitionId"] for c in comps}, season["Year"])
         # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
         comps = [c for c in comps if (ms_date(c.get("StartDate")) or today) <= today
                  and (ms_date(c.get("EndDate")) or today).year >= FIRST_YEAR]
