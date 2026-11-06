@@ -19,3 +19,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      # fehlende Punkte aus der Weltrangliste nachtragen (z. B. Mixed-Staffel)
+      - run: python check_ranking.py
+        working-directory: datasync
+        env:
+          FIX: "1"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

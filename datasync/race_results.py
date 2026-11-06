@@ -34,6 +34,19 @@ FERTIG_NACH_TAGEN = 21     # nach so vielen Tagen gilt ein Ergebnis als endgült
 FENSTER = int(os.environ.get("FENSTER") or (FERTIG_NACH_TAGEN if date.today().weekday() == 2 else 3))
 
 
+def set_seasons(gender, comps):
+    """UCI-Saison je Rennen speichern – die UCI-Saison beginnt im Herbst (z. B. Meisterschaften Ende Oktober
+    zählen schon zur nächsten Saison). „Punkte 2026“ in der App heißt: UCI-Saison 2026, wie in der Weltrangliste."""
+    import db
+    by_season = defaultdict(list)
+    for c in comps:
+        by_season[c["_season"]].append(c["CompetitionId"])
+    for year, ids in by_season.items():
+        for i in range(0, len(ids), 150):
+            db.update("races", {"gender": f"eq.{gender}", "dataride_id": f"in.({','.join(map(str, ids[i:i + 150]))})"},
+                      {"season": year})
+
+
 def remove_unlisted(gender, listed_ids, year):
     """Rennen der Saison entfernen, die DataRide für diese Wertung nicht (mehr) führt und für die nie Ergebnisse
     geladen wurden – z. B. reine U23-/Nachwuchs-Meisterschaften. Sie würden sonst ewig ohne Ergebnis im Kalender stehen."""
@@ -89,7 +102,10 @@ def save_points(slug, race_name, events, rows, today):
         return
     existing = db.select("results", {"select": "id,rider_slug,label,result_date,uci_points", "race_slug": f"eq.{slug}",
                                      "result_date": f"gte.{min(dates)}", "limit": 5000})
-    stale = [r["id"] for r in existing if (r["rider_slug"], r["label"]) not in points]
+    # Mannschaftswertungen (Mixed-Staffel, Teamzeitfahren) stehen ohne Fahrernamen in der Liste – deren Punkte
+    # kommen aus dem Abgleich mit der Weltrangliste (check_ranking.py) und bleiben stehen
+    stale = [r["id"] for r in existing if (r["rider_slug"], r["label"]) not in points
+             and not re.search(r"Team Time Trial|Mixed Relay|TTT", r["label"], re.I)]
     for i in range(0, len(stale), 200):
         db.delete("results", {"id": f"in.({','.join(map(str, stale[i:i + 200]))})"})
     if points:
@@ -199,11 +215,15 @@ def main():
             loaded = {}
 
         comps = dr.competitions(gender, season["Id"])
+        for c in comps:
+            c["_season"] = season["Year"]
         # Kalender: kommende Rennen dieser und der nächsten Saison (ohne Ergebnisse) speichern
         upcoming = [c for c in comps if (ms_date(c.get("EndDate")) or today) > today]
         nxt = dr.season(season["Year"] + 1)
         if nxt["Id"] != season["Id"]:
             nxt_comps = dr.competitions(gender, nxt["Id"])
+            for c in nxt_comps:
+                c["_season"] = nxt["Year"]
             upcoming += nxt_comps
             comps += nxt_comps   # die UCI-Saison beginnt im Herbst – schon gefahrene Rennen gleich mitladen
         cal = []
@@ -214,12 +234,14 @@ def main():
             cal.append({"pcs_slug": race_slug(c["CompetitionName"], start.year, gender), "name": c["CompetitionName"].strip(),
                         "gender": gender, "uci_class": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
                         "dataride_id": c["CompetitionId"], "start_date": start.isoformat(),
-                        "end_date": end.isoformat() if end else None})
+                        "end_date": end.isoformat() if end else None, "season": c["_season"]})
         cal = list({r["pcs_slug"]: r for r in cal}.values())
         print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
         if cal and not DRY_RUN:
             db.upsert("races", cal, "pcs_slug")
             replace_provisional(gender, cal, today)
+        if not DRY_RUN:
+            set_seasons(gender, comps)
         if not DRY_RUN and not LIMIT and not CLASSES:
             remove_unlisted(gender, {c["CompetitionId"] for c in comps}, season["Year"])
         # bereits gestartete Rennen – laufende Rundfahrten mit den Etappen, die schon gefahren sind
@@ -250,7 +272,7 @@ def main():
             slug = race_slug(c["CompetitionName"], (start or today).year, gender)
             race_row = {"pcs_slug": slug, "name": c["CompetitionName"].strip(), "gender": gender,
                         "uci_class": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
-                        "dataride_id": c["CompetitionId"],
+                        "dataride_id": c["CompetitionId"], "season": c["_season"],
                         "start_date": start.isoformat() if start else None, "end_date": end.isoformat() if end else None}
             events, results = [], []
             # Rundfahrten: ältere, schon gespeicherte Etappen nicht jedes Mal neu abfragen

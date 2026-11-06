@@ -40,7 +40,7 @@ async function loadRider(slug) {
   const slugs = [...new Set(Object.values(events).map((e) => e.race_slug))];
   const races = {};
   for (let i = 0; i < slugs.length; i += 100) {
-    for (const r of await q(sb.from('races').select('pcs_slug,name,uci_class,start_date').in('pcs_slug', slugs.slice(i, i + 100)))) races[r.pcs_slug] = r;
+    for (const r of await q(sb.from('races').select('pcs_slug,name,uci_class,start_date,season').in('pcs_slug', slugs.slice(i, i + 100)))) races[r.pcs_slug] = r;
   }
   // Saisonplätze aller Jahre direkt mitladen (fest gespeichert, keine Berechnung nötig)
   const season = Object.fromEntries((await q(sb.from('rider_season_stats').select('year,season_rank,points,riders').eq('rider_slug', slug)))
@@ -73,7 +73,8 @@ export function RiderModal() {
   }, [slug]);
 
   const r = data?.rider;
-  const yearOf = (x) => +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
+  // UCI-Saison des Rennens (beginnt im Herbst), sonst Kalenderjahr
+  const yearOf = (x) => x.race?.season || +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
   const withPoints = (data?.results || []).filter((x) => Number(x.uci_points) > 0);
   const years = [...new Set(withPoints.map(yearOf))].filter((yy) => yy >= FIRST_YEAR).sort();
   const thisYear = new Date().getFullYear();

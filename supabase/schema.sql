@@ -69,6 +69,7 @@ alter table races add column if not exists uci_class text;   -- z. B. 2.UWT, 1.P
 alter table races add column if not exists country text;      -- ISO3, z. B. FRA
 alter table races add column if not exists dataride_id int;   -- CompetitionId bei UCI DataRide
 alter table races add column if not exists loaded_at timestamptz;
+alter table races add column if not exists season int;   -- UCI-Saison (beginnt im Herbst des Vorjahres)
 create unique index if not exists races_dataride on races (dataride_id, gender) where dataride_id is not null;
 
 -- Etappen bzw. Wertungen eines Rennens (z. B. "Stage 3 · Stage Classification")
@@ -1400,10 +1401,12 @@ end $$;
 create or replace function rider_points(p_gender text, p_year int)
 returns table (rider_slug text, points numeric, results int)
 language sql stable security definer set search_path = public as $$
+  -- Punkte einer UCI-Saison (wie die Weltrangliste); ohne bekannte Saison zählt das Kalenderjahr
   select r.rider_slug, sum(r.uci_points), count(*)::int
     from results r join riders x on x.pcs_slug = r.rider_slug
+    left join races ra on ra.pcs_slug = r.race_slug
    where x.gender = p_gender
-     and r.result_date >= make_date(p_year, 1, 1) and r.result_date <= make_date(p_year, 12, 31)
+     and coalesce(ra.season, extract(year from r.result_date)::int) = p_year
    group by r.rider_slug
    order by r.rider_slug;
 $$;
@@ -1497,7 +1500,8 @@ begin
       from event_results er
       join race_events e on e.id = er.event_id
       join riders x on x.pcs_slug = er.rider_slug
-     where e.event_date >= make_date(p_year, 1, 1) and e.event_date <= make_date(p_year, 12, 31)
+      left join races ra on ra.pcs_slug = e.race_slug
+     where coalesce(ra.season, extract(year from e.event_date)::int) = p_year
        and er.uci_points > 0
      group by 1, 2)
   select rider_slug, p_year, (rank() over (partition by gender order by pts desc))::int, pts,
@@ -2076,6 +2080,21 @@ begin
   return query select d.manager_id, d.points, d.per_md from draft_projection d where d.league_id = p_league;
 end $$;
 
+-- Fahrer, deren Punkte in der Weltrangliste nicht zu unseren Rennpunkten der letzten 52 Wochen passen
+-- (z. B. Punkte aus Mannschaftswertungen wie der Mixed-Staffel, die in keiner Einzel-Ergebnisliste stehen)
+create or replace function ranking_mismatch(p_limit int default 300)
+returns table (rider_slug text, gender text, ranking_points numeric, ours numeric)
+language sql stable security definer set search_path = public as $$
+  select x.pcs_slug, x.gender, x.ranking_points, coalesce(sum(r.uci_points), 0)
+    from riders x
+    left join results r on r.rider_slug = x.pcs_slug and r.result_date > current_date - 366
+   where x.ranking_points > 0
+   group by x.pcs_slug, x.gender, x.ranking_points
+  having abs(x.ranking_points - coalesce(sum(r.uci_points), 0)) > 0.5
+   order by x.ranking_points desc
+   limit p_limit;
+$$;
+
 create or replace function weekly_summary() returns int
 language plpgsql security definer set search_path = public as $$
 declare lg leagues; n int := 0; k int;
@@ -2202,7 +2221,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()'] loop
@@ -2239,6 +2258,12 @@ select results_from_events();
 -- Ergebnisse vor 2025 werden nicht gespeichert (auch keine Rennen der Saison 2025, die schon im Herbst 2024 lagen)
 delete from results where result_date < date '2025-01-01';
 delete from races where coalesce(end_date, start_date) < date '2025-01-01';
+
+-- Saison bisher nicht bekannter Rennen vorläufig schätzen (ab 20. Oktober zählt die nächste UCI-Saison);
+-- der nächste Ergebnisabruf setzt den genauen Wert aus DataRide
+update races set season = extract(year from start_date)::int
+       + case when start_date >= make_date(extract(year from start_date)::int, 10, 20) then 1 else 0 end
+ where season is null and start_date is not null;
 
 -- Saisonwertungen beim Einspielen aufbauen (bzw. aktualisieren)
 select refresh_season_stats(y) from generate_series(2025, extract(year from current_date)::int) y;
