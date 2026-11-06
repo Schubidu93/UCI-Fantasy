@@ -83,6 +83,15 @@ class DataRide:
         return out[:limit]
 
 
+    def rider_results(self, rk, gender, season_id, object_id):
+        """Alle Ergebnisse eines Fahrers, die in der Weltrangliste zählen (Abgleich, siehe check_ranking.py)."""
+        data = {"individualId": object_id, "rankingId": rk["Id"], "momentId": rk["MomentId"],
+                "groupId": rk["GroupId"], "baseRankingTypeId": rk["RankingTypeId"],
+                "disciplineSeasonId": season_id, "disciplineId": ROAD, "categoryId": CATEGORY[gender],
+                "raceTypeId": 0, "countryId": 0, "teamId": 0,
+                "take": 1000, "skip": 0, "page": 1, "pageSize": 1000}
+        return (self._call("POST", "/iframe/IndividualEventRankings/", data) or {}).get("data") or []
+
     # ---- Rennkalender und Ergebnislisten -------------------------------
 
     def competitions(self, gender, season_id, page_size=100):

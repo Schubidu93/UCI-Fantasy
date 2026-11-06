@@ -1,0 +1,26 @@
+name: Abgleich mit Weltrangliste
+
+# Vergleicht die Punkte der besten Fahrer mit der UCI-Weltrangliste und listet Abweichungen (nur lesend).
+on:
+  workflow_dispatch:
+    inputs:
+      fahrer:
+        description: "Anzahl Fahrer je Wertung"
+        default: "20"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r datasync/requirements.txt
+      - run: python check_ranking.py
+        working-directory: datasync
+        env:
+          FAHRER: ${{ inputs.fahrer }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
