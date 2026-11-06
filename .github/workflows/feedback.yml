@@ -1,0 +1,40 @@
+name: Feedback senden
+
+# Verschickt Feedback aus der App per E-Mail (Text + Bilder).
+# Wird direkt nach dem Absenden gestartet (aus der Datenbank); mit „alle“ werden auch
+# bisher nicht zustellbare Nachrichten erneut versucht.
+on:
+  workflow_dispatch:
+    inputs:
+      alle:
+        description: "Auch Nachrichten erneut senden, die schon 3-mal gescheitert sind"
+        type: boolean
+        default: false
+
+concurrency:
+  group: feedback
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: datasync
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - run: python send_feedback.py
+        working-directory: datasync
+        env:
+          ALL: ${{ inputs.alle && '1' || '' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          FEEDBACK_TO: ${{ secrets.FEEDBACK_TO }}

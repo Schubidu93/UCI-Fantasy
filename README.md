@@ -38,6 +38,7 @@ fällige Fristen ab und startet die Workflows über die GitHub-API.
 | Fahrerliste importieren | täglich 6 Uhr | alle Fahrer mit UCI-Punkten (Rang, Team, Nation, Geburtsdatum) |
 | Rennergebnisse laden (UCI) | täglich 20 Uhr | Kalender (inkl. nächster Saison), Ergebnislisten und Punkte: neue Rennen, laufende Rundfahrten, letzte 3 Tage; mittwochs 3 Wochen (Korrekturen) |
 | Benachrichtigungen senden | nach jedem Ergebnisabruf und bei neuen Nachrichten | Web-Push (Waiver, Draft, „Du bist dran“, neue Punkte …) |
+| Feedback senden | direkt nach dem Absenden in der App (Mehr → Feedback) | E-Mail mit Text und Bildern an den Betreiber |
 | App veröffentlichen | bei Änderungen auf `main` | App auf GitHub Pages |
 | Datenbank einrichten | bei Änderungen an `schema.sql` auf `main` | Schema einspielen |
 | Datenstand prüfen / Datenbank abfragen | per Knopfdruck | Diagnose (nur lesend) |
@@ -53,6 +54,7 @@ einfrieren) erledigt die Datenbank selbst.
 | `SUPABASE_SERVICE_KEY` | Datenabruf und Push-Versand |
 | `SUPABASE_DB_URL` | Schema einspielen, Diagnose |
 | `GH_DISPATCH_TOKEN` | Zeitplaner darf Workflows starten (wird in den Supabase-Vault übernommen) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FEEDBACK_TO` | Feedback per E-Mail (z. B. Gmail: `smtp.gmail.com`, 465, App-Passwort); ohne sie bleibt Feedback in der Tabelle `feedback` |
 
 ## Einrichtung (einmalig)
 

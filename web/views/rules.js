@@ -41,8 +41,8 @@ export function Rules({ c }) {
       </tbody></table>
     </section>
 
-    <details class="card rule-sec">
-      <summary><h3>Draft</h3></summary>
+    <details class="card rule-sec" open=${['setup', 'drafting'].includes(l.status)}>
+      <summary><h3>Draft: ${DRAFT[l.draft_mode]}</h3></summary>
       ${l.draft_mode === 'live' ? html`<ul>
           <li>Jeder Manager hat <strong>${l.budget} Budgetpunkte</strong>. Die Fahrer kommen ${l.draft_order === 'ranking' ? 'in der Reihenfolge der UCI-Rangliste' : 'reihum nominiert (Startgebot 1)'} unter den Hammer.</li>
           <li>Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr auf ${l.bid_seconds} Sekunden zurück. Läuft sie ab, gewinnt das Höchstgebot.</li>

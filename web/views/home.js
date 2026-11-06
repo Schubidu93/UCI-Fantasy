@@ -120,6 +120,7 @@ export function LeagueSettingsFields({ f, set, locked }) {
       <select value=${f.draft_mode} onChange=${set('draft_mode')} disabled=${locked}>
         <option value="live">Live-Auktion</option><option value="blind">Blind-Auktion (verdeckt)</option><option value="snake">Snake-Draft</option><option value="offline">Offline-Import</option>
       </select></label>
+    <${DraftModeHelp} mode=${f.draft_mode} />
     ${f.draft_mode === 'snake' && html`
       <label>Sekunden pro Pick<input type="number" min="5" max="600" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
     ${(f.draft_mode === 'live' || f.draft_mode === 'blind') && html`
@@ -140,6 +141,22 @@ export function LeagueSettingsFields({ f, set, locked }) {
     <label>Saisonende<input type="date" value=${f.season_end} onInput=${set('season_end')} /></label>
   </fieldset>
   <p class="muted small">${f.draft_mode === 'snake' ? 'Im Snake-Draft kosten Fahrer nichts; das Budget von 100 bleibt für FAAB-Waiver.' : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
+}
+
+// Erklärung der Draft-Modi (aufklappbar), der gewählte ist markiert
+export const DRAFT_MODES = [
+  ['live', 'Live-Auktion', 'Alle bieten gleichzeitig auf einen Fahrer. Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr zurück. Läuft sie ab, bekommt das Höchstgebot den Fahrer. Spannend, wenn alle gleichzeitig online sind.'],
+  ['blind', 'Blind-Auktion', 'Pro Fahrer gibt jeder innerhalb der Zeit ein verdecktes Gebot ab – niemand sieht die anderen. Das höchste Gebot gewinnt sofort zu diesem Preis. Bei Gleichstand gibt es ein Stechen um +1 unter den Gleichauf-Bietern. Schneller als die Live-Auktion, mit Poker-Effekt.'],
+  ['snake', 'Snake-Draft', 'Reihum wählt jeder einen Fahrer, in jeder Runde dreht sich die Reihenfolge um (1–2–3 … 3–2–1). Fahrer kosten nichts, es gibt kein Budget. Einfach und fair, auch für Einsteiger.'],
+  ['offline', 'Offline-Import', 'Ihr draftet außerhalb der App (z. B. am Stammtisch). Der Admin trägt danach die Kader samt Preisen ein.'],
+];
+function DraftModeHelp({ mode }) {
+  return html`<details class="span2 help">
+    <summary>Was bedeuten die Draft-Modi?</summary>
+    <ul>${DRAFT_MODES.map(([k, t, d]) => html`<li class=${k === mode ? 'chosen' : ''}><strong>${t}${k === mode ? ' (gewählt)' : ''}:</strong> ${d}</li>`)}</ul>
+    <p class="muted small">Bei Live- und Blind-Auktion hat jeder 100 Budgetpunkte; die Fahrer kommen nach UCI-Rangliste dran oder werden reihum nominiert.
+      Alle Details stehen nach dem Anlegen unter Mehr → Regeln.</p>
+  </details>`;
 }
 
 export function Join({ code, session }) {

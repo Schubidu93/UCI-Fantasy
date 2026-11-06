@@ -14,6 +14,7 @@ import { Riders } from './views/riders.js';
 import { Races } from './views/races.js';
 import { Rules } from './views/rules.js';
 import { More } from './views/more.js';
+import { Feedback } from './views/feedback.js';
 import { Overview } from './views/overview.js';
 import { registerServiceWorker } from './views/push.js';
 
@@ -85,7 +86,7 @@ function sections(c) {
     { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
     { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
     { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
-      ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },
+      ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : []), ['feedback', 'Feedback']] },
   ];
 }
 
@@ -96,7 +97,7 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   const defaultTab = c.league.status === 'drafting' ? 'draft' : 'home';
   const t = tab || defaultTab;
   const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results,
-    table: Table, admin: Admin, more: More, home: Overview }[t] || Overview;
+    table: Table, admin: Admin, more: More, feedback: Feedback, home: Overview }[t] || Overview;
   const secs = sections(c);
   const current = secs.find((x) => x.tabs.some(([k]) => k === t)) || secs[0];
   const href = (k) => `#/league/${id}/${k}`;

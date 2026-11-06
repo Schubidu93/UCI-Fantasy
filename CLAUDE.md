@@ -47,6 +47,12 @@
 - `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr). Fahrer-ID heißt historisch `pcs_slug` (`uci-<id>`).
 - Daten erst ab Saison 2025. Ländercodes in der App einheitlich IOC (`nationCode` in `web/lib.js`).
 
+## Feedback
+
+- App: Mehr → Feedback (`web/views/feedback.js`), Bilder werden im Browser verkleinert (JPEG, max. 1600 px).
+- Datenbank: `submit_feedback` → Tabellen `feedback`/`feedback_images`; startet sofort „Feedback senden“ (`feedback.yml`,
+  `datasync/send_feedback.py`, SMTP-Secrets). Bilder werden nach dem Versand gelöscht.
+
 ## Offene Punkte (Stand November 2026)
 
 - GitHub-Secret `GH_DISPATCH_TOKEN` muss vom Repo-Besitzer eingetragen werden (Fine-grained Token, nur dieses Repo,
