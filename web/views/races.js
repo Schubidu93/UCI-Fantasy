@@ -22,17 +22,18 @@ const FULL = ['1.UWT', '2.UWT', '1.WWT', '2.WWT', '1.Pro', '2.Pro', 'CM'];
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
 export function Races({ c, sub, sub2 }) {
-  const year = new Date().getFullYear();
+  // Ergebnisse gibt es ab der Saison 2025
   const races = useLoad(() => all(() => sb.from('races').select('pcs_slug,name,uci_class,country,start_date,end_date,provisional')
     .eq('gender', c.league.gender).or('dataride_id.not.is.null,provisional.is.true')
-    .gte('start_date', `${year}-01-01`).order('start_date', { ascending: false })), [c.league.gender, year]);
+    .gte('start_date', '2025-01-01').order('start_date', { ascending: false })), [c.league.gender]);
   if (sub) return html`<${RaceDetail} key=${sub + (sub2 || '')} c=${c} slug=${decodeURIComponent(sub)} initialEvent=${sub2 ? +sub2 : null} />`;
   if (!races.data) return html`<${Loading} error=${races.error} />`;
   return html`<${RaceList} c=${c} races=${races.data.map((r) => ({ ...r, country: r.country && nationCode(r.country) }))} />`;
 }
 
 // Filter bleiben beim Zurückkehren aus einem Rennen erhalten
-const saved = { mode: 'results', group: 'top', country: '', month: '', term: '' };
+// year 'auto': Ergebnisse = aktuelles Jahr, Kalender = alle Jahre
+const saved = { mode: 'results', group: 'top', country: '', month: '', term: '', year: 'auto', md: '' };
 const keep = (key, setter) => (v) => { saved[key] = v; setter(v); };
 
 function RaceList({ c, races }) {
@@ -43,7 +44,14 @@ function RaceList({ c, races }) {
   const [month, setMonthRaw] = useState(saved.month);
   const [term, setTermRaw] = useState(saved.term);
   const setMode = keep('mode', setModeRaw), setGroup = keep('group', setGroupRaw), setCountry = keep('country', setCountryRaw);
-  const setMonth = keep('month', setMonthRaw), setTerm = keep('term', setTermRaw);
+  const [yearSel, setYearRaw] = useState(saved.year);
+  const [mdId, setMdRaw] = useState(saved.md);
+  const setMonth = keep('month', setMonthRaw), setTerm = keep('term', setTermRaw), setYear = keep('year', setYearRaw);
+  const setMd = (v) => { keep('md', setMdRaw)(v); if (v) setYear(''); };
+  const years = useMemo(() => [...new Set(races.map((r) => (r.start_date || '').slice(0, 4)).filter(Boolean))].sort().reverse(), [races]);
+  const year = yearSel === 'auto' ? (mode === 'results' ? today.slice(0, 4) : '') : yearSel;
+  const matchdays = c.matchdays || [];
+  const md = matchdays.find((m) => m.id === mdId);
   const countries = useMemo(() => [...new Set(races.map((r) => r.country).filter(Boolean))].sort(), [races]);
   const t = normName(term);
   const byMode = mode === 'calendar'
@@ -51,6 +59,8 @@ function RaceList({ c, races }) {
     : races.filter((r) => r.start_date <= today);
   const list = byMode.filter((r) => matchClass(r, group) && (!country || r.country === country)
     && (!month || (r.start_date || '').slice(5, 7) === month)
+    && (!year || (r.start_date || '').slice(0, 4) === year || (r.end_date || '').slice(0, 4) === year)
+    && (!md || (r.start_date <= md.ends_on && (r.end_date || r.start_date) >= md.starts_on))
     && (!t || t.split(' ').every((w) => normName(r.name).includes(w))));
 
   return html`<section class="card">
@@ -68,6 +78,10 @@ function RaceList({ c, races }) {
       <select value=${country} onChange=${(e) => setCountry(e.target.value)}><option value="">Alle Länder</option>${countries.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>
       <select value=${month} onChange=${(e) => setMonth(e.target.value)}><option value="">Alle Monate</option>
         ${MONTHS.map((m, i) => html`<option value=${String(i + 1).padStart(2, '0')}>${m}</option>`)}</select>
+      <select value=${year} onChange=${(e) => setYear(e.target.value)}><option value="">Alle Jahre</option>
+        ${years.map((y) => html`<option value=${y}>${y}</option>`)}</select>
+      ${matchdays.length > 0 && html`<select value=${md ? md.id : ''} onChange=${(e) => setMd(e.target.value)}><option value="">Alle Spieltage</option>
+        ${matchdays.map((m) => html`<option value=${m.id}>${m.name} (${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)})</option>`)}</select>`}
     </div>
     ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf läuft täglich um 20 Uhr.</p>` : html`
     <ul class="list race-list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
