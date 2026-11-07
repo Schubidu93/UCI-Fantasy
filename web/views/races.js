@@ -19,6 +19,9 @@ const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g
 // Rennklassen mit vollständigen Ergebnislisten (siehe datasync/race_results.py)
 const FULL = ['1.UWT', '2.UWT', '1.WWT', '2.WWT', '1.Pro', '2.Pro', 'CM'];
 
+// Letzter bereits gefahrener Tag eines Rennens (laufende Rundfahrt: heute)
+const latestDay = (r, today) => { const e = r.end_date || r.start_date; return e > today ? today : e; };
+
 // Rennen läuft (zumindest teilweise) im Monat ym = 'JJJJ-MM'
 const overlapsMonth = (r, ym) => (r.start_date || '').slice(0, 7) <= ym && (r.end_date || r.start_date || '').slice(0, 7) >= ym;
 
@@ -59,7 +62,11 @@ function RaceList({ c, races }) {
   const t = normName(term);
   const byMode = mode === 'calendar'
     ? races.filter((r) => (r.end_date || r.start_date) >= today).sort((a, b) => (a.start_date > b.start_date ? 1 : -1))
-    : races.filter((r) => r.start_date <= today);
+    // Ergebnisse: neueste zuerst nach letztem gefahrenen Tag (laufende Rundfahrt = heute, sonst letzte Etappe)
+    : races.filter((r) => r.start_date <= today).sort((a, b) => {
+      const la = latestDay(a, today), lb = latestDay(b, today);
+      return la !== lb ? (la < lb ? 1 : -1) : (a.start_date < b.start_date ? 1 : -1);
+    });
   const list = byMode.filter((r) => matchClass(r, group) && (!country || r.country === country)
     && (!year || (month ? overlapsMonth(r, `${year}-${month}`)
       : (r.start_date || '').slice(0, 4) === year || (r.end_date || '').slice(0, 4) === year))
