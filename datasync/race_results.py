@@ -349,16 +349,28 @@ def main():
                 save_points(slug, race_row["name"], events, uniq, today)
             db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
+    errors = []
     if not DRY_RUN:
-        n = db.rpc("relink_event_riders")
+        # Nacharbeiten: jeder Schritt für sich, damit ein Fehler die übrigen (und den Zeitstempel) nicht verhindert
+        def step(name, fn):
+            try:
+                return fn()
+            except Exception as e:
+                print(f"::warning::{name} fehlgeschlagen: {e}")
+                errors.append(name)
+        n = step("Fahrer verknüpfen", lambda: db.rpc("relink_event_riders"))
         print(f"{n} Ergebniszeilen neu mit Fahrern verknüpft.")
-        print(f"{db.rpc('results_from_events')} fehlende Punkte-Ergebnisse nachgetragen.")
+        n = step("Punkte nachtragen", lambda: db.rpc("results_from_events"))
+        print(f"{n} fehlende Punkte-Ergebnisse nachgetragen.")
         for y in sorted({today.year, today.year - 1, season["Year"]}):
             if y >= FIRST_YEAR:
-                db.rpc("refresh_season_stats", {"p_year": y})
-        db.rpc("run_maintenance")     # Stichtage, Spieltage abschließen, Stand aktualisieren
-        db.update("sync_status", {"id": "eq.1"}, {"last_run": datetime.now(timezone.utc).isoformat(), "ok": True, "message": None})
+                step(f"Saisonwertung {y}", lambda y=y: db.rpc("refresh_season_stats", {"p_year": y}))
+        step("Wartung", lambda: db.rpc("run_maintenance"))     # Stichtage, Spieltage abschließen, Stand aktualisieren
+        db.update("sync_status", {"id": "eq.1"}, {"last_run": datetime.now(timezone.utc).isoformat(), "ok": not errors,
+                                                  "message": ("Fehler: " + ", ".join(errors)) if errors else None})
     print(f"\nFertig nach {int(time.time() - started) // 60} Minuten.")
+    if errors:
+        raise SystemExit(f"Nacharbeiten mit Fehlern: {', '.join(errors)}")
 
 
 if __name__ == "__main__":

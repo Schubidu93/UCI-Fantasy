@@ -1510,14 +1510,23 @@ begin
   return n;
 end $$;
 
+-- Schnell auch bei vielen unbekannten Namen: der normalisierte Name der noch nicht verknüpften Zeilen steht
+-- in einem Teilindex, gesucht wird von den (wenigen) Fahrern aus.
+set statement_timeout = 0;
+create index if not exists event_results_unlinked_name on event_results (norm_name(rider_name)) where rider_slug is null;
+reset statement_timeout;
 create or replace function relink_event_riders() returns int
 language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
-  update event_results er set rider_slug = x.pcs_slug
-    from race_events ev join races ra on ra.pcs_slug = ev.race_slug, riders x
-   where er.event_id = ev.id and er.rider_slug is null
-     and x.gender = ra.gender and norm_name(x.name) = norm_name(er.rider_name);
+  update event_results er set rider_slug = m.pcs_slug
+    from (select distinct on (u.event_id, u.sort_order) u.event_id, u.sort_order, x.pcs_slug
+            from riders x
+            join event_results u on norm_name(u.rider_name) = norm_name(x.name) and u.rider_slug is null
+            join race_events ev on ev.id = u.event_id
+            join races ra on ra.pcs_slug = ev.race_slug and ra.gender = x.gender
+           order by u.event_id, u.sort_order, x.uci_rank nulls last) m
+   where er.event_id = m.event_id and er.sort_order = m.sort_order;
   get diagnostics n = row_count;
   return n;
 end $$;
