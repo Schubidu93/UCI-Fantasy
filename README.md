@@ -21,12 +21,18 @@ Datenquelle ist **UCI DataRide** (dataride.uci.ch), die offizielle Datenquelle d
 | Ordner | Inhalt |
 |---|---|
 | `web/` | Die App: `app.js` (Rahmen, Navigation), `lib.js` (Helfer), `views/` (Bereiche), `sw.js` (Push) |
-| `supabase/schema.sql` | Datenbank komplett und idempotent: Tabellen, Rechte und die gesamte Spiellogik (Draft, Waiver, freie Phase, Tausch, Wertung, Zeitplaner) |
+| `supabase/sql/` | SQL-Quellen nach Aufgabe und Fachbereich: Tabellen, Nachrüstungen, interne Funktionen, App-API, Hintergrundaufgaben, Rechte und Datenkorrekturen |
+| `supabase/schema.modules.json` | Verbindliche Ausführungsreihenfolge der SQL-Module |
+| `supabase/schema.sql` | Automatisch erzeugtes Gesamtskript für Supabase und den Workflow; nicht direkt bearbeiten |
+| `supabase/tests/` | Fachliche pgTAP-Tests und lokale Supabase-Platzhalter; Ausführung über `supabase/test-db.mjs` |
 | `datasync/` | Python-Skripte für UCI DataRide (`dataride.py`), Fahrerliste, Rennergebnisse und Push-Versand |
 | `.github/workflows/` | Automatische Abläufe (siehe unten) |
 
 Die Spielregeln werden in der Datenbank geprüft (Budget, Uhr, Kadergröße, Fristen,
 Waiver-Reihenfolge …), nicht in der App – so kann niemand mogeln.
+
+Die SQL-Module werden mit `node supabase/build-schema.mjs` zu `supabase/schema.sql` zusammengesetzt.
+Zuordnung der Module und Arbeitsablauf: siehe [Datenbank-Dokumentation](supabase/README.md).
 
 ## Automatische Abläufe
 
@@ -40,7 +46,7 @@ fällige Fristen ab und startet die Workflows über die GitHub-API.
 | Benachrichtigungen senden | nach jedem Ergebnisabruf und bei neuen Nachrichten | Web-Push (Waiver, Draft, „Du bist dran“, neue Punkte …) |
 | Feedback senden | direkt nach dem Absenden in der App (Mehr → Feedback) | E-Mail mit Text und Bildern an den Betreiber |
 | App veröffentlichen | bei Änderungen auf `main` | App auf GitHub Pages |
-| Datenbank einrichten | bei Änderungen an `schema.sql` auf `main` | Schema einspielen |
+| Datenbank einrichten | bei Änderungen unter `supabase/` oder am Datenbank-Workflow | SQL-Build und pgTAP-Tests in Pull Requests prüfen; auf `main` nach erfolgreicher Prüfung Schema einspielen |
 | Datenstand prüfen / Datenbank abfragen | per Knopfdruck | Diagnose (nur lesend) |
 
 Fristen ohne Workflow (Waiver-Auswertung, Stichtag, Spieltage abschließen und nach 7 Tagen
@@ -66,6 +72,15 @@ einfrieren) erledigt die Datenbank selbst.
    `https://<projekt>.supabase.co/auth/v1/callback`, Client-ID und Secret in Supabase → Authentication → Providers → Google.
 
 ## Lokal testen
+
+Nach SQL-Änderungen `node supabase/build-schema.mjs` ausführen und die erzeugte Datei mit einchecken.
+Mit `node supabase/build-schema.mjs --check` den Stand prüfen;
+`node --test supabase/build-schema.test.mjs supabase/test-db.test.mjs` testet Build und Test-Runner ohne Datenbank.
+Voraussetzung: Node.js ab Version 22.
+
+`node supabase/test-db.mjs` prüft die Spiellogik mit pgTAP in einer eigenen lokalen PostgreSQL-Testdatenbank.
+Unter Windows kann `powershell -NoProfile -ExecutionPolicy Bypass -File supabase/test-db.ps1` den verschlüsselten
+lokalen Datenbankzugang verwenden. Voraussetzungen und Umfang: siehe [Datenbanktests](supabase/README.md#fachliche-datenbanktests).
 
 `web/config.example.js` als `web/config.js` kopieren (nicht einchecken), URL und anon-Key eintragen,
 dann `python3 -m http.server -d web` und `http://localhost:8000` öffnen.

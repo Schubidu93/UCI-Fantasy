@@ -1,13 +1,15 @@
 name: Datenbank einrichten
 
-# Spielt supabase/schema.sql in die Datenbank ein – automatisch bei jeder Änderung
-# des Schemas auf main, zusätzlich per Knopfdruck. Das Skript ist wiederholbar.
+# Prüft SQL-Build und Datenbanktests auch in Pull Requests.
+# Spielt das Schema auf main und per Knopfdruck ein. Das Skript ist wiederholbar.
 # Braucht das Secret SUPABASE_DB_URL (Supabase → Connect → Session pooler, mit Passwort).
 
 on:
   push:
     branches: [main]
-    paths: [supabase/schema.sql]
+    paths: ['supabase/**', '.github/workflows/setup-database.yml']
+  pull_request:
+    paths: ['supabase/**', '.github/workflows/setup-database.yml']
   workflow_dispatch:
 
 concurrency:
@@ -15,7 +17,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: SQL-Build prüfen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build-Skript testen
+        run: node --test supabase/build-schema.test.mjs supabase/test-db.test.mjs
+      - name: Erzeugtes Schema mit den Modulen vergleichen
+        run: node supabase/build-schema.mjs --check
+
+  database-tests:
+    name: Datenbank mit pgTAP testen
+    needs: validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-test-password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: local-test-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PostgreSQL-Client installieren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Fachliche Tests und erneutes Einspielen prüfen
+        run: node supabase/test-db.mjs
+
   migrate:
+    needs: [validate, database-tests]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

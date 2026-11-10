@@ -1,0 +1,5 @@
+supabase/**/*.sql text eol=lf
+supabase/*.sql text eol=lf
+supabase/*.mjs text eol=lf
+supabase/*.json text eol=lf
+supabase/*.ps1 text eol=lf

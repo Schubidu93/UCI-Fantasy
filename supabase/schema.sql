@@ -1,3 +1,9 @@
+-- AUTOMATISCH ERZEUGT. Bitte die Module unter supabase/sql/ bearbeiten.
+-- Reihenfolge: supabase/schema.modules.json
+-- Erzeugen: node supabase/build-schema.mjs
+-- Prüfen:   node supabase/build-schema.mjs --check
+
+-- Modul: sql/00_preamble.sql
 -- =====================================================================
 -- UCI Fantasy – Datenbankschema für Supabase
 --
@@ -9,9 +15,11 @@
 -- Direkt schreiben darf nur der Service-Key (GitHub-Workflows).
 -- =====================================================================
 
+-- Modul: sql/00_extensions.sql
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist;
 
+-- Modul: sql/20_compatibility/legacy_structure.sql
 -- ---------------------------------------------------------------------
 -- Umstieg vom ersten Entwurf (Tabelle league_members): Die alten
 -- Ligatabellen werden ersetzt – aber nur, solange noch keine Liga existiert.
@@ -37,6 +45,7 @@ begin
   end if;
 end $$;
 
+-- Modul: sql/10_tables/reference_data.sql
 -- ---------------------------------------------------------------------
 -- Stammdaten aus ProCyclingStats (global, für alle Ligen gleich)
 -- ---------------------------------------------------------------------
@@ -122,6 +131,7 @@ create table if not exists sync_status (
 );
 insert into sync_status (id) values (1) on conflict do nothing;
 
+-- Modul: sql/10_tables/leagues.sql
 -- ---------------------------------------------------------------------
 -- Ligen und Manager
 -- ---------------------------------------------------------------------
@@ -177,6 +187,7 @@ create table if not exists managers (
   unique (league_id, team_name)
 );
 
+-- Modul: sql/10_tables/keepers.sql
 -- ---------------------------------------------------------------------
 -- Draft
 -- ---------------------------------------------------------------------
@@ -193,6 +204,7 @@ create table if not exists keepers (
   unique (league_id, rider_slug)
 );
 
+-- Modul: sql/10_tables/draft_state.sql
 create table if not exists draft_state (
   league_id        uuid primary key references leagues (id) on delete cascade,
   status           text not null default 'pending' check (status in ('pending', 'running', 'paused', 'done')),
@@ -207,6 +219,7 @@ create table if not exists draft_state (
   updated_at       timestamptz not null default now()
 );
 
+-- Modul: sql/20_compatibility/draft_modes.sql
 -- Snake-Draft nachrüsten (bestehende Datenbanken)
 do $$
 begin
@@ -218,6 +231,7 @@ begin
   alter table draft_state add constraint draft_state_phase_check check (phase in ('auction', 'fill', 'snake', 'tiebreak'));
 end $$;
 
+-- Modul: sql/10_tables/draft_auction.sql
 -- Blind-Auktion: verdeckte Gebote je Fahrer; bei Gleichstand Stechen (+1) unter den Gleichauf-Bietern
 alter table draft_state add column if not exists sealed_done uuid[] not null default '{}';  -- wer schon geboten hat (ohne Betrag)
 alter table draft_state add column if not exists tie_bidders uuid[];                      -- Teilnehmer am Stechen
@@ -251,6 +265,7 @@ create table if not exists draft_bids (
   created_at timestamptz not null default now()
 );
 
+-- Modul: sql/10_tables/rosters.sql
 -- ---------------------------------------------------------------------
 -- Kader
 -- Ein Eintrag pro Zugehörigkeit. Ergebnisse zählen ab acquired_on
@@ -275,6 +290,7 @@ alter table roster_entries add constraint roster_entries_source_check
 create unique index if not exists roster_active_rider on roster_entries (league_id, rider_slug) where released_on is null;
 create index if not exists roster_manager on roster_entries (manager_id);
 
+-- Modul: sql/10_tables/matchdays.sql
 -- ---------------------------------------------------------------------
 -- Spieltage, Aufstellungen
 -- ---------------------------------------------------------------------
@@ -299,8 +315,10 @@ create table if not exists matchdays (
 
 alter table matchdays add column if not exists waiver_deadline timestamptz;   -- Waiver-Auswertung (null = am Stichtag)
 alter table matchdays add column if not exists locked boolean not null default false;   -- Kader/Aufstellung fest (Stichtag erreicht)
+-- Modul: sql/70_data_updates/matchday_locks.sql
 update matchdays set locked = true where not locked and waivers_done and deadline <= now();
 
+-- Modul: sql/10_tables/lineups.sql
 create table if not exists lineups (
   matchday_id uuid not null references matchdays (id) on delete cascade,
   manager_id  uuid not null references managers (id) on delete cascade,
@@ -308,6 +326,7 @@ create table if not exists lineups (
   primary key (matchday_id, manager_id, rider_slug)
 );
 
+-- Modul: sql/10_tables/transfers.sql
 -- ---------------------------------------------------------------------
 -- Waiver und Tausch
 -- ---------------------------------------------------------------------
@@ -348,6 +367,7 @@ alter table waiver_claims alter column drop_rider drop not null;
 alter table trades add column if not exists from_drop text[] not null default '{}';   -- entlässt from_manager (beim Angebot gewählt)
 alter table trades add column if not exists to_drop   text[] not null default '{}';   -- entlässt to_manager (bei Annahme gewählt)
 
+-- Modul: sql/10_tables/scoring.sql
 -- ---------------------------------------------------------------------
 -- Punkte: Korrekturen, eingefrorene Stände, Protokoll
 -- ---------------------------------------------------------------------
@@ -377,6 +397,7 @@ create table if not exists score_snapshot (
 );
 create index if not exists score_snapshot_md on score_snapshot (matchday_id);
 
+-- Modul: sql/10_tables/audit.sql
 create table if not exists admin_log (
   id         bigint generated always as identity primary key,
   league_id  uuid not null references leagues (id) on delete cascade,
@@ -386,6 +407,7 @@ create table if not exists admin_log (
   created_at timestamptz not null default now()
 );
 
+-- Modul: sql/10_tables/notifications.sql
 -- ---------------------------------------------------------------------
 -- Push-Benachrichtigungen
 -- ---------------------------------------------------------------------
@@ -417,6 +439,7 @@ create table if not exists notifications (
 alter table notifications add column if not exists expires_at timestamptz;   -- danach nicht mehr senden (z. B. „Du bist dran“)
 create index if not exists notifications_unsent on notifications (created_at) where sent_at is null;
 
+-- Modul: sql/30_internal/authorization.sql
 -- =====================================================================
 -- Hilfsfunktionen
 -- =====================================================================
@@ -436,9 +459,11 @@ language sql stable security definer set search_path = public as $$
   select id from managers where league_id = p_league and user_id = auth.uid();
 $$;
 
+-- Modul: sql/40_api/system.sql
 create or replace function server_now() returns timestamptz
 language sql stable as $$ select now(); $$;
 
+-- Modul: sql/30_internal/authorization_guards.sql
 create or replace function _is_service() returns boolean
 language sql stable as $$
   select coalesce(auth.role(), '') = 'service_role' or session_user in ('postgres', 'supabase_admin');
@@ -459,6 +484,7 @@ begin
   if not is_admin(p_league) then raise exception 'Nur der Liga-Admin darf das.'; end if;
 end $$;
 
+-- Modul: sql/30_internal/notifications.sql
 -- Benachrichtigung an den Nutzer hinter einem Manager (Platzhalter ohne Konto werden übersprungen)
 create or replace function _notify(p_manager uuid, p_title text, p_body text, p_url text) returns void
 language sql security definer set search_path = public as $$
@@ -485,11 +511,13 @@ begin
   end if;
 end $$;
 
+-- Modul: sql/30_internal/riders.sql
 create or replace function _rname(p_slug text) returns text
 language sql stable security definer set search_path = public as $$
   select coalesce((select name from riders where pcs_slug = p_slug), p_slug);
 $$;
 
+-- Modul: sql/40_api/push.sql
 create or replace function vapid_public_key() returns text
 language sql stable security definer set search_path = public as $$
   select value from app_config where key = 'vapid_public';
@@ -508,11 +536,13 @@ language sql security definer set search_path = public as $$
   delete from push_subscriptions where endpoint = p_endpoint and user_id = auth.uid();
 $$;
 
+-- Modul: sql/30_internal/audit.sql
 create or replace function _log(p_league uuid, p_action text, p_details jsonb) returns void
 language sql security definer set search_path = public as $$
   insert into admin_log (league_id, user_id, action, details) values (p_league, auth.uid(), p_action, p_details);
 $$;
 
+-- Modul: sql/30_internal/rosters.sql
 -- Freie Kaderplätze eines Managers
 create or replace function _open_slots(p_manager uuid) returns int
 language sql stable security definer set search_path = public as $$
@@ -558,6 +588,7 @@ begin
   return found;
 end $$;
 
+-- Modul: sql/40_api/leagues.sql
 -- =====================================================================
 -- Liga anlegen, beitreten, verwalten
 -- =====================================================================
@@ -720,6 +751,7 @@ begin
   delete from leagues where id = p_league;
 end $$;
 
+-- Modul: sql/40_api/seasons.sql
 -- =====================================================================
 -- Neue Saison: Liga kopieren und Keeper
 -- =====================================================================
@@ -783,6 +815,7 @@ exception when unique_violation then
   raise exception 'Dieser Fahrer ist schon Keeper eines anderen Managers.';
 end $$;
 
+-- Modul: sql/30_internal/draft_next.sql
 -- =====================================================================
 -- Live-Auktions-Draft
 -- =====================================================================
@@ -856,6 +889,7 @@ begin
          else 'Du nominierst den nächsten Fahrer.' end, null);
 end $$;
 
+-- Modul: sql/40_api/draft_start.sql
 create or replace function start_draft(p_league uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -889,6 +923,7 @@ begin
   perform _log(p_league, 'schedule_draft', jsonb_build_object('at', p_at));
 end $$;
 
+-- Modul: sql/30_internal/draft_start.sql
 create or replace function _start_draft(p_league uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare l leagues;
@@ -922,6 +957,7 @@ begin
      from managers m where m.league_id = p_league;
 end $$;
 
+-- Modul: sql/40_api/draft_bidding.sql
 create or replace function pause_draft(p_league uuid, p_pause boolean) returns void
 language plpgsql security definer set search_path = public as $$
 declare d draft_state;
@@ -975,6 +1011,7 @@ begin
   end if;
 end $$;
 
+-- Modul: sql/30_internal/draft_auction.sql
 -- Zuschlag für den aktuellen Fahrer (Blind-Auktion) und weiter zum nächsten
 create or replace function _draft_award(p_league uuid, p_manager uuid, p_price int) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1031,6 +1068,7 @@ begin
    where league_id = p_league;
 end $$;
 
+-- Modul: sql/40_api/draft_blind.sql
 -- Blind-Auktion: verdecktes Gebot abgeben, ändern oder zurückziehen (0)
 create or replace function draft_blind_bid(p_league uuid, p_amount int) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1064,6 +1102,7 @@ begin
   end if;
 end $$;
 
+-- Modul: sql/40_api/draft_tick.sql
 -- Wird von allen Clients aufgerufen, wenn die Uhr abläuft. Nur der erste Aufruf wirkt.
 create or replace function draft_tick(p_league uuid) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1099,6 +1138,7 @@ begin
   perform _draft_next(p_league);
 end $$;
 
+-- Modul: sql/30_internal/draft_snake.sql
 -- Snake-Draft: Pick ausführen (p_rider null = automatisch bester freier Fahrer nach UCI-Rang)
 create or replace function _snake_pick(p_league uuid, p_rider text) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1121,6 +1161,7 @@ begin
   perform _draft_next(p_league);
 end $$;
 
+-- Modul: sql/40_api/draft_picks.sql
 create or replace function draft_snake_pick(p_league uuid, p_rider text) returns void
 language plpgsql security definer set search_path = public as $$
 declare d draft_state; v_me uuid;
@@ -1185,6 +1226,7 @@ begin
   perform _draft_next(p_league);
 end $$;
 
+-- Modul: sql/40_api/draft_offline.sql
 -- =====================================================================
 -- Offline-Draft-Import
 -- p_rows: [{"manager_id": "...", "rider_slug": "...", "price": 12}, …]
@@ -1246,6 +1288,7 @@ begin
   return errs;
 end $$;
 
+-- Modul: sql/30_internal/deadlines.sql
 -- =====================================================================
 -- Spieltage
 -- =====================================================================
@@ -1282,6 +1325,7 @@ begin
   return least(v, v_lock);
 end $$;
 
+-- Modul: sql/40_api/matchdays.sql
 -- alte Signatur ohne Waiver-Frist entfernen (sonst ist der Aufruf mehrdeutig)
 drop function if exists upsert_matchday(uuid, uuid, text, date, date, timestamptz);
 create or replace function upsert_matchday(p_league uuid, p_id uuid, p_name text, p_start date, p_end date,
@@ -1325,6 +1369,7 @@ begin
   delete from matchdays where id = p_id;
 end $$;
 
+-- Modul: sql/30_internal/lineups.sql
 -- =====================================================================
 -- Aufstellung
 -- =====================================================================
@@ -1352,6 +1397,7 @@ begin
     limit coalesce(md.lineup_size, l.lineup_size, l.roster_size);
 end $$;
 
+-- Modul: sql/40_api/lineups.sql
 create or replace function set_lineup(p_matchday uuid, p_riders text[]) returns void
 language plpgsql security definer set search_path = public as $$
 declare md matchdays; l leagues; v_me uuid;
@@ -1373,6 +1419,7 @@ begin
   insert into lineups (matchday_id, manager_id, rider_slug) select p_matchday, v_me, unnest(p_riders);
 end $$;
 
+-- Modul: sql/30_internal/scoring.sql
 -- =====================================================================
 -- Punkte und Tabelle
 -- =====================================================================
@@ -1449,6 +1496,7 @@ language sql stable security definer set search_path = public as $$
    order by 3;
 $$;
 
+-- Modul: sql/40_api/scoring.sql
 create or replace function league_points(p_league uuid)
 returns table (matchday_id uuid, manager_id uuid, rider_slug text, points numeric, overridden boolean)
 language plpgsql stable security definer set search_path = public as $$
@@ -1474,6 +1522,7 @@ begin
   return query select * from _waiver_order(p_league);
 end $$;
 
+-- Modul: sql/30_internal/name_matching.sql
 -- Namen vergleichbar machen: 'POGAČAR Tadej' = 'Tadej Pogacar' (Akzente weg, Wörter sortiert)
 create extension if not exists unaccent with schema extensions;
 create or replace function norm_name(p text) returns text
@@ -1484,6 +1533,7 @@ language sql immutable parallel safe set search_path = public, extensions as $$
 $$;
 create index if not exists riders_norm_name on riders (gender, norm_name(name));
 
+-- Modul: sql/50_jobs/result_processing.sql
 -- Ergebniszeilen ohne Fahrer-Verknüpfung über den Namen zuordnen (nach Fahrer- oder Rennimport)
 -- Punkte aus den Ergebnislisten in die Wertung übernehmen, die dort noch fehlen
 -- (z. B. weil der Fahrername erst später einem Fahrer zugeordnet werden konnte).
@@ -1531,6 +1581,7 @@ begin
   return n;
 end $$;
 
+-- Modul: sql/40_api/rider_points.sql
 -- UCI-Punkte pro Fahrer in einem Jahr (für die Fahrerliste der App)
 create or replace function rider_points(p_gender text, p_year int)
 returns table (rider_slug text, points numeric, results int)
@@ -1544,21 +1595,25 @@ language sql stable security definer set search_path = public as $$
    order by r.rider_slug;
 $$;
 
+-- Modul: sql/20_compatibility/provisional_races.sql
 -- ---- Vorläufige Kalendereinträge -----------------------------------------------------------
 -- Künftige Rennen, die DataRide noch nicht kennt, kommen aus dem UCI-Wettkampfverzeichnis
 -- (datasync/uci_calendar.py, täglich) und werden ersetzt, sobald DataRide das Rennen liefert.
 alter table races add column if not exists provisional boolean not null default false;
+-- Modul: sql/70_data_updates/country_codes.sql
 -- Ländercodes einheitlich wie bei der UCI (IOC): frühere ISO-Codes der vorläufigen Einträge korrigieren
 update races set country = case country when 'DEU' then 'GER' when 'NLD' then 'NED' when 'CHE' then 'SUI'
                                         when 'DNK' then 'DEN' when 'ARE' then 'UAE' end
  where country in ('DEU', 'NLD', 'CHE', 'DNK', 'ARE');
 
+-- Modul: sql/70_data_updates/legacy_deadlines.sql
 -- Einmalig: künftige Spieltage mit dem alten Standard-Stichtag (Start 00:00) auf den neuen (Vortag 20:00) umstellen
 update matchdays set deadline = ((starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin'
  where status = 'planned' and not waivers_done
    and deadline = starts_on::timestamp at time zone 'Europe/Berlin'
    and ((starts_on - 1) + time '20:00')::timestamp at time zone 'Europe/Berlin' > now();
 
+-- Modul: sql/10_tables/season_stats.sql
 -- Platz eines Fahrers in der Saisonwertung eines Jahres (Summe der UCI-Punkte aus den Rennergebnissen)
 create index if not exists race_events_date on race_events (event_date);
 -- Saisonwertung je Jahr fest gespeichert (Rang und Punkte je Fahrer), damit das Fahrerfenster sie sofort zeigt.
@@ -1572,6 +1627,7 @@ create table if not exists rider_season_stats (
   primary key (rider_slug, year)
 );
 
+-- Modul: sql/50_jobs/season_stats.sql
 create or replace function refresh_season_stats(p_year int) returns int
 language plpgsql security definer set search_path = public as $$
 declare n int;
@@ -1593,6 +1649,7 @@ begin
   return n;
 end $$;
 
+-- Modul: sql/40_api/season_stats.sql
 -- Jahre, für die Ergebnisse gespeichert sind (Auswahl „Sortiert nach Punkten …“)
 create or replace function result_years() returns setof int
 language sql stable security definer set search_path = public as $$
@@ -1605,6 +1662,7 @@ language sql stable security definer set search_path = public as $$
   select season_rank, points, riders from rider_season_stats where rider_slug = p_slug and year = p_year;
 $$;
 
+-- Modul: sql/40_api/point_details.sql
 -- Herkunft der Punkte (einzelne Rennergebnisse)
 create or replace function league_point_details(p_league uuid, p_matchday uuid default null)
 returns table (matchday_id uuid, manager_id uuid, rider_slug text, race_slug text, race_name text,
@@ -1619,6 +1677,7 @@ begin
    order by s.result_date desc, s.points desc;
 end $$;
 
+-- Modul: sql/40_api/waivers.sql
 -- =====================================================================
 -- Waiver
 -- =====================================================================
@@ -1684,6 +1743,7 @@ begin
    where c.id = x.id and c.manager_id = v_me and c.status = 'pending';
 end $$;
 
+-- Modul: sql/30_internal/waiver_claims.sql
 create or replace function _claim_valid(c waiver_claims, l leagues) returns text
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -1719,6 +1779,7 @@ begin
    where manager_id = c.manager_id and status = 'pending' and c.drop_rider is not null and drop_rider = c.drop_rider;
 end $$;
 
+-- Modul: sql/40_api/free_transfers.sql
 -- Phase für den nächsten Spieltag: 'waiver' (Anträge sammeln), 'free' (sofort tauschen), null (kein Spieltag)
 create or replace function transfer_phase(p_league uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
@@ -1778,6 +1839,7 @@ begin
   values (p_league, v_me, p_add, p_drop, 'won', 'Freie Phase', now(), md.id);
 end $$;
 
+-- Modul: sql/30_internal/waiver_processing.sql
 -- Nach Wechsel des Transfermodus: Standard-Fristen künftiger Spieltage neu setzen
 create or replace function _reset_default_deadlines(p_league uuid, p_old_mode text) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1836,6 +1898,7 @@ begin
   end loop;
 end $$;
 
+-- Modul: sql/30_internal/trades.sql
 -- =====================================================================
 -- Tausch zwischen Managern
 -- =====================================================================
@@ -1867,6 +1930,7 @@ begin
   end if;
 end $$;
 
+-- Modul: sql/40_api/trades.sql
 drop function if exists propose_trade(uuid, uuid, text[], text[]);
 create or replace function propose_trade(p_league uuid, p_to uuid, p_give text[], p_take text[], p_drop text[] default '{}')
 returns uuid language plpgsql security definer set search_path = public as $$
@@ -1938,6 +2002,7 @@ begin
   perform _log(t.league_id, 'veto_trade', jsonb_build_object('trade', p_trade));
 end $$;
 
+-- Modul: sql/30_internal/trade_processing.sql
 -- Angenommene Tauschs werden zum nächsten Stichtag nach Ablauf der Vetofrist ausgeführt
 create or replace function _process_trades(p_md uuid) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1968,6 +2033,7 @@ begin
   end loop;
 end $$;
 
+-- Modul: sql/50_jobs/maintenance.sql
 -- =====================================================================
 -- Stichtage und Spieltags-Status
 -- =====================================================================
@@ -2035,6 +2101,7 @@ begin
   update sync_status set last_run = now(), ok = true, message = null where id = 1;
 end $$;
 
+-- Modul: sql/40_api/admin.sql
 -- =====================================================================
 -- Admin-Werkzeuge
 -- =====================================================================
@@ -2083,6 +2150,7 @@ begin
   perform _log(p_league, 'mark_inactive', jsonb_build_object('rider', p_rider, 'inactive', p_inactive));
 end $$;
 
+-- Modul: sql/50_jobs/workflow_dispatch.sql
 -- =====================================================================
 -- Zeitplaner (pg_cron): startet die GitHub-Abläufe zu deutschen Uhrzeiten
 -- Der GitHub-Schlüssel liegt verschlüsselt im Supabase Vault ("github_dispatch_token").
@@ -2112,6 +2180,7 @@ begin
   return v_id;
 end $$;
 
+-- Modul: sql/10_tables/feedback.sql
 -- ---- Feedback ---------------------------------------------------------------------------
 -- Nutzer schicken Text und Bilder; der Ablauf "Feedback senden" (feedback.yml) mailt sie an den Betreiber.
 -- Bilder liegen nur bis zum Versand in der Datenbank.
@@ -2135,9 +2204,11 @@ create table if not exists feedback_images (
   mime        text not null,
   data        bytea not null
 );
+-- Modul: sql/60_access/feedback.sql
 alter table feedback enable row level security;
 alter table feedback_images enable row level security;   -- nur der Service-Key liest (Versand)
 
+-- Modul: sql/40_api/feedback.sql
 -- p_images: [{"mime": "image/jpeg", "data": "<base64>"}, …] (höchstens 5, je höchstens 2 MB)
 drop function if exists submit_feedback(text, uuid, text, text, jsonb);
 create or replace function submit_feedback(p_message text, p_league uuid, p_page text, p_device text, p_images jsonb default '[]')
@@ -2172,6 +2243,7 @@ begin
   return v_id;
 end $$;
 
+-- Modul: sql/10_tables/draft_projection.sql
 -- läuft alle 15 Minuten
 -- Wochen-Zusammenfassung (montags): Punkte der letzten 7 Tage, Tabellenplatz, bester Fahrer – je Manager mit Push
 -- Draft-Report: bestmögliche Punkte jedes Kaders im Vorjahr – je Spieltag (Zeitraum ein Jahr früher) die besten
@@ -2185,10 +2257,12 @@ create table if not exists draft_projection (
   computed_at timestamptz not null default now(),
   primary key (league_id, manager_id)
 );
+-- Modul: sql/60_access/draft_projection.sql
 alter table draft_projection enable row level security;
 drop policy if exists draft_projection_read on draft_projection;
 create policy draft_projection_read on draft_projection for select using (is_member(league_id));
 
+-- Modul: sql/40_api/draft_projection.sql
 create or replace function draft_projection(p_league uuid)
 returns table (manager_id uuid, points numeric, per_md jsonb)
 language plpgsql security definer set search_path = public as $$
@@ -2228,6 +2302,7 @@ begin
   return query select d.manager_id, d.points, d.per_md from draft_projection d where d.league_id = p_league;
 end $$;
 
+-- Modul: sql/50_jobs/ranking_diagnostics.sql
 -- Fahrer, deren Punkte in der Weltrangliste nicht zu unseren Rennpunkten der letzten 52 Wochen passen
 -- (z. B. Punkte aus Mannschaftswertungen wie der Mixed-Staffel, die in keiner Einzel-Ergebnisliste stehen)
 create or replace function ranking_mismatch(p_limit int default 300)
@@ -2243,6 +2318,7 @@ language sql stable security definer set search_path = public as $$
    limit p_limit;
 $$;
 
+-- Modul: sql/50_jobs/weekly_summary.sql
 create or replace function weekly_summary() returns int
 language plpgsql security definer set search_path = public as $$
 declare lg leagues; n int := 0; k int;
@@ -2275,6 +2351,7 @@ begin
   return n;
 end $$;
 
+-- Modul: sql/50_jobs/scheduler.sql
 create or replace function scheduler_tick() returns void
 language plpgsql security definer set search_path = public as $$
 declare t timestamp := now() at time zone 'Europe/Berlin';
@@ -2303,6 +2380,7 @@ do $$ begin
 exception when others then raise notice 'Zeitplan nicht angelegt: %', sqlerrm;
 end $$;
 
+-- Modul: sql/60_access/row_security.sql
 -- =====================================================================
 -- Rechte
 -- =====================================================================
@@ -2370,6 +2448,7 @@ create policy own_read on push_subscriptions for select to authenticated using (
 drop policy if exists own_read on notifications;
 create policy own_read on notifications for select to authenticated using (user_id = auth.uid());
 
+-- Modul: sql/60_access/function_permissions.sql
 -- interne Funktionen nicht direkt aufrufbar
 do $$
 declare f text;
@@ -2390,6 +2469,7 @@ begin
   end loop;
 end $$;
 
+-- Modul: sql/60_access/realtime.sql
 -- Live-Updates im Draft-Raum
 do $$
 begin
@@ -2397,6 +2477,7 @@ begin
 exception when duplicate_object or undefined_object then null;
 end $$;
 
+-- Modul: sql/70_data_updates/waiver_deadlines.sql
 -- Einmalig: künftige Spieltage in Ligen mit zweiteiligen Transfers ohne Waiver-Frist bekommen die Standardfristen
 do $$ declare lg uuid; begin
   for lg in select distinct m.league_id from matchdays m join leagues l on l.id = m.league_id
@@ -2409,22 +2490,27 @@ do $$ declare lg uuid; begin
   end loop;
 end $$;
 
+-- Modul: sql/70_data_updates/result_backfill.sql
 -- Einmalig/bei jedem Einspielen: fehlende Punkte nachtragen
 select results_from_events();
 
+-- Modul: sql/70_data_updates/history_cutoff.sql
 -- Ergebnisse vor 2025 werden nicht gespeichert (auch keine Rennen der Saison 2025, die schon im Herbst 2024 lagen)
 delete from results where result_date < date '2025-01-01';
 delete from races where coalesce(end_date, start_date) < date '2025-01-01';
 
+-- Modul: sql/70_data_updates/season_backfill.sql
 -- Saison bisher nicht bekannter Rennen vorläufig schätzen (ab 20. Oktober zählt die nächste UCI-Saison);
 -- der nächste Ergebnisabruf setzt den genauen Wert aus DataRide
 update races set season = extract(year from start_date)::int
        + case when start_date >= make_date(extract(year from start_date)::int, 10, 20) then 1 else 0 end
  where season is null and start_date is not null;
 
+-- Modul: sql/70_data_updates/season_stats_refresh.sql
 -- Saisonwertungen beim Einspielen aufbauen (bzw. aktualisieren)
 select refresh_season_stats(y) from generate_series(2025, extract(year from current_date)::int) y;
 
+-- Modul: sql/70_data_updates/matchdays_2027.sql
 -- Einmalig: Spieltage nach der alten festen Vorlage (Richtwerte 2026) an die echten Termine 2027 anpassen,
 -- damit kein WorldTour-Rennen auf zwei Spieltage fällt (Romandie, Tour ab 2.7., Vuelta bis 26.9.).
 -- Nur Ligen, deren 7 Spieltage noch exakt der Vorlage entsprechen und alle noch geplant sind.

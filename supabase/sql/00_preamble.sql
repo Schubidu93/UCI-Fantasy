@@ -1,0 +1,11 @@
+-- =====================================================================
+-- UCI Fantasy – Datenbankschema für Supabase
+--
+-- Einmal komplett im Supabase SQL-Editor ausführen (oder per Workflow
+-- "Datenbank einrichten"). Das Skript ist wiederholbar: Tabellen werden nur
+-- angelegt, wenn sie fehlen; Funktionen und Regeln werden ersetzt.
+--
+-- Alle Schreibzugriffe der App laufen über die Funktionen (RPC) unten.
+-- Direkt schreiben darf nur der Service-Key (GitHub-Workflows).
+-- =====================================================================
+
