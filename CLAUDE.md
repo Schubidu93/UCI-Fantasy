@@ -34,6 +34,8 @@
 - `npm test`: Spiellogik gegen echtes PostgreSQL 16 (`tests/`, Schema wird zweimal eingespielt = Wiederholbarkeit): Waiver
   (Rangfolge, FAAB), freie Phase, Tausch mit Push-Nachrichten. Lokal z. B. `initdb` + `pg_ctl` mit Socket in `/tmp/fa-pg`, Port 54329
   (`TEST_DATABASE_URL` überschreibt). Läuft in GitHub Actions („Tests“) bei jedem Push und Pull Request.
+  SQL-Tests in `tests/sql/NN_*.sql` (pgTAP-Schreibweise `is`/`ok`/`throws_ok`, kleiner Ersatz in `tests/sql/_tap.sql`, Beispieldaten
+  `tests/sql/fixtures.sql`): Kader, Draft, Waiver, Tausch, Wertung/Einfrieren, Fristen, Berechtigungen – in beiden Apps gleich gehalten.
 - Datenbank: Schema in eine lokale Postgres-Instanz einspielen (`psql -v ON_ERROR_STOP=1 -f supabase/schema.sql`);
   für Supabase-Spezifika (`auth.uid()`, Schema `auth`) braucht es kleine Platzhalter.
 - Oberfläche: `web/config.example.js` → `web/config.js`, statisch ausliefern (`python3 -m http.server -d web`) und mit
