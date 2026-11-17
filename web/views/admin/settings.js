@@ -1,10 +1,10 @@
 // Admin → Einstellungen: Liga-Einstellungen, neue Saison, Liga löschen
 import { html, useState } from '../../vendor/preact-htm.js';
-import { rpc, useAction, Msg } from '../../lib.js';
 import { LeagueSettingsFields } from '../home.js';
-import { SPORT } from '../../sport/index.js';
 import { SEASON_END, settingsInit, settingsPayload } from '../../sport/settings.js';
 import { SettingsExtra } from '../../sport/admin.js';
+import { Msg, rpc, useAction } from '../../lib.js';
+import { SPORT } from '../../sport/index.js';
 
 export function Settings({ c }) {
   const l = c.league;

@@ -1,40 +1,14 @@
 // Sportart Radsport: alles, worin sich UCI Fantasy von Runner Fantasy unterscheidet (Begriffe,
 // Spaltennamen, Texte). Der übrige App-Code ist in beiden Apps gleich und liest diese Werte hier.
 import { html, useState } from '../vendor/preact-htm.js';
-import { teamName, SearchSelect, withFlag, normName } from '../lib.js';
+export * from './config.js';
+import { SPORT, pid } from './config.js';
+import { normName, openRider, SearchSelect, teamName, withFlag } from '../lib.js';
 
-export const SPORT = {
-  app: 'UCI Fantasy', emoji: '🚴', source: 'UCI DataRide',
-  // Begriffe in den gebrauchten Fällen: ein Fahrer, einen Fahrer, die Fahrer, den Fahrern (Dativ Plural), des Fahrers
-  one: 'Fahrer', oneAcc: 'Fahrer', many: 'Fahrer', manyDat: 'Fahrern', oneGen: 'Fahrers',
-  // Spaltennamen in der Datenbank (historische Namen aus der Anfangszeit, siehe CLAUDE.md)
-  pk: 'pcs_slug',             // Schlüssel der Personentabelle
-  fk: 'rider_slug',           // Verweis darauf (Kader, Aufstellung, Ergebnisse …)
-  add: 'add_rider', drop: 'drop_rider',              // Waiver-Anträge
-  give: 'give_riders', take: 'take_riders',          // Tausch
-  current: 'current_rider',                          // Draft: aktuell versteigert
-  comp: 'race_slug', pts: 'uci_points',              // Ergebnisse
-  pointsWord: 'UCI-Punkten',                       // „Sortiert nach …“
-  pointsRpc: 'rider_points',
-  // Texte
-  dataLine: 'Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.',
-  matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage
-  fallbackBasis: 'UCI-Ranglistenpunkte', fallbackShort: 'Rangl.',   // Draft-Report ohne Vorjahrespunkte
-  rankingOption: 'nach UCI-Rangliste', rankingPhrase: 'nach UCI-Rangliste',   // Draft-Reihenfolge
-  bestBy: 'nach UCI-Rang', orderLabel: 'UCI-Rangliste',   // Draft: automatische Wahl, Reihenfolge
-  csvNameHint: 'Fahrername wie in der UCI-Rangliste, z. B. „POGAČAR Tadej“', inPoolWord: 'im Ranking',   // Offline-Draft (CSV)
-  resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
-};
-/** Schlüssel einer Person (Athlet bzw. Fahrer) */
-export const pid = (r) => r?.pcs_slug;
 
 /** Zeile unter dem Namen in Listen (Teampunkte): Sportart-Info und Zusatztext */
 export const PersonLine = ({ r, sub }) => html`${[r?.team && teamName(r.team), sub].filter(Boolean).join(' · ')}`;
 
-/** Platz der Person in der Auswahl (UCI-Rang) – für Sortierungen */
-export const rank = (r) => r?.uci_rank;
-/** Darf geholt werden (Waiver, Draft): alle Fahrer der Liga */
-export const selectable = () => true;
 
 /** Filter für Personenlisten (freie Fahrer): Profiteam und Nation. Liefert [Eingaben, Prüfung]. */
 export function usePeopleFilter(c, list) {
@@ -64,3 +38,22 @@ export const labelText = (l) => {
   if (!l || l === 'result') return 'Ergebnis';
   return LABELS.reduce((t, [re, rep]) => t.replace(re, rep), l);
 };
+
+/** Name mit Kurzinfo (Gruppe/Jahrgang bzw. Nation/Team), antippen öffnet das Profil */
+export function RiderCell({ r }) {
+  if (!r) return html`<span class="muted">unbekannt</span>`;
+  const meta = [r.nation && withFlag(r.nation), r.birth_date && r.birth_date.slice(0, 4)].filter(Boolean).join(' · ');
+  return html`<span class="rider">
+    <span class="rider-line">
+      <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
+        onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>
+      ${r.uci_rank && html`<span class="rank-chip" title="Platz im UCI-Ranking">#${r.uci_rank}</span>`}
+      ${r.inactive && html`<span class="tag warn">inaktiv</span>`}
+    </span>
+    ${meta && html`<span class="rider-meta">${meta}</span>`}
+    ${r.team && html`<span class="rider-team" title=${r.team}>${teamName(r.team)}</span>`}
+  </span>`;
+}
+
+/** Suchtext für die Personenauswahl (Name plus Disziplingruppe bzw. Team) */
+export const searchText = (r) => normName(r.name + ' ' + (r.team || ''));

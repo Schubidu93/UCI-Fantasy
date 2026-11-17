@@ -1,6 +1,6 @@
 // Feedback: Text und Bilder (z. B. Bildschirmfotos) – kommen per E-Mail beim Betreiber an
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useAction, Msg } from '../lib.js';
+import { Msg, rpc, useAction } from '../lib.js';
 
 const MAX_IMAGES = 5;
 

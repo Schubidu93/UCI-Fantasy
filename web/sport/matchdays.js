@@ -1,8 +1,8 @@
 // Spieltag-Vorschläge im Radsport: die drei großen Rundfahrten (aus dem UCI-Kalender) sind je ein eigener Spieltag,
 // dazwischen Rennblöcke; kein WorldTour-Rennen wird geteilt.
 import { html } from '../vendor/preact-htm.js';
-import { sb, all } from '../lib.js';
 import { addDays, proposal } from '../views/admin/proposal.js';
+import { all, sb } from '../lib.js';
 
 export const EMPTY_HINT = 'Noch keine Spieltage. Am schnellsten: unten „Spieltage automatisch vorschlagen“ → „Aus Rennkalender“ → „Alle anlegen“.';
 export const NAME_PLACEHOLDER = 'z. B. Tour de France';

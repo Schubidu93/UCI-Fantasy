@@ -1,7 +1,8 @@
 // Fahrer-Fenster: Stammdaten und alle Ergebnisse (Rang, Zeit, UCI-Punkte) – Klick springt ins Rennen
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, all, fmtPts, flag, teamName } from '../lib.js';
 import { describeEvent } from './races.js';
+import { all, flag, fmtPts, q, sb, teamName } from '../lib.js';
+import { rank } from './index.js';
 
 // Ergebnisse werden ab dieser Saison geladen; ältere Einzeldaten sind lückenhaft und werden nicht angezeigt
 const FIRST_YEAR = 2025;

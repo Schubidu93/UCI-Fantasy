@@ -1,8 +1,8 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, fmtDate, fmtDateTime } from '../lib.js';
-import { SPORT } from '../sport/index.js';
 import { LEAGUE_DEFAULTS, SEASON_END, GENDER_OPTIONS, genderLabel, DRAFT_MODE_ORDER, adjustSettings, settingsPayload, SquadFields } from '../sport/settings.js';
 import { PushToggle } from './push.js';
+import { fmtDate, fmtDateTime, Loading, Msg, q, rpc, sb, today, useAction, useLoad } from '../lib.js';
+import { SPORT } from '../sport/index.js';
 
 // Echter Stand der Liga: Draft geplant/läuft/abgeschlossen, Saison läuft mit aktuellem Spieltag, beendet
 function leagueStatus(l, mds) {

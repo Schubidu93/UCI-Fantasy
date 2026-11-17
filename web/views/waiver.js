@@ -1,7 +1,7 @@
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, normName, useRiderPoints, fmtPts } from '../lib.js';
-import { SPORT, pid, rank, selectable, usePeopleFilter } from '../sport/index.js';
 import { NextDeadline, transferPhase, fmtDeadline } from './deadline.js';
+import { fmtPts, Msg, normName, q, rpc, sb, useAction, useLoad, useRiderPoints } from '../lib.js';
+import { pid, rank, RiderCell, selectable, SPORT, usePeopleFilter } from '../sport/index.js';
 
 const STATUS = { pending: 'offen', won: 'Zuschlag', lost: 'kein Zuschlag', cancelled: 'zurückgezogen' };
 

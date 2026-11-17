@@ -1,7 +1,8 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
 import { DraftReport } from './report.js';
-import { SPORT, pid, rank } from '../sport/index.js';
+import { all, Msg, q, rpc, sb, useAction, useLoad } from '../lib.js';
+import { pid, rank, RiderCell, SPORT } from '../sport/index.js';
+import { RiderPicker } from './picker.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
 let clockOffset = 0;

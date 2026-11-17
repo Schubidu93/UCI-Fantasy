@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+// Gemeinsame Dateien von Runner Fantasy und UCI Fantasy: Prüfsummen in shared-files.json (in beiden Apps gleich).
+//   node scripts/shared.mjs          → prüfen (auch Teil von npm test)
+//   node scripts/shared.mjs update   → nach einer bewusst in BEIDE Apps übernommenen Änderung neu berechnen
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const ROOT = join(import.meta.dirname, '..');
+const GLOBS = ['web/app.js', 'web/lib.js', 'web/views', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql/_tap.sql',
+  'tests/sql.test.ts', 'tests/shared.test.ts', 'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'scripts/shared.mjs'];
+const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
+export const sharedFiles = () => GLOBS.flatMap((g) => walk(join(ROOT, g))).map((f) => relative(ROOT, f)).sort();
+export const hashes = () => Object.fromEntries(sharedFiles().map((f) => [f, createHash('sha256').update(readFileSync(join(ROOT, f))).digest('hex').slice(0, 16)]));
+
+const FILE = join(ROOT, 'shared-files.json');
+if (import.meta.url === `file://${process.argv[1]}`) {
+  if (process.argv[2] === 'update') {
+    writeFileSync(FILE, JSON.stringify(hashes(), null, 2) + '\n');
+    console.log('shared-files.json neu berechnet – dieselbe Datei auch in der anderen App ablegen.');
+  } else {
+    const want = JSON.parse(readFileSync(FILE, 'utf8')), have = hashes();
+    const diff = [...new Set([...Object.keys(want), ...Object.keys(have)])].filter((f) => want[f] !== have[f]);
+    if (diff.length) { console.error('Gemeinsame Dateien geändert (in beide Apps übernehmen, dann „update“):\n  ' + diff.join('\n  ')); process.exit(1); }
+    console.log(`${Object.keys(have).length} gemeinsame Dateien unverändert.`);
+  }
+}

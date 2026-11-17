@@ -1,7 +1,8 @@
 // Admin → Korrekturen: Punkte, Kader, Karriereende/Sperre
 import { html, useState } from '../../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, RiderPicker, RiderCell, fmtDate } from '../../lib.js';
-import { SPORT, pid } from '../../sport/index.js';
+import { Msg, q, rpc, sb, useAction, useLoad } from '../../lib.js';
+import { pid, SPORT } from '../../sport/index.js';
+import { RiderPicker } from '../picker.js';
 
 export function Fixes({ c }) {
   return html`<div class="stack">

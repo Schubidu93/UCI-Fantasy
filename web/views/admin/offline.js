@@ -1,7 +1,8 @@
 // Admin → Offline-Draft: Kader samt Preisen eintragen (Auswahl oder CSV)
 import { html, useState } from '../../vendor/preact-htm.js';
-import { rpc, useAction, Msg, RiderPicker, normName } from '../../lib.js';
-import { SPORT, pid } from '../../sport/index.js';
+import { Msg, normName, rpc, useAction } from '../../lib.js';
+import { pid, SPORT } from '../../sport/index.js';
+import { RiderPicker } from '../picker.js';
 
 export function OfflineImport({ c }) {
   const [rows, setRows] = useState([]);          // {manager_id, <Personen-Schlüssel>, price}

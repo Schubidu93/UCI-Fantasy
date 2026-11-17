@@ -31,6 +31,9 @@
     (Aufstellung), `sport/matchdays.js` (Spieltag-Vorschläge), `sport/admin.js` (Zusatzbereiche im Admin) und die Sportart-Seiten
     (Personenliste, Wettkämpfe/Rennen, Profil, ggf. Kalender/Toplisten).
 - Datenbank: `supabase/schema/NN_*.sql` mit gleichen Nummern und Namen in beiden Apps.
+- Gemeinsame Dateien sind in `scripts/shared.mjs` aufgezählt, ihre Prüfsummen stehen in `shared-files.json` (in beiden Apps gleich).
+  `tests/shared.test.ts` scheitert, wenn eine davon nur in einer App geändert wurde: Änderung in die andere App kopieren und in beiden
+  `node scripts/shared.mjs update` ausführen. `web/lib.js` ist gemeinsam; Leichtathletik-Helfer stehen in `web/sport/lib.js`.
 - Tests: `tests/sql/NN_*.sql` (Spiellogik, in beiden Apps gleich), `tests/*.test.ts`, Oberflächentest `tests/ui/smoke.test.ts`
   (öffnet alle Seiten in der iPhone-Ansicht und scheitert bei jedem Fehler; beide Apps gleich).
 
