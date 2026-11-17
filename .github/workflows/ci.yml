@@ -24,6 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Browser für den Oberflächentest
+        run: npx playwright install --with-deps chromium
       - name: App-Dateien prüfen
         run: for f in web/*.js web/views/*.js; do node --check "$f"; done
       - name: Spiellogik testen (Waiver, Tausch, Push)

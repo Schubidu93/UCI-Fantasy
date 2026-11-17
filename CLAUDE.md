@@ -21,6 +21,19 @@
 - Mobile first: Die App wird fast nur auf dem iPhone (installiert als Web-App) genutzt. Nichts darf rechts
   abgeschnitten sein; lieber umbrechen oder kürzen. Fristen mit 0:00 Uhr als Vortag ohne Uhrzeit anzeigen (`fmtUntil` in `web/lib.js`).
 
+## Aufbau der App (in beiden Apps gleich)
+
+- `web/app.js`, `web/views/*.js`, `web/views/admin/*.js`: **in Runner Fantasy und UCI Fantasy wortgleich**. Änderungen dort immer in
+  beiden Apps vornehmen (Datei kopieren). Alles, worin sich die Sportarten unterscheiden, steht in `web/sport/`:
+  - `sport/index.js`: `SPORT` (Begriffe Athlet/Fahrer in allen Fällen, Spaltennamen wie `fk`/`pk`/`add`/`give`, Texte), `pid()`, `rank()`,
+    `selectable()`, `usePeopleFilter()`, `PersonLine`, `labelText()`
+  - `sport/views.js` (Navigation, eigene Seiten, Laden der Personen), `sport/settings.js` (Liga-Einstellungen), `sport/lineup.js`
+    (Aufstellung), `sport/matchdays.js` (Spieltag-Vorschläge), `sport/admin.js` (Zusatzbereiche im Admin) und die Sportart-Seiten
+    (Personenliste, Wettkämpfe/Rennen, Profil, ggf. Kalender/Toplisten).
+- Datenbank: `supabase/schema/NN_*.sql` mit gleichen Nummern und Namen in beiden Apps.
+- Tests: `tests/sql/NN_*.sql` (Spiellogik, in beiden Apps gleich), `tests/*.test.ts`, Oberflächentest `tests/ui/smoke.test.ts`
+  (öffnet alle Seiten in der iPhone-Ansicht und scheitert bei jedem Fehler; beide Apps gleich).
+
 ## Ablauf einer Änderung
 
 1. Auf einem Arbeitszweig ändern, lokal prüfen (siehe unten).
@@ -33,7 +46,7 @@
 ## Lokal testen
 
 - Syntax: `node --check web/views/<datei>.js`, `python3 -c "import ast; ast.parse(open('datasync/<datei>.py').read())"`.
-- `npm test`: Spiellogik gegen echtes PostgreSQL 16 (`tests/`, Schema wird zweimal eingespielt = Wiederholbarkeit): Waiver
+- `npm test`: Spiellogik gegen echtes PostgreSQL 16 und Oberflächentest (Playwright, Chromium) (`tests/`, Schema wird zweimal eingespielt = Wiederholbarkeit): Waiver
   (Rangfolge, FAAB), freie Phase, Tausch mit Push-Nachrichten. Lokal z. B. `initdb` + `pg_ctl` mit Socket in `/tmp/fa-pg`, Port 54329
   (`TEST_DATABASE_URL` überschreibt). Läuft in GitHub Actions („Tests“) bei jedem Push und Pull Request.
   SQL-Tests in `tests/sql/NN_*.sql` (pgTAP-Schreibweise `is`/`ok`/`throws_ok`, kleiner Ersatz in `tests/sql/_tap.sql`, Beispieldaten
