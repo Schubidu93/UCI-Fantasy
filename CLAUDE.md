@@ -47,6 +47,13 @@
 - `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr). Fahrer-ID heißt historisch `pcs_slug` (`uci-<id>`).
 - Daten erst ab Saison 2025. Ländercodes in der App einheitlich IOC (`nationCode` in `web/lib.js`).
 
+## Push „Neue Punkte“ und heiße freie Fahrer
+
+- `notify_new_points()` (aus `run_maintenance` nach dem Ergebnisabruf): neue Zeilen aus `_score_rows` (zählen für einen Spieltag,
+  bei Aufstellung nur Aufgestellte, höchstens 14 Tage alt) → eine Nachricht je Manager; je Manager/Fahrer/Rennen/Wertung einmal
+  (`point_pushes`). Beim Einführen wurden alle bisherigen Punkte als gemeldet eingetragen (`schema_changes`).
+- Fahrer → „🔥 Heiße freie Fahrer“: `rider_points_recent(p_gender, p_days)`; 🔥 = die 10 freien mit den meisten Punkten der letzten 30 Tage.
+
 ## Feedback
 
 - App: Mehr → Feedback (`web/views/feedback.js`), Bilder werden im Browser verkleinert (JPEG, max. 1600 px).
