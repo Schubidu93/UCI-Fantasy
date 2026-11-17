@@ -1,0 +1,14 @@
+{
+  "name": "uci-fantasy-tests",
+  "private": true,
+  "type": "module",
+  "description": "Automatische Tests der Spiellogik (Datenbank) für UCI Fantasy. Die App selbst liegt in web/, der Datenabruf in datasync/.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "pg": "^8.16.0",
+    "vitest": "^5.0.5"
+  }
+}
