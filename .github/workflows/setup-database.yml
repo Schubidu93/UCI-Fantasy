@@ -1,13 +1,13 @@
 name: Datenbank einrichten
 
-# Spielt supabase/schema.sql in die Datenbank ein – automatisch bei jeder Änderung
+# Spielt supabase/schema/*.sql (in Dateireihenfolge) in die Datenbank ein – automatisch bei jeder Änderung
 # des Schemas auf main, zusätzlich per Knopfdruck. Das Skript ist wiederholbar.
 # Braucht das Secret SUPABASE_DB_URL (Supabase → Connect → Session pooler, mit Passwort).
 
 on:
   push:
     branches: [main]
-    paths: [supabase/schema.sql]
+    paths: ["supabase/schema/**"]
   workflow_dispatch:
 
 concurrency:
@@ -29,7 +29,7 @@ jobs:
           fi
       - run: sudo apt-get install -y -qq postgresql-client
       - name: Schema einspielen
-        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+        run: cat supabase/schema/*.sql | psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       - name: GitHub-Schlüssel für den Zeitplaner in den Vault übernehmen

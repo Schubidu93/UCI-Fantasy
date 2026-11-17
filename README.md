@@ -21,7 +21,7 @@ Datenquelle ist **UCI DataRide** (dataride.uci.ch), die offizielle Datenquelle d
 | Ordner | Inhalt |
 |---|---|
 | `web/` | Die App: `app.js` (Rahmen, Navigation), `lib.js` (Helfer), `views/` (Bereiche), `sw.js` (Push) |
-| `supabase/schema.sql` | Datenbank komplett und idempotent: Tabellen, Rechte und die gesamte Spiellogik (Draft, Waiver, freie Phase, Tausch, Wertung, Zeitplaner) |
+| `supabase/schema/NN_*.sql` | Datenbank nach Themen (Tabellen, Hilfsfunktionen, Liga, Draft, Spieltage, Punkte, Waiver, Tausch, Stichtage, Admin, Zeitplaner, Rechte), in Dateireihenfolge eingespielt, komplett und idempotent: Tabellen, Rechte und die gesamte Spiellogik (Draft, Waiver, freie Phase, Tausch, Wertung, Zeitplaner) |
 | `datasync/` | Python-Skripte für UCI DataRide (`dataride.py`), Fahrerliste, Rennergebnisse und Push-Versand |
 | `.github/workflows/` | Automatische Abläufe (siehe unten) |
 
@@ -40,7 +40,7 @@ fällige Fristen ab und startet die Workflows über die GitHub-API.
 | Benachrichtigungen senden | nach jedem Ergebnisabruf und bei neuen Nachrichten | Web-Push (Waiver, Draft, „Du bist dran“, neue Punkte …) |
 | Feedback senden | direkt nach dem Absenden in der App (Mehr → Feedback) | E-Mail mit Text und Bildern an den Betreiber |
 | App veröffentlichen | bei Änderungen auf `main` | App auf GitHub Pages |
-| Datenbank einrichten | bei Änderungen an `schema.sql` auf `main` | Schema einspielen |
+| Datenbank einrichten | bei Änderungen in `supabase/schema/` auf `main` | Schema einspielen |
 | Datenstand prüfen / Datenbank abfragen | per Knopfdruck | Diagnose (nur lesend) |
 
 Fristen ohne Workflow (Waiver-Auswertung, Stichtag, Spieltage abschließen und nach 7 Tagen

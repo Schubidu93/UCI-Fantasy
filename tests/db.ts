@@ -1,7 +1,7 @@
-// Testdatenbank: echtes PostgreSQL mit schema.sql.
+// Testdatenbank: echtes PostgreSQL mit dem Schema (supabase/schema/NN_*.sql).
 // Lokal z. B. per initdb gestartet, in GitHub Actions als Service-Container.
 // TEST_DATABASE_URL zeigt auf eine Instanz, in der Datenbanken angelegt werden dürfen.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 
@@ -10,6 +10,9 @@ const ADMIN_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhos
 const TEMPLATE = "uci_test_template";
 
 const sql = (f: string) => readFileSync(join(ROOT, f), "utf8");
+/** Komplettes Schema: supabase/schema/NN_*.sql in Dateireihenfolge (wie der Workflow „Datenbank einrichten“). */
+export const schemaSql = () => readdirSync(join(ROOT, "supabase/schema")).filter((f) => f.endsWith(".sql")).sort()
+  .map((f) => sql(`supabase/schema/${f}`)).join("\n");
 
 async function admin() {
   const c = new pg.Client({ connectionString: ADMIN_URL });
@@ -37,7 +40,7 @@ function ensureTemplate() {
     await c.query("set client_min_messages = warning");
     for (let i = 0; i < 2; i++) {
       await c.query(sql("tests/supabase-stub.sql"));
-      await c.query(sql("supabase/schema.sql"));
+      await c.query(schemaSql());
     }
     await c.end();
   })();

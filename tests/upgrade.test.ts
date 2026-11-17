@@ -1,8 +1,8 @@
-// „Datenbank einrichten“ spielt schema.sql bei jedem Merge erneut ein – mit echten Daten darf dabei nichts verloren gehen.
+// „Datenbank einrichten“ spielt das Schema bei jedem Merge erneut ein – mit echten Daten darf dabei nichts verloren gehen.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { freshDb, type Db } from "./db";
+import { freshDb, schemaSql, type Db } from "./db";
 
 const ROOT = join(import.meta.dirname, "..");
 const TABLES = ["leagues", "managers", "roster_entries", "matchdays", "results", "waiver_claims", "trades", "notifications"];
@@ -19,7 +19,7 @@ it("Schema erneut einspielen erhält alle Daten", async () => {
   await db.query(`insert into notifications (user_id, title) values (test_support.user_id(1), 'Hallo')`);
   const before = await counts();
   const budgets = await db.all("select id, budget_left from managers order by id");
-  await db.query(readFileSync(join(ROOT, "supabase/schema.sql"), "utf8"));
+  await db.query(schemaSql());
   expect(await counts()).toEqual(before);
   expect(await db.all("select id, budget_left from managers order by id")).toEqual(budgets);
 });
