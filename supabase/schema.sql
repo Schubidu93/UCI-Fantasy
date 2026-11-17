@@ -478,6 +478,18 @@ language sql security definer set search_path = public as $$
     and exists (select 1 from push_subscriptions s where s.user_id = managers.user_id);
 $$;
 
+-- Nachrichten sofort verschicken (statt beim nächsten Zeitplaner-Lauf in bis zu 15 Minuten)
+create or replace function _push_soon() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from notifications where sent_at is null) then
+    begin
+      perform dispatch_workflow('push.yml');
+    exception when others then null;    -- ohne Token: Versand beim nächsten Zeitplaner-Lauf
+    end;
+  end if;
+end $$;
+
 -- „Du bist dran“ im Draft: sofort senden (Ablauf direkt anstoßen), verfällt mit der Pick-Uhr
 create or replace function _notify_turn(p_league uuid, p_manager uuid, p_prev uuid, p_text text, p_expires timestamptz)
 returns void language plpgsql security definer set search_path = public as $$
@@ -1912,6 +1924,7 @@ begin
     (select team_name from managers where id = v_me) || ' bietet ' ||
     (select string_agg(_rname(x), ', ') from unnest(p_give) x) || ' für ' || (select string_agg(_rname(x), ', ') from unnest(p_take) x),
     '#/league/' || p_league || '/team');
+  perform _push_soon();
   return v;
 end $$;
 
@@ -1936,6 +1949,7 @@ begin
     (select team_name from managers where id = t.to_manager) || case when p_accept
       then ' hat zugestimmt. Ausgeführt wird zum nächsten Stichtag.' else ' hat abgelehnt.' end,
     '#/league/' || t.league_id || '/team');
+  perform _push_soon();
 end $$;
 
 create or replace function cancel_trade(p_trade uuid) returns void
@@ -1945,6 +1959,11 @@ begin
   select * into t from trades where id = p_trade for update;
   if t.from_manager <> my_manager(t.league_id) then raise exception 'Nicht dein Angebot.'; end if;
   update trades set status = 'cancelled' where id = p_trade and status in ('proposed', 'accepted');
+  if found then
+    perform _notify(t.to_manager, '↩️ Tauschangebot zurückgezogen',
+      (select team_name from managers where id = t.from_manager) || ' hat das Angebot zurückgezogen.', '#/league/' || t.league_id || '/team');
+    perform _push_soon();
+  end if;
 end $$;
 
 create or replace function veto_trade(p_trade uuid) returns void
@@ -1958,6 +1977,11 @@ begin
   end if;
   update trades set status = 'vetoed' where id = p_trade;
   perform _log(t.league_id, 'veto_trade', jsonb_build_object('trade', p_trade));
+  perform _notify(m.id, '🚫 Tausch gestoppt', 'Der Liga-Admin hat den Tausch zwischen '
+      || (select team_name from managers where id = t.from_manager) || ' und '
+      || (select team_name from managers where id = t.to_manager) || ' per Veto gestoppt.', '#/league/' || t.league_id || '/team')
+    from managers m where m.id in (t.from_manager, t.to_manager);
+  perform _push_soon();
 end $$;
 
 -- Angenommene Tauschs werden zum nächsten Stichtag nach Ablauf der Vetofrist ausgeführt
@@ -1973,6 +1997,11 @@ begin
        or (select count(*) from roster_entries where manager_id = t.to_manager and released_on is null
           and rider_slug = any (t.take_riders || t.to_drop)) <> coalesce(array_length(t.take_riders || t.to_drop, 1), 0) then
       update trades set status = 'failed', note = 'Fahrer nicht mehr im Kader', done_at = now() where id = t.id;
+      perform _notify(m.id, '⚠️ Tausch geplatzt', 'Der Tausch zwischen '
+          || (select team_name from managers where id = t.from_manager) || ' und '
+          || (select team_name from managers where id = t.to_manager) || ' wurde nicht ausgeführt: Fahrer nicht mehr im Kader.',
+          '#/league/' || md.league_id || '/team')
+        from managers m where m.id in (t.from_manager, t.to_manager);
       continue;
     end if;
     -- zusätzlich entlassene Fahrer werden frei
@@ -1987,6 +2016,10 @@ begin
       insert into roster_entries (league_id, manager_id, rider_slug, source, acquired_on) values (md.league_id, t.from_manager, r, 'trade', md.starts_on);
     end loop;
     update trades set status = 'done', done_at = now() where id = t.id;
+    perform _notify(t.from_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_riders) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_riders) x),
+      '#/league/' || md.league_id || '/team');
+    perform _notify(t.to_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_riders) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_riders) x),
+      '#/league/' || md.league_id || '/team');
   end loop;
 end $$;
 
@@ -2029,6 +2062,7 @@ begin
   end loop;
   update matchdays set status = 'running'
    where status = 'planned' and starts_on <= current_date and (p_league is null or league_id = p_league);
+  if n > 0 then perform _push_soon(); end if;   -- Waiver-Ergebnisse und ausgeführte Tausche sofort melden
   return n;
 end $$;
 
@@ -2443,7 +2477,7 @@ begin
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
     '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_draft_award(uuid,uuid,int)', '_blind_resolve(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
+    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_push_soon()', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
     '_waiver_order(uuid)', 'run_maintenance()', 'notify_new_points()'] loop

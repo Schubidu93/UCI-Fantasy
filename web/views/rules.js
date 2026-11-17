@@ -106,6 +106,8 @@ export function Rules({ c }) {
           Fristen mit Countdown siehst du unter Team und Waiver, alle Zeiträume im Spielplan.</li>
         <li>Jeden Montag um 9 Uhr gibt es eine <strong>Wochen-Zusammenfassung</strong> per Push: deine Punkte der letzten 7 Tage, Tabellenplatz und bester Fahrer.</li>
         <li>Holt einer deiner Fahrer Punkte, die für einen Spieltag zählen${lineup ? ' (also wenn er aufgestellt ist)' : ''}, bekommst du nach dem Ergebnisabruf (täglich 20 Uhr) eine Push-Nachricht <strong>„Neue Punkte“</strong>.</li>
+        <li>Außerdem gibt es Push-Nachrichten zu Waiver-Ergebnissen, neuen Tauschangeboten, Zusage oder Absage, zurückgezogenen Angeboten,
+          ausgeführten oder geplatzten Tauschen und einem Veto des Admins.</li>
         <li>Ein Spieltag schließt nach seinem Ende und wird 7 Tage später eingefroren; bis dahin werden Korrekturen automatisch übernommen.</li>
         <li>Gleichstand in der Tabelle: zuerst mehr Spieltagssiege, dann höchster Einzelspieltag${draftCosts(l) ? ', dann weniger ausgegebenes Budget' : ''}.</li>
       </ul>
