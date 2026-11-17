@@ -130,6 +130,23 @@ def rank_int(text):
     return int(text) if text and str(text).strip().isdigit() else None
 
 
+def result_row(event_id, r, name_to_slug):
+    """Eine Zeile der DataRide-Ergebnisliste → Zeile in event_results (None ohne Namen, z. B. Mannschaftswertungen)."""
+    name = (r.get("DisplayName") or r.get("IndividualDisplayName") or "").strip()
+    if not name:
+        return None
+    return {
+        "event_id": event_id, "sort_order": r.get("SortOrder") or 0,
+        "rank": r.get("RankNumber") or rank_int(r.get("Rank")),
+        "rank_text": (r.get("Irm") or r.get("Rank") or "").strip() or None,
+        "rider_name": name, "rider_slug": name_to_slug.get(normalize_name(name)),
+        "team": (r.get("TeamName") or "").strip() or None,
+        "nation": (r.get("NationName") or "").strip() or None,
+        "result": (r.get("ResultValue") or "").strip() or None,
+        "uci_points": r.get("PointPcR"),
+    }
+
+
 def stage_order(race):
     """Sortierschlüssel: Prolog 0, Etappe n, Schlusswertungen ans Ende."""
     name = (race.get("RaceName") or "").lower()
@@ -268,19 +285,9 @@ def main():
                                        "event_date": day.isoformat() if day else None,
                                        "winner": ev.get("WinnerName") or ev.get("IndividualWinner")})
                         for r in dr.results(ev["EventId"], keep_top=None if full_list(c, ev) else 25):
-                            name = (r.get("DisplayName") or r.get("IndividualDisplayName") or "").strip()
-                            if not name:
-                                continue
-                            results.append({
-                                "event_id": ev["EventId"], "sort_order": r.get("SortOrder") or 0,
-                                "rank": r.get("RankNumber") or rank_int(r.get("Rank")),
-                                "rank_text": (r.get("Irm") or r.get("Rank") or "").strip() or None,
-                                "rider_name": name, "rider_slug": name_to_slug.get(normalize_name(name)),
-                                "team": (r.get("TeamName") or "").strip() or None,
-                                "nation": (r.get("NationName") or "").strip() or None,
-                                "result": (r.get("ResultValue") or "").strip() or None,
-                                "uci_points": r.get("PointPcR"),
-                            })
+                            row = result_row(ev["EventId"], r, name_to_slug)
+                            if row:
+                                results.append(row)
             except Exception as e:
                 print(f"  ! {c['CompetitionName']}: {e}")
                 continue

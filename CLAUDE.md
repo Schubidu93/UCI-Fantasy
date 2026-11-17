@@ -57,6 +57,8 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 - Syntax: `node --check web/views/<datei>.js`; TypeScript: `npm run lint`.
 - Datenabruf: `tests/datasync/test_*.py` (unittest, ohne Netz: DataRide und Wettkampfverzeichnis nachgebildet, `FakeDb` statt `db.py`; auch Push und Feedback),
   laufen in `npm test` mit (`tests/datasync.test.ts`) oder einzeln: `python3 -m unittest discover -s tests/datasync -t tests/datasync`.
+  Echte DataRide-Antworten (Saison 2025, Rangliste, Tour de France Etappe 1) in `tests/datasync/fixtures/` (`test_real_data.py`),
+  neu holen mit dem Workflow „DataRide-Beispieldaten laden“ (`datasync/probe.py`; DataRide ist aus der Claude-Umgebung gesperrt).
 - `npm test`: Spiellogik gegen echtes PostgreSQL 16 und Oberflächentest (Playwright, Chromium) (`tests/`, Schema wird zweimal eingespielt = Wiederholbarkeit): Waiver
   (Rangfolge, FAAB), freie Phase, Tausch mit Push-Nachrichten. Lokal z. B. `initdb` + `pg_ctl` mit Socket in `/tmp/fa-pg`, Port 54329
   (`TEST_DATABASE_URL` überschreibt). Läuft in GitHub Actions („Tests“) bei jedem Push und Pull Request.
