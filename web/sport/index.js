@@ -21,6 +21,7 @@ export const SPORT = {
   matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage
   fallbackBasis: 'UCI-Ranglistenpunkte', fallbackShort: 'Rangl.',   // Draft-Report ohne Vorjahrespunkte
   rankingOption: 'nach UCI-Rangliste', rankingPhrase: 'nach UCI-Rangliste',   // Draft-Reihenfolge
+  bestBy: 'nach UCI-Rang', orderLabel: 'UCI-Rangliste',   // Draft: automatische Wahl, Reihenfolge
   resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
 };
 /** Schlüssel einer Person (Athlet bzw. Fahrer) */

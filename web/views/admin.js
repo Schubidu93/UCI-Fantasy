@@ -169,7 +169,7 @@ function OfflineImport({ c }) {
       <select value=${mgr} onChange=${(e) => setMgr(e.target.value)}>${c.managers.map((m) => html`<option value=${m.id}>${m.team_name}</option>`)}</select>
       <input type="number" min="0" max="100" placeholder="Preis" value=${price} onInput=${(e) => setPrice(e.target.value)} />
     </div>
-    <${RiderPicker} riders=${c.people.filter((r) => !taken.has(r.pcs_slug))} limit=${8} action="Hinzufügen"
+    <${RiderPicker} people=${c.people.filter((r) => !taken.has(r.pcs_slug))} limit=${8} action="Hinzufügen"
       onPick=${(r) => { setRows([...rows, { manager_id: mgr, rider_slug: r.pcs_slug, price: price === '' ? null : +price }]); setErrors(null); }} />
 
     <div class="grid2">${c.managers.map((m) => {
@@ -400,7 +400,7 @@ function RosterFix({ c }) {
       <label class="span2">Grund<input value=${reason} onInput=${(e) => setReason(e.target.value)} /></label>
     </div>
     ${drop && html`<button disabled=${a.busy} onClick=${() => run(null)}>Nur abgeben</button>`}
-    <${RiderPicker} riders=${c.people.filter((r) => !c.owner[r.pcs_slug])} limit=${8} action="Aufnehmen" onPick=${(r) => run(r.pcs_slug)} />
+    <${RiderPicker} people=${c.people.filter((r) => !c.owner[r.pcs_slug])} limit=${8} action="Aufnehmen" onPick=${(r) => run(r.pcs_slug)} />
     <${Msg} msg=${a.msg} />
   </section>`;
 }
@@ -413,7 +413,7 @@ function Inactive({ c }) {
     <p class="muted small">Als inaktiv markierte Fahrer kann ihr Manager außer der Reihe sofort per Waiver ersetzen.</p>
     <ul class="list compact">${owned.filter((r) => r.inactive).map((r) => html`<li key=${r.pcs_slug}><span>${r.name}</span>
       <button class="small" onClick=${() => a.run(async () => { await rpc('admin_mark_inactive', { p_league: c.league.id, p_rider: r.pcs_slug, p_inactive: false }); c.reload(); })}>Wieder aktiv</button></li>`)}</ul>
-    <${RiderPicker} riders=${owned.filter((r) => !r.inactive)} limit=${6} action="Inaktiv setzen"
+    <${RiderPicker} people=${owned.filter((r) => !r.inactive)} limit=${6} action="Inaktiv setzen"
       onPick=${(r) => a.run(async () => { await rpc('admin_mark_inactive', { p_league: c.league.id, p_rider: r.pcs_slug, p_inactive: true }); c.reload(); })} />
     <${Msg} msg=${a.msg} />
   </section>`;
