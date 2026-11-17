@@ -4,6 +4,9 @@ name: DataRide-Beispieldaten laden
 # tests/datasync/fixtures/ und committet sie auf den gestarteten Zweig – Grundlage für Tests mit echten Daten.
 on:
   workflow_dispatch:
+  push:                       # einmal beim Ändern des Skripts auf einem Arbeitszweig
+    branches-ignore: [main]
+    paths: [datasync/probe.py]
 
 permissions:
   contents: write

@@ -5,6 +5,7 @@ Läuft nur über den Workflow „DataRide-Beispieldaten laden“ (probe-dataride
 Claude-Umgebung nicht erreichbar ist. Wenige Abfragen, ehrliche Kennung, Pausen wie im normalen Abruf.
 """
 import json
+import re
 from pathlib import Path
 
 from dataride import DataRide
@@ -33,7 +34,7 @@ def main():
     save("competitions", [tour] + [c for c in comps if c is not tour][:20])
     races = dr.races(tour["CompetitionId"])
     save("races", races)
-    stage = next(r for r in races if "1" in (r.get("RaceName") or "")) if races else None
+    stage = next((r for r in races if re.search(r"stage\s*1\b", r.get("RaceName") or "", re.I)), races[0])
     events = dr.events(stage["Id"])
     save("events", events)
     ev = events[0]
