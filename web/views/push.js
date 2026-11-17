@@ -1,6 +1,6 @@
 // Push-Benachrichtigungen ein-/ausschalten
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { rpc, useAction, Msg } from '../lib.js';
+import { Msg, rpc, useAction } from '../lib.js';
 import { SPORT } from '../sport/index.js';
 
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);

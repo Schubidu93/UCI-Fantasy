@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright-Browser offiziell unterstützt
     services:
       postgres:
         image: postgres:16
@@ -24,7 +24,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python-Pakete für die Tests des Datenabrufs
+        run: pip install -q -r datasync/requirements.txt
+      - name: Browser für den Oberflächentest
+        run: npx playwright install --with-deps chromium
       - name: App-Dateien prüfen
         run: for f in web/*.js web/views/*.js; do node --check "$f"; done
-      - name: Spiellogik testen (Waiver, Tausch, Push)
+      - name: Datenabruf, Spiellogik und Oberfläche testen
         run: npm test

@@ -1,6 +1,7 @@
 // Fahrer-Übersicht: alle Fahrer der Wertung mit UCI-Punkten der Saison und Besitzer in der Liga
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, RiderCell, normName, fmtPts, withFlag, teamName, SearchSelect, rpcAll } from '../lib.js';
+import { Loading, normName, rpc, rpcAll, SearchSelect, teamName, useLoad, withFlag } from '../lib.js';
+import { rank, RiderCell } from './index.js';
 
 export function Riders({ c }) {
   const years = useLoad(() => rpc('result_years'), []);
@@ -59,7 +60,7 @@ export function Riders({ c }) {
         <option value="rank">Sortiert nach UCI-Rang (aktuell)</option>
       </select>
     </div>
-    <div class="scroll-x"><table class="tbl riders-tbl">
+    <div class="scroll-x"><table class="tbl people-tbl">
       <thead><tr><th class="num hide-sm col-no">#</th><th>Fahrer</th><th class="col-owner">Kader</th><th class="num hide-sm col-res">Ergebnisse</th><th class="num col-pts" title=${recent ? 'UCI-Punkte der letzten 30 Tage' : `UCI-Punkte ${year}`}>Pkt.</th></tr></thead>
       <tbody>${list.slice(0, limit).map((r, i) => {
         const m = c.managerMap[c.owner[r.pcs_slug]];

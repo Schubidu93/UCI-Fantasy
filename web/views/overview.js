@@ -1,8 +1,8 @@
 // Liga-Übersicht (Startseite einer Liga): Fristen, Tabelle kurz, mein Kader, letzte Punkte, offene Tausche
 import { html } from '../vendor/preact-htm.js';
-import { sb, q, rpc, rpcAll, useLoad, Loading, fmtDate, fmtPts, openRider } from '../lib.js';
-import { SPORT, labelText } from '../sport/index.js';
 import { NextDeadline } from './deadline.js';
+import { fmtDate, fmtPts, Loading, openRider, q, rpc, rpcAll, sb, useLoad } from '../lib.js';
+import { labelText, SPORT } from '../sport/index.js';
 
 export function Overview({ c }) {
   const L = c.league.id;

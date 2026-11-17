@@ -1,6 +1,6 @@
 // Admin → Mitglieder: Teams, Plätze, Admin-Rechte
 import { html, useState } from '../../vendor/preact-htm.js';
-import { rpc, useAction, Msg } from '../../lib.js';
+import { Msg, rpc, useAction } from '../../lib.js';
 
 export function Members({ c }) {
   const link = `${location.origin}${location.pathname}#/join/${c.league.invite_code}`;

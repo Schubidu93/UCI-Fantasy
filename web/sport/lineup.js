@@ -1,7 +1,8 @@
 // Aufstellung für den nächsten Spieltag (Team → Kader): Radsport mit fester Zahl wertender Fahrer
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { rpc, useAction, Msg, RiderCell } from '../lib.js';
 import { fmtDeadline } from '../views/deadline.js';
+import { Msg, rpc, useAction } from '../lib.js';
+import { RiderCell } from './index.js';
 
 export function Lineup({ c }) {
   const md = c.nextMatchday;

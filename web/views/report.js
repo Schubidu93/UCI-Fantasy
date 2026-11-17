@@ -1,7 +1,7 @@
 // Draft-Board und Draft-Report (Note A+ bis F, Prognose, Steal und Reach) – nach dem Draft
 import { html, useState } from '../vendor/preact-htm.js';
-import { sb, all, rpc, useLoad, Loading, RiderCell, fmtPts, draftCosts, rpcAll } from '../lib.js';
-import { SPORT, pid } from '../sport/index.js';
+import { all, draftCosts, fmtPts, Loading, rpc, rpcAll, sb, useLoad } from '../lib.js';
+import { pid, RiderCell, SPORT } from '../sport/index.js';
 
 const GRADES = [[1.35, 'A+'], [1.25, 'A'], [1.15, 'A−'], [1.08, 'B+'], [1.0, 'B'], [0.93, 'B−'],
   [0.86, 'C+'], [0.8, 'C'], [0.74, 'C−'], [0.65, 'D'], [0, 'F']];

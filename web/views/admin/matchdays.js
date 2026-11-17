@@ -1,7 +1,7 @@
 // Admin → Spieltage: anlegen, ändern, löschen und automatisch vorschlagen (Vorschläge je Sportart)
 import { html, useState } from '../../vendor/preact-htm.js';
-import { rpc, useAction, Msg, fmtDate, fmtUntil } from '../../lib.js';
 import { MatchdayProposals, EMPTY_HINT, NAME_PLACEHOLDER } from '../../sport/matchdays.js';
+import { fmtDate, fmtUntil, Msg, rpc, today, useAction } from '../../lib.js';
 
 export function Matchdays({ c }) {
   const empty = { id: null, name: '', starts_on: '', ends_on: '', deadline: '', waiver_deadline: '' };

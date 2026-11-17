@@ -1,5 +1,5 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { sb, useAction, Msg } from '../lib.js';
+import { Msg, sb, useAction } from '../lib.js';
 import { SPORT } from '../sport/index.js';
 
 export function Login() {

@@ -1,0 +1,6 @@
+/* UCI Fantasy: Farben und Gestaltung, die es nur in dieser App gibt (gemeinsame Gestaltung: style.css) */
+:root { --accent: #2a6fdb; --accent-text: #ffffff; --accent-soft: #e5eefc; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --accent: #5b9bff; --accent-text: #0b1220; --accent-soft: #1d2a40; }
+}
+:root[data-theme="dark"] { --accent: #5b9bff; --accent-text: #0b1220; --accent-soft: #1d2a40; }

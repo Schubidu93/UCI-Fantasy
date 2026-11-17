@@ -1,7 +1,7 @@
 // Team → Punkte: wer hat dem Team in der Saison bzw. an einem Spieltag wie viele Punkte gebracht
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtPts, fmtDate, openRider } from '../lib.js';
-import { SPORT, PersonLine } from '../sport/index.js';
+import { fmtDate, fmtPts, Loading, openRider, rpc, today, useLoad } from '../lib.js';
+import { PersonLine, SPORT } from '../sport/index.js';
 
 const sum = (rows) => rows.reduce((s, x) => s + Number(x.points), 0);
 

@@ -1,6 +1,6 @@
 // Fristen transparent: wann ist der nächste Stichtag, was passiert dort, was muss man bis dahin tun
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { fmtDate, fmtUntil } from '../lib.js';
+import { fmtDate, fmtUntil, today } from '../lib.js';
 import { SPORT } from '../sport/index.js';
 
 export const fmtDeadline = (d) => fmtUntil(d, { weekday: true });

@@ -1,6 +1,6 @@
 // Admin → Protokoll: Änderungen des Admins und wichtige Liga-Ereignisse
 import { html, useState } from '../../vendor/preact-htm.js';
-import { sb, q, useLoad, Loading, fmtDateTime } from '../../lib.js';
+import { fmtDateTime, Loading, q, sb, useLoad } from '../../lib.js';
 import { SPORT } from '../../sport/index.js';
 
 const ACTIONS = { override: 'Punktekorrektur', roster_fix: 'Kaderkorrektur', settings: 'Einstellungen', start_draft: 'Draft gestartet',

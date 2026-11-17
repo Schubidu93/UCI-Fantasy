@@ -1,9 +1,9 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
-import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtPts, SOURCE_LABEL, budgetRelevant, useRiderPoints } from '../lib.js';
-import { SPORT } from '../sport/index.js';
 import { Lineup } from '../sport/lineup.js';
 
 import { NextDeadline, fmtDeadline } from './deadline.js';
+import { budgetRelevant, fmtDate, fmtPts, Loading, Msg, q, rpc, sb, SOURCE_LABEL, useAction, useLoad, useRiderPoints } from '../lib.js';
+import { RiderCell, SPORT } from '../sport/index.js';
 
 export function Team({ c }) {
   const [mid, setMid] = useState(c.me?.id || c.managers[0]?.id);

@@ -1,7 +1,7 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts, fmtUntil } from '../lib.js';
-import { SPORT, labelText } from '../sport/index.js';
 import { NextDeadline, windowStart } from './deadline.js';
+import { fmtDate, fmtPts, fmtUntil, Loading, rpc, today, useLoad } from '../lib.js';
+import { labelText, SPORT } from '../sport/index.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
 
