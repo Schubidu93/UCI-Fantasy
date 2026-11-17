@@ -1,9 +1,12 @@
 {
+  ".claude/hooks/session-start.sh": "496e6ec604efb422",
+  ".claude/settings.json": "ef056e55192969b7",
+  ".claude/skills/aenderung/SKILL.md": "098e2c124c897101",
   ".github/workflows/ci.yml": "001eb17907a4d887",
   "datasync/db.py": "b2811a3e223b23d7",
   "datasync/send_feedback.py": "5c0c5a0ab9b2dca9",
   "datasync/send_push.py": "fe54cd40ecb64382",
-  "scripts/shared.mjs": "2ec34baa4926889e",
+  "scripts/shared.mjs": "27284059f19f094e",
   "tests/datasync.test.ts": "f9086e61984ba012",
   "tests/datasync/helpers.py": "d79d02b2bc5a8543",
   "tests/datasync/test_common.py": "4bfb087465852c1f",

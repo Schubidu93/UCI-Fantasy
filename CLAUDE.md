@@ -10,7 +10,7 @@
 - **Beide Apps mitdenken:** Bei jeder Änderung prüfen, ob sie auch für Runner Fantasy (github.com/Schubidu93/FantasyAthletics) sinnvoll ist,
   und dem Nutzer dann kurz vorschlagen, sie dort zu übernehmen (ausdrücklicher Wunsch des Nutzers).
 - **Regeln mitziehen:** Bei jeder Änderung an Spielregeln, Wertung, Draft, Waiver, Tausch, Spieltagen,
-  Datenabruf (Zeiten, Quellen, Umfang) oder Liga-Einstellungen immer auch `web/views/rules.js`
+  Datenabruf (Zeiten, Quellen, Umfang) oder Liga-Einstellungen immer auch `web/sport/rules.js`
   (Reiter „Regeln“) aktualisieren. Die Regeln sind dynamisch: Texte hängen von den Liga-Einstellungen ab
   (`scoring_mode`, `transfer_mode`, `waiver_mode`, `draft_mode`).
 - Der Draft-Report (Noten, „beste Aufstellung“) ist bewusst **nicht** in den Regeln beschrieben – Überraschung für die Mitspieler.
@@ -41,6 +41,9 @@
   (öffnet alle Seiten in der iPhone-Ansicht und scheitert bei jedem Fehler; beide Apps gleich).
 
 ## Ablauf einer Änderung
+
+Schritt für Schritt: Skill `aenderung` (`.claude/skills/aenderung/SKILL.md`, in beiden Apps gleich). Beim Start einer Cloud-Sitzung
+richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 
 1. Auf einem Arbeitszweig ändern, lokal prüfen (siehe unten).
 2. Pull Request auf `main` erstellen und mergen (Squash). Danach laufen automatisch:
