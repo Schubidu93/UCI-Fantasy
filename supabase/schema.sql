@@ -1222,6 +1222,7 @@ begin
   select * into l from leagues where id = p_league for update;
   if l.status <> 'setup' then return array['Die Kader sind bereits fixiert.']; end if;
 
+  drop table if exists _imp;   -- Prüfen und Übernehmen können in derselben Transaktion laufen
   create temp table _imp on commit drop as
     select (e->>'manager_id')::uuid manager_id, e->>'rider_slug' rider_slug,
            coalesce(nullif(e->>'price', '')::int, 0) price
@@ -2480,7 +2481,8 @@ begin
     'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_push_soon()', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
     '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
-    '_waiver_order(uuid)', 'run_maintenance()', 'notify_new_points()'] loop
+    '_waiver_order(uuid)', 'run_maintenance()', 'notify_new_points()',
+    '_default_deadline(uuid,date)', '_default_waiver_deadline(uuid,date,uuid)', '_is_service()', '_rname(text)'] loop
     execute format('revoke execute on function %s from public', f);
     begin
       execute format('revoke execute on function %s from anon, authenticated', f);
