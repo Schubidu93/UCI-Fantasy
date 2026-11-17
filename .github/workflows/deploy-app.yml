@@ -40,7 +40,7 @@ jobs:
           V="${GITHUB_SHA::8}"
           find web -name '*.js' -not -path 'web/vendor/*' -print0 | xargs -0 sed -i -E \
             "s#(from '(\./|\.\./)[^']+\.js)'#\1?v=$V'#g"
-          sed -i -E "s#(src|href)=\"(app\.js|style\.css|vendor/supabase\.js|manifest\.webmanifest)\"#\1=\"\2?v=$V\"#g" web/index.html
+          sed -i -E "s#(src|href)=\"(app\.js|style\.css|sport/style\.css|vendor/supabase\.js|manifest\.webmanifest)\"#\1=\"\2?v=$V\"#g" web/index.html
           grep -c "?v=$V" web/app.js web/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

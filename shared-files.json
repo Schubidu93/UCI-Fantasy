@@ -1,5 +1,5 @@
 {
-  "scripts/shared.mjs": "0a3c41864c4c78cb",
+  "scripts/shared.mjs": "8914d10311a3a1f6",
   "tests/shared.test.ts": "3ce78d4e9b05c54a",
   "tests/sql.test.ts": "6481545efa95477a",
   "tests/sql/_tap.sql": "bf82c6e041cf0545",
@@ -10,6 +10,7 @@
   "vitest.config.ts": "7d74c746dfe6eeac",
   "web/app.js": "1849a5650641a040",
   "web/lib.js": "1eba65827bd9ac1c",
+  "web/style.css": "68b3df2f031f24d5",
   "web/views/admin/fixes.js": "b840a91a58ae9296",
   "web/views/admin/index.js": "c012451dad7e5667",
   "web/views/admin/log.js": "03be6ebcaa191f8e",
