@@ -5,12 +5,12 @@ import requests
 
 # Projekt-Adresse ohne Zusätze – falls das Secret z. B. ".../rest/v1" enthält
 URL = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
-KEY = os.environ["SUPABASE_SERVICE_KEY"]
-HEADERS = {
-    "apikey": KEY,
-    "Authorization": f"Bearer {KEY}",
-    "Content-Type": "application/json",
-}
+KEY = os.environ["SUPABASE_SERVICE_KEY"].strip()
+# Neue Schlüssel (sb_secret_…) sind keine JWTs und gehören nur in den apikey-Header;
+# alte service_role-Schlüssel (eyJ…) zusätzlich als Bearer-Token
+HEADERS = {"apikey": KEY, "Content-Type": "application/json"}
+if not KEY.startswith("sb_"):
+    HEADERS["Authorization"] = f"Bearer {KEY}"
 
 
 def select(table, params):

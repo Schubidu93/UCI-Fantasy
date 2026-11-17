@@ -4,13 +4,16 @@
   "type": "module",
   "description": "Automatische Tests der Spiellogik (Datenbank) für UCI Fantasy. Die App selbst liegt in web/, der Datenabruf in datasync/.",
   "scripts": {
+    "lint": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/pg": "^8.15.0",
     "pg": "^8.16.0",
     "playwright": "^1.56.1",
     "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
     "vitest": "^5.0.5"
   }
 }

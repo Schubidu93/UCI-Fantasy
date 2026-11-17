@@ -27,11 +27,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Python-Pakete für die Tests des Datenabrufs
-        run: pip install -q -r datasync/requirements.txt
+      - name: Python-Pakete für die Tests der Skripte (Push, Feedback, Datenabruf)
+        run: pip install -q requests
       - name: Browser für den Oberflächentest
         run: npx playwright install --with-deps chromium
+      - name: TypeScript prüfen
+        run: npm run lint
       - name: App-Dateien prüfen
-        run: for f in web/*.js web/views/*.js; do node --check "$f"; done
-      - name: Datenabruf, Spiellogik und Oberfläche testen
+        run: for f in web/*.js web/views/*.js web/views/admin/*.js web/sport/*.js; do node --check "$f"; done
+      - name: Skripte, Spiellogik und Oberfläche testen
         run: npm test

@@ -18,6 +18,7 @@ from py_vapid import Vapid
 from pywebpush import WebPushException, webpush
 
 import db
+from app_info import APP_EMOJI, APP_NAME
 
 CONTACT = "https://schubidu93.github.io"   # VAPID verlangt eine https-Adresse ohne Pfad (oder mailto:)
 
@@ -41,7 +42,7 @@ def queue_test():
     """Testnachricht an alle Nutzer mit eingeschalteten Benachrichtigungen vormerken."""
     users = sorted({s["user_id"] for s in db.select("push_subscriptions", {"select": "user_id"})})
     if users:
-        db.insert("notifications", [{"user_id": u, "title": "🚴 Test von UCI Fantasy",
+        db.insert("notifications", [{"user_id": u, "title": f"{APP_EMOJI} Test von {APP_NAME}",
                                      "body": "Benachrichtigungen funktionieren! Antippen öffnet die App.", "url": ""} for u in users])
     print(f"Testnachricht für {len(users)} Nutzer vorgemerkt.")
 
