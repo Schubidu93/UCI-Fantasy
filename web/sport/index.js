@@ -18,6 +18,8 @@ export const SPORT = {
   pointsRpc: 'rider_points',
   // Texte
   dataLine: 'Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.',
+  matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage
+  fallbackBasis: 'UCI-Ranglistenpunkte', fallbackShort: 'Rangl.',   // Draft-Report ohne Vorjahrespunkte
   resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
 };
 /** Schlüssel einer Person (Athlet bzw. Fahrer) */
@@ -41,3 +43,21 @@ export function usePeopleFilter(c, list) {
       <select value=${nation} onChange=${(e) => setNation(e.target.value)}><option value="">Alle Nationen</option>${nations.map((x) => html`<option value=${x}>${withFlag(x)}</option>`)}</select>`;
   return [ui, (r) => (!team || normName(team).split(' ').every((w) => normName(r.team || '').includes(w))) && (!nation || r.nation === nation)];
 }
+
+// Bezeichnung eines gewerteten Ergebnisses: Etappe, Gesamt-, Berg-, Punktewertung …
+const LABELS = [
+  [/^Final Classification · General Classification$/, 'Gesamtwertung'],
+  [/^Final Classification$/, 'Ergebnis'],
+  [/^Final Classification · /, ''],
+  [/^Stage (\d+) · Stage Classification$/, 'Etappe $1'],
+  [/^Stage (\d+) · Stage General Classification$/, 'Etappe $1 · Gesamtführung'],
+  [/^Prologue · Stage Classification$/, 'Prolog'],
+  [/^Prologue · Stage General Classification$/, 'Prolog · Gesamtführung'],
+  [/General Classification/g, 'Gesamtwertung'], [/Mountains? Classification/g, 'Bergwertung'],
+  [/Points Classification/g, 'Punktewertung'], [/Young Riders? Classification/g, 'Nachwuchswertung'],
+  [/^Stage (\d+)/, 'Etappe $1'], [/^Prologue/, 'Prolog'],
+];
+export const labelText = (l) => {
+  if (!l || l === 'result') return 'Ergebnis';
+  return LABELS.reduce((t, [re, rep]) => t.replace(re, rep), l);
+};

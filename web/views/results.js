@@ -1,26 +1,9 @@
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts } from '../lib.js';
-import { fmtUntil } from '../lib.js';
+import { rpc, useLoad, Loading, fmtDate, fmtDateTime, fmtPts, fmtUntil } from '../lib.js';
+import { SPORT, labelText } from '../sport/index.js';
 import { NextDeadline, windowStart } from './deadline.js';
 
 const MD_STATUS = (md) => (md.frozen ? 'eingefroren' : md.status === 'closed' ? 'abgeschlossen (Korrekturen 7 Tage)' : md.status === 'running' ? 'läuft' : 'geplant');
-
-const LABELS = [
-  [/^Final Classification · General Classification$/, 'Gesamtwertung'],
-  [/^Final Classification$/, 'Ergebnis'],
-  [/^Final Classification · /, ''],
-  [/^Stage (\d+) · Stage Classification$/, 'Etappe $1'],
-  [/^Stage (\d+) · Stage General Classification$/, 'Etappe $1 · Gesamtführung'],
-  [/^Prologue · Stage Classification$/, 'Prolog'],
-  [/^Prologue · Stage General Classification$/, 'Prolog · Gesamtführung'],
-  [/General Classification/g, 'Gesamtwertung'], [/Mountains? Classification/g, 'Bergwertung'],
-  [/Points Classification/g, 'Punktewertung'], [/Young Riders? Classification/g, 'Nachwuchswertung'],
-  [/^Stage (\d+)/, 'Etappe $1'], [/^Prologue/, 'Prolog'],
-];
-export const labelText = (l) => {
-  if (!l || l === 'result') return 'Ergebnis';
-  return LABELS.reduce((t, [re, rep]) => t.replace(re, rep), l);
-};
 
 export function Results({ c }) {
   const started = c.matchdays.filter((m) => m.status !== 'planned' || m.starts_on <= new Date().toISOString().slice(0, 10));
@@ -68,7 +51,7 @@ export function Results({ c }) {
 function Schedule({ c, current }) {
   const today = new Date().toISOString().slice(0, 10);
   if (!c.matchdays.length) return html`<section class="card"><h3>Spielplan</h3>
-    <p class="muted small">${c.isAdmin ? 'Lege die Spieltage unter Mehr → Admin an (z. B. Klassiker, Giro, Tour, Vuelta).' : 'Der Admin hat noch keine Spieltage festgelegt.'}</p></section>`;
+    <p class="muted small">${c.isAdmin ? `Lege die Spieltage unter Mehr → Admin an (z. B. ${SPORT.matchdayExamples}).` : 'Der Admin hat noch keine Spieltage festgelegt.'}</p></section>`;
   const next = c.matchdays.find((m) => m.ends_on >= today);
   const tag = (m) => m.frozen ? html`<span class="tag">eingefroren</span>`
     : m.status === 'closed' ? html`<span class="tag">abgeschlossen</span>`
@@ -88,11 +71,11 @@ function Schedule({ c, current }) {
 
 function TeamDetail({ c, rows, details }) {
   if (!rows.length) return html`<p class="muted small">Keine Punkte in diesem Spieltag.</p>`;
-  return html`<div class="detail">${rows.sort((a, b) => b.points - a.points).map((r) => html`<div key=${r.rider_slug} class="detail-rider">
-    <div class="row between"><strong>${c.riderMap[r.rider_slug]?.name || r.rider_slug}</strong>
+  return html`<div class="detail">${rows.sort((a, b) => b.points - a.points).map((r) => html`<div key=${r[SPORT.fk]} class="detail-rider">
+    <div class="row between"><strong>${c.riderMap[r[SPORT.fk]]?.name || r[SPORT.fk]}</strong>
       <span>${fmtPts(r.points)}${r.overridden ? html` <span class="tag warn" title="vom Admin korrigiert">korrigiert</span>` : ''}</span></div>
-    <ul class="list compact">${details.filter((d) => d.rider_slug === r.rider_slug).map((d) => html`<li>
-      <span>${d.race_name || d.race_slug} – ${labelText(d.label)}</span>
+    <ul class="list compact">${details.filter((d) => d[SPORT.fk] === r[SPORT.fk]).map((d) => html`<li>
+      <span>${d.race_name || d[SPORT.comp]} – ${labelText(d.label)}</span>
       <span class="muted">${fmtDate(d.result_date)} · ${fmtPts(d.points)}</span></li>`)}</ul>
   </div>`)}</div>`;
 }

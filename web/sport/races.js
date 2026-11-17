@@ -1,7 +1,7 @@
 // Rennen der Saison mit Ergebnislisten (Rang, Fahrer, Team, Zeit, UCI-Punkte)
 import { html, useState, useMemo } from '../vendor/preact-htm.js';
 import { sb, q, all, useLoad, Loading, fmtDate, fmtPts, openRider, normName, flag, withFlag, nationCode } from '../lib.js';
-import { labelText } from '../views/results.js';
+import { labelText } from './index.js';
 
 // Standard: WorldTour (Männer/Frauen), WM, EM
 const WT = ['1.UWT', '2.UWT', '1.WWT', '2.WWT'];
