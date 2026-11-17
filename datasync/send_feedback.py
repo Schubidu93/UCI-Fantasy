@@ -16,6 +16,7 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 import db
+from app_info import APP_NAME
 
 HOST = os.environ.get("SMTP_HOST", "").strip()
 PORT = int(os.environ.get("SMTP_PORT") or 465)
@@ -35,8 +36,8 @@ def to_bytes(value):
 def build(fb, images):
     msg = EmailMessage()
     who = fb.get("team_name") or fb.get("user_email") or "Unbekannt"
-    msg["Subject"] = f"UCI Fantasy Feedback von {who}"
-    msg["From"] = formataddr(("UCI Fantasy", USER))
+    msg["Subject"] = f"{APP_NAME} Feedback von {who}"
+    msg["From"] = formataddr((APP_NAME, USER))
     msg["To"] = TO
     if fb.get("user_email"):
         msg["Reply-To"] = fb["user_email"]

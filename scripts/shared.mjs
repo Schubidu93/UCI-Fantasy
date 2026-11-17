@@ -7,7 +7,9 @@ import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/views', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql/_tap.sql',
+const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/vendor', 'datasync/db.py', 'datasync/send_push.py',
+  'datasync/send_feedback.py', 'tests/datasync/helpers.py', 'tests/datasync/test_common.py', 'tests/datasync.test.ts', 'tsconfig.json',
+  '.github/workflows/ci.yml', 'web/views', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql/_tap.sql',
   'tests/sql.test.ts', 'tests/shared.test.ts', 'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'scripts/shared.mjs'];
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 export const sharedFiles = () => GLOBS.flatMap((g) => walk(join(ROOT, g))).map((f) => relative(ROOT, f)).sort();

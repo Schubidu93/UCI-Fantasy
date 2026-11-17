@@ -35,6 +35,8 @@
   `tests/shared.test.ts` scheitert, wenn eine davon nur in einer App geändert wurde: Änderung in die andere App kopieren und in beiden
   `node scripts/shared.mjs update` ausführen. `web/lib.js` und `web/style.css` sind gemeinsam; Leichtathletik-Helfer stehen in `web/sport/lib.js`, Farben und
   sportartspezifische Gestaltung in `web/sport/style.css`.
+  Gemeinsam sind auch `datasync/db.py`, `send_push.py`, `send_feedback.py` (App-Name aus `datasync/app_info.py`), `web/vendor/`,
+  `tsconfig.json` und der Testablauf `ci.yml`; ihre Tests stehen in `tests/datasync/test_common.py`.
 - Tests: `tests/sql/NN_*.sql` (Spiellogik, in beiden Apps gleich), `tests/*.test.ts`, Oberflächentest `tests/ui/smoke.test.ts`
   (öffnet alle Seiten in der iPhone-Ansicht und scheitert bei jedem Fehler; beide Apps gleich).
 
@@ -49,8 +51,8 @@
 
 ## Lokal testen
 
-- Syntax: `node --check web/views/<datei>.js`, `python3 -c "import ast; ast.parse(open('datasync/<datei>.py').read())"`.
-- Datenabruf: `tests/datasync/test_*.py` (unittest, ohne Netz: DataRide und Wettkampfverzeichnis nachgebildet, `FakeDb` statt `db.py`),
+- Syntax: `node --check web/views/<datei>.js`; TypeScript: `npm run lint`.
+- Datenabruf: `tests/datasync/test_*.py` (unittest, ohne Netz: DataRide und Wettkampfverzeichnis nachgebildet, `FakeDb` statt `db.py`; auch Push und Feedback),
   laufen in `npm test` mit (`tests/datasync.test.ts`) oder einzeln: `python3 -m unittest discover -s tests/datasync -t tests/datasync`.
 - `npm test`: Spiellogik gegen echtes PostgreSQL 16 und Oberflächentest (Playwright, Chromium) (`tests/`, Schema wird zweimal eingespielt = Wiederholbarkeit): Waiver
   (Rangfolge, FAAB), freie Phase, Tausch mit Push-Nachrichten. Lokal z. B. `initdb` + `pg_ctl` mit Socket in `/tmp/fa-pg`, Port 54329
