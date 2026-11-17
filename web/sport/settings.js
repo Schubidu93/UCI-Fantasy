@@ -15,9 +15,13 @@ export const adjustSettings = (f, k, v) => ({ ...f, [k]: v,
   ...(k === 'draft_mode' && v === 'snake' && +f.bid_seconds === 15 ? { bid_seconds: 60 } : {}),
   ...(k === 'draft_mode' && v === 'blind' && +f.bid_seconds === 15 ? { bid_seconds: 20 } : {}) });
 
-/** Zusätzliche Werte für create_league / update_league_settings */
-export const settingsPayload = (f) => ({
-  lineup_size: f.scoring_mode === 'lineup' ? +f.lineup_size : null, max_per_team: f.max_per_team ? +f.max_per_team : null,
+/** Formularwerte aus der gespeicherten Liga (Admin → Einstellungen) */
+export const settingsInit = (l) => ({ ...l, max_per_team: l.max_per_team ?? '', lineup_size: l.lineup_size ?? Math.min(9, l.roster_size) });
+
+/** Zusätzliche Werte für create_league / update_league_settings (wertende Fahrer immer, Profiteam-Grenze nur vor dem Draft) */
+export const settingsPayload = (f, { locked = false } = {}) => ({
+  lineup_size: f.scoring_mode === 'lineup' ? +f.lineup_size : null,
+  ...(locked ? {} : { max_per_team: f.max_per_team ? +f.max_per_team : null }),
 });
 
 /** Felder zwischen „Anzahl Mitspieler“ und „Draft-Modus“: Kadergröße, Profiteam-Grenze, Wertung */

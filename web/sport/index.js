@@ -22,6 +22,7 @@ export const SPORT = {
   fallbackBasis: 'UCI-Ranglistenpunkte', fallbackShort: 'Rangl.',   // Draft-Report ohne Vorjahrespunkte
   rankingOption: 'nach UCI-Rangliste', rankingPhrase: 'nach UCI-Rangliste',   // Draft-Reihenfolge
   bestBy: 'nach UCI-Rang', orderLabel: 'UCI-Rangliste',   // Draft: automatische Wahl, Reihenfolge
+  csvNameHint: 'Fahrername wie in der UCI-Rangliste, z. B. „POGAČAR Tadej“', inPoolWord: 'im Ranking',   // Offline-Draft (CSV)
   resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
 };
 /** Schlüssel einer Person (Athlet bzw. Fahrer) */

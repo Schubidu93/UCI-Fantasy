@@ -9,7 +9,7 @@ import { TeamPoints } from './views/teampoints.js';
 import { Waiver } from './views/waiver.js';
 import { Results } from './views/results.js';
 import { Table } from './views/table.js';
-import { Admin } from './views/admin.js';
+import { Admin } from './views/admin/index.js';
 import { RiderModal } from './sport/rider.js';
 import { Rules } from './views/rules.js';
 import { More } from './views/more.js';
