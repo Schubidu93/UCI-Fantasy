@@ -20,6 +20,7 @@ export const SPORT = {
   dataLine: 'Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.',
   matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage
   fallbackBasis: 'UCI-Ranglistenpunkte', fallbackShort: 'Rangl.',   // Draft-Report ohne Vorjahrespunkte
+  rankingOption: 'nach UCI-Rangliste', rankingPhrase: 'nach UCI-Rangliste',   // Draft-Reihenfolge
   resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
 };
 /** Schlüssel einer Person (Athlet bzw. Fahrer) */
