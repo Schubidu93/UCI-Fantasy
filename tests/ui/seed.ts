@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { schemaSql } from "../db";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const ADMIN_URL = process.env.ADMIN_URL ?? "postgres://postgres@localhost:54329/postgres?host=/tmp/fa-pg";
@@ -21,7 +22,8 @@ u.pathname = `/${DB}`;
 const db = new pg.Client({ connectionString: u.toString() });
 await db.connect();
 await db.query("set client_min_messages = warning");
-for (const f of ["tests/supabase-stub.sql", "supabase/schema.sql"]) await db.query(readFileSync(join(ROOT, f), "utf8"));
+await db.query(readFileSync(join(ROOT, "tests/supabase-stub.sql"), "utf8"));
+await db.query(schemaSql());
 
 // Erfundene Fahrer: [Name, Nation, Team, UCI-Punkte]
 const RIDERS: [string, string, string, number][] = [

@@ -5,6 +5,8 @@
 ## Arbeitsregeln
 
 - Sprache der App und der Antworten: Deutsch. Die Nutzer sind keine Entwickler – kurz, verständlich, ohne Fachjargon antworten.
+- **Architektur:** stabil, nachhaltig, gut gegliedert, nach aktuellem Stand – nicht nur „läuft“. Jede Regel an genau einer Stelle,
+  keine doppelte Logik, Änderungen mit Tests absichern, beide Apps gleich aufgebaut (ausdrücklicher Wunsch des Nutzers).
 - **Beide Apps mitdenken:** Bei jeder Änderung prüfen, ob sie auch für Runner Fantasy (github.com/Schubidu93/FantasyAthletics) sinnvoll ist,
   und dem Nutzer dann kurz vorschlagen, sie dort zu übernehmen (ausdrücklicher Wunsch des Nutzers).
 - **Regeln mitziehen:** Bei jeder Änderung an Spielregeln, Wertung, Draft, Waiver, Tausch, Spieltagen,
@@ -12,7 +14,7 @@
   (Reiter „Regeln“) aktualisieren. Die Regeln sind dynamisch: Texte hängen von den Liga-Einstellungen ab
   (`scoring_mode`, `transfer_mode`, `waiver_mode`, `draft_mode`).
 - Der Draft-Report (Noten, „beste Aufstellung“) ist bewusst **nicht** in den Regeln beschrieben – Überraschung für die Mitspieler.
-- Datenbankänderungen nur über `supabase/schema.sql`, und zwar **idempotent** (`create or replace`, `add column if not exists`,
+- Datenbankänderungen nur über `supabase/schema/NN_*.sql` (nach Themen, Einspielen in Dateireihenfolge), und zwar **idempotent** (`create or replace`, `add column if not exists`,
   `drop function if exists` bei geänderter Signatur). Nach dem Merge spielt „Datenbank einrichten“ sie automatisch ein.
 - Spielregeln werden in der Datenbank erzwungen (security-definer-Funktionen), nicht in der App.
 - `web/config.js` ist nur für lokale Tests und darf nicht eingecheckt werden. Keine Secrets in Code oder Chat.
@@ -23,7 +25,7 @@
 
 1. Auf einem Arbeitszweig ändern, lokal prüfen (siehe unten).
 2. Pull Request auf `main` erstellen und mergen (Squash). Danach laufen automatisch:
-   „App veröffentlichen“ (GitHub Pages, wenige Minuten) und bei `schema.sql`-Änderungen „Datenbank einrichten“.
+   „App veröffentlichen“ (GitHub Pages, wenige Minuten) und bei Änderungen in `supabase/schema/` „Datenbank einrichten“.
 3. Live-Daten prüfen: Workflow „Datenbank abfragen (nur lesen)“ (`db-query.yml`) mit einer SQL-Abfrage starten,
    Ergebnis steht im Job-Log. Für einen Überblick: „Datenstand prüfen“ (`db-status.yml`).
 4. Dem Nutzer sagen, dass er die App neu laden soll (installierte App: ganz schließen und neu öffnen).
@@ -36,7 +38,7 @@
   (`TEST_DATABASE_URL` überschreibt). Läuft in GitHub Actions („Tests“) bei jedem Push und Pull Request.
   SQL-Tests in `tests/sql/NN_*.sql` (pgTAP-Schreibweise `is`/`ok`/`throws_ok`, kleiner Ersatz in `tests/sql/_tap.sql`, Beispieldaten
   `tests/sql/fixtures.sql`): Kader, Draft, Waiver, Tausch, Wertung/Einfrieren, Fristen, Berechtigungen – in beiden Apps gleich gehalten.
-- Datenbank: Schema in eine lokale Postgres-Instanz einspielen (`psql -v ON_ERROR_STOP=1 -f supabase/schema.sql`);
+- Datenbank: Schema in eine lokale Postgres-Instanz einspielen (`cat supabase/schema/*.sql | psql -v ON_ERROR_STOP=1`);
   für Supabase-Spezifika (`auth.uid()`, Schema `auth`) braucht es kleine Platzhalter.
 - Oberfläche: `npx tsx tests/ui/seed.ts` (Beispieldaten: Fahrer, Rennen mit Ergebnislisten, laufende Liga; gibt die Nutzer-ID von
   „alice“ aus) + `DATABASE_URL=… npx tsx tests/ui/mock-api.ts` (Supabase-Schnittstelle auf lokalem Postgres, RLS aktiv),
