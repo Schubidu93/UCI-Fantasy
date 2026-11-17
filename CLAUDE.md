@@ -38,8 +38,10 @@
   `tests/sql/fixtures.sql`): Kader, Draft, Waiver, Tausch, Wertung/Einfrieren, Fristen, Berechtigungen – in beiden Apps gleich gehalten.
 - Datenbank: Schema in eine lokale Postgres-Instanz einspielen (`psql -v ON_ERROR_STOP=1 -f supabase/schema.sql`);
   für Supabase-Spezifika (`auth.uid()`, Schema `auth`) braucht es kleine Platzhalter.
-- Oberfläche: `web/config.example.js` → `web/config.js`, statisch ausliefern (`python3 -m http.server -d web`) und mit
-  Playwright in der iPhone-Ansicht durchklicken. Die PostgREST-API lässt sich durch einen kleinen Mock ersetzen.
+- Oberfläche: `npx tsx tests/ui/seed.ts` (Beispieldaten: Fahrer, Rennen mit Ergebnislisten, laufende Liga; gibt die Nutzer-ID von
+  „alice“ aus) + `DATABASE_URL=… npx tsx tests/ui/mock-api.ts` (Supabase-Schnittstelle auf lokalem Postgres, RLS aktiv),
+  `web/config.js` mit `http://localhost:54321`, `python3 -m http.server -d web`, Playwright in iPhone-Ansicht
+  (Sitzung als `sb-localhost-auth-token` in localStorage). Wie in Runner Fantasy.
 - Achtung: Die echte API liefert max. **1000 Zeilen** pro Abfrage – große Abfragen seitenweise (`all()` / `rpcAll()` in `web/lib.js`).
 - Achtung: Bei Einbettungen (`leagues(...)`) den Fremdschlüssel nennen, sobald es mehrere Wege gibt
   (z. B. `leagues!managers_league_id_fkey(...)`).
