@@ -84,7 +84,7 @@ def replace_provisional(gender, cal, today):
         print(f"  {len(gone)} vorläufige Kalendereinträge durch DataRide ersetzt bzw. entfernt")
 
 
-def save_points(slug, race_name, events, rows, today):
+def save_points(slug, events, rows):
     """UCI-Punkte der geladenen Wertungen in die Fantasy-Wertung (Tabelle results) übernehmen.
     Ergebnisse dieses Rennens, die es im neu geladenen Zeitraum nicht mehr gibt (z. B. aberkannt),
     werden entfernt; eingefrorene Spieltage sind davon nicht betroffen (eigener Schnappschuss)."""
@@ -113,50 +113,7 @@ def save_points(slug, race_name, events, rows, today):
         db.delete("results", {"id": f"in.({','.join(map(str, stale[i:i + 200]))})"})
     if points:
         db.upsert("results", list(points.values()), "rider_slug,race_slug,label")
-    # Benachrichtigung nur für wirklich neue Punkte der letzten 10 Tage
-    seen = {(r["rider_slug"], r["result_date"], float(r["uci_points"])) for r in existing}
-    recent = (today - timedelta(days=10)).isoformat()
-    fresh = [r for r in points.values() if r["result_date"] >= recent
-             and (r["rider_slug"], r["result_date"], r["uci_points"]) not in seen]
-    if fresh:
-        try:
-            notify_points(fresh, race_name)
-        except Exception as e:     # Benachrichtigungen dürfen das Laden nie stoppen
-            print(f"  Benachrichtigungen übersprungen: {e}")
-
-
-def notify_points(fresh, race_name):
-    """Neue Punkte an die Besitzer der Fahrer melden (eine Nachricht pro Nutzer und Liga)."""
-    import db
-    slugs = sorted({r["rider_slug"] for r in fresh})
-    owners = db.select("roster_entries", {"select": "league_id,manager_id,rider_slug",
-                                          "rider_slug": f"in.({','.join(slugs)})", "released_on": "is.null"})
-    if not owners:
-        return
-    managers = {m["id"]: m for m in db.select("managers", {
-        "select": "id,user_id", "id": f"in.({','.join(sorted({o['manager_id'] for o in owners}))})"})}
-    users = sorted({m["user_id"] for m in managers.values() if m.get("user_id")})
-    if not users:
-        return
-    subscribed = {s["user_id"] for s in db.select("push_subscriptions", {"select": "user_id", "user_id": f"in.({','.join(users)})"})}
-    names = {r["pcs_slug"]: r["name"] for r in db.select("riders", {"select": "pcs_slug,name", "pcs_slug": f"in.({','.join(slugs)})"})}
-    msgs = defaultdict(list)          # (Nutzer, Liga) → Ergebnisse
-    for o in owners:
-        user = managers.get(o["manager_id"], {}).get("user_id")
-        if user in subscribed:
-            msgs[(user, o["league_id"])] += [r for r in fresh if r["rider_slug"] == o["rider_slug"]]
-    out = []
-    for (user, league), rows in msgs.items():
-        total = sum(r["uci_points"] for r in rows)
-        top = sorted(rows, key=lambda r: -r["uci_points"])[:3]
-        body = ", ".join(f"{names.get(r['rider_slug'], r['rider_slug']).split(' ')[0].title()} +{r['uci_points']:g}" for r in top)
-        if len(rows) > 3:
-            body += f" und {len(rows) - 3} weitere"
-        out.append({"user_id": user, "title": f"🏆 +{total:g} UCI-Punkte · {race_name}", "body": body,
-                    "url": f"#/league/{league}/team"})
-    if out:
-        db.insert("notifications", out)
-        print(f"  {len(out)} Punkte-Benachrichtigungen vorgemerkt.")
+    # Push „Neue Punkte“ verschickt die Datenbank (notify_new_points in run_maintenance) – hier nicht noch einmal
 
 
 # Vollständige Ergebnislisten (statt Top 25 + Plätze mit Punkten) für die wichtigsten Rennen –
@@ -346,7 +303,7 @@ def main():
                 # gleiche Sortierposition zweimal (sollte nicht vorkommen) → letzte gewinnt
                 uniq = list({(r["event_id"], r["sort_order"]): r for r in results}.values())
                 db.upsert("event_results", uniq, "event_id,sort_order")
-                save_points(slug, race_row["name"], events, uniq, today)
+                save_points(slug, events, uniq)
             db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
     errors = []
