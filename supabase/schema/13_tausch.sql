@@ -21,10 +21,10 @@ begin
   if (select count(distinct x) from unnest(p_drop) x) <> p_needed or p_drop && p_trade_riders then
     raise exception 'Zu entlassende Fahrer dürfen nicht Teil des Tauschs sein.';
   end if;
-  if (select count(*) from roster_entries where manager_id = p_manager and released_on is null and rider_slug = any (p_drop)) <> p_needed then
+  if (select count(*) from roster_entries where manager_id = p_manager and released_on is null and athlete_id = any (p_drop)) <> p_needed then
     raise exception 'Zu entlassende Fahrer müssen im eigenen Kader stehen.';
   end if;
-  if exists (select 1 from waiver_claims where manager_id = p_manager and status = 'pending' and drop_rider = any (p_drop)) then
+  if exists (select 1 from waiver_claims where manager_id = p_manager and status = 'pending' and drop_athlete = any (p_drop)) then
     raise exception 'Ein Fahrer ist schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen.';
   end if;
 end $$;
@@ -40,13 +40,13 @@ begin
     raise exception 'Ungültiger Tauschpartner.';
   end if;
   if n_give = 0 or n_take = 0 then raise exception 'Beide Seiten müssen mindestens einen Fahrer abgeben.'; end if;
-  if (select count(*) from roster_entries where manager_id = v_me and released_on is null and rider_slug = any (p_give)) <> n_give
-     or (select count(*) from roster_entries where manager_id = p_to and released_on is null and rider_slug = any (p_take)) <> n_take then
+  if (select count(*) from roster_entries where manager_id = v_me and released_on is null and athlete_id = any (p_give)) <> n_give
+     or (select count(*) from roster_entries where manager_id = p_to and released_on is null and athlete_id = any (p_take)) <> n_take then
     raise exception 'Die Fahrer müssen in den jeweiligen Kadern stehen.';
   end if;
   -- bekomme ich mehr Fahrer als ich abgebe, entlasse ich die Differenz
   perform _check_trade_drops(v_me, coalesce(p_drop, '{}'), p_give, greatest(n_take - n_give - _open_roster_slots(v_me), 0));
-  insert into trades (league_id, from_manager, to_manager, give_riders, take_riders, from_drop)
+  insert into trades (league_id, from_manager, to_manager, give_athletes, take_athletes, from_drop)
   values (p_league, v_me, p_to, p_give, p_take, coalesce(p_drop, '{}')) returning id into v;
   perform _notify(p_to, '🔁 Neues Tauschangebot',
     (select team_name from managers where id = v_me) || ' bietet ' ||
@@ -66,8 +66,8 @@ begin
   if t.to_manager <> my_manager(t.league_id) then raise exception 'Dieses Angebot ist nicht an dich.'; end if;
   if p_accept then
     -- bekomme ich mehr Fahrer als ich abgebe, entlasse ich die Differenz
-    perform _check_trade_drops(t.to_manager, coalesce(p_drop, '{}'), t.take_riders,
-      greatest(array_length(t.give_riders, 1) - array_length(t.take_riders, 1) - _open_roster_slots(t.to_manager), 0));
+    perform _check_trade_drops(t.to_manager, coalesce(p_drop, '{}'), t.take_athletes,
+      greatest(array_length(t.give_athletes, 1) - array_length(t.take_athletes, 1) - _open_roster_slots(t.to_manager), 0));
   end if;
   update trades set status = case when p_accept then 'accepted' else 'declined' end,
                     accepted_at = case when p_accept then now() end,
@@ -121,9 +121,9 @@ begin
   for t in select * from trades where league_id = md.league_id and status = 'accepted'
                                   and accepted_at + interval '24 hours' <= md.deadline order by accepted_at loop
     if (select count(*) from roster_entries where manager_id = t.from_manager and released_on is null
-          and rider_slug = any (t.give_riders || t.from_drop)) <> coalesce(array_length(t.give_riders || t.from_drop, 1), 0)
+          and athlete_id = any (t.give_athletes || t.from_drop)) <> coalesce(array_length(t.give_athletes || t.from_drop, 1), 0)
        or (select count(*) from roster_entries where manager_id = t.to_manager and released_on is null
-          and rider_slug = any (t.take_riders || t.to_drop)) <> coalesce(array_length(t.take_riders || t.to_drop, 1), 0) then
+          and athlete_id = any (t.take_athletes || t.to_drop)) <> coalesce(array_length(t.take_athletes || t.to_drop, 1), 0) then
       update trades set status = 'failed', note = 'Fahrer nicht mehr im Kader', done_at = now() where id = t.id;
       perform _notify(m.id, '⚠️ Tausch geplatzt', 'Der Tausch zwischen '
           || (select team_name from managers where id = t.from_manager) || ' und '
@@ -135,18 +135,18 @@ begin
     -- zusätzlich entlassene Fahrer werden frei
     foreach r in array t.from_drop loop perform _release(md.league_id, t.from_manager, r, md.starts_on); end loop;
     foreach r in array t.to_drop loop perform _release(md.league_id, t.to_manager, r, md.starts_on); end loop;
-    foreach r in array t.give_riders loop
+    foreach r in array t.give_athletes loop
       perform _release(md.league_id, t.from_manager, r, md.starts_on);
-      insert into roster_entries (league_id, manager_id, rider_slug, source, acquired_on) values (md.league_id, t.to_manager, r, 'trade', md.starts_on);
+      insert into roster_entries (league_id, manager_id, athlete_id, source, acquired_on) values (md.league_id, t.to_manager, r, 'trade', md.starts_on);
     end loop;
-    foreach r in array t.take_riders loop
+    foreach r in array t.take_athletes loop
       perform _release(md.league_id, t.to_manager, r, md.starts_on);
-      insert into roster_entries (league_id, manager_id, rider_slug, source, acquired_on) values (md.league_id, t.from_manager, r, 'trade', md.starts_on);
+      insert into roster_entries (league_id, manager_id, athlete_id, source, acquired_on) values (md.league_id, t.from_manager, r, 'trade', md.starts_on);
     end loop;
     update trades set status = 'done', done_at = now() where id = t.id;
-    perform _notify(t.from_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_riders) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_riders) x),
+    perform _notify(t.from_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_athletes) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_athletes) x),
       '#/league/' || md.league_id || '/team');
-    perform _notify(t.to_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_riders) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_riders) x),
+    perform _notify(t.to_manager, '✅ Tausch ausgeführt', 'Neu im Kader: ' || (select string_agg(_rname(x), ', ') from unnest(t.give_athletes) x) || ' · abgegeben: ' || (select string_agg(_rname(x), ', ') from unnest(t.take_athletes) x),
       '#/league/' || md.league_id || '/team');
   end loop;
 end $$;

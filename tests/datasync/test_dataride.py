@@ -5,7 +5,7 @@ from datetime import date
 import helpers  # noqa: F401  (Pfad zu datasync/)
 from helpers import ms
 import dataride
-from dataride import DataRide, ms_date, normalize_name, race_slug, rider_slug, slugify
+from dataride import DataRide, ms_date, normalize_name, competition_id, athlete_id, slugify
 
 
 class FakeRide(DataRide):
@@ -34,15 +34,15 @@ class Dates(unittest.TestCase):
 
 class Names(unittest.TestCase):
     def test_slugs(self):
-        self.assertEqual(rider_slug(12345), "uci-12345")
+        self.assertEqual(athlete_id(12345), "uci-12345")
         self.assertEqual(slugify("Tour de France"), "tour-de-france")
         self.assertEqual(slugify("Ronde van Vlaanderen – Tour des Flandres"), "ronde-van-vlaanderen-tour-des-flandres")
         # Gedankenstrich ohne Leerzeichen verbindet die Wörter – so stehen die IDs in der Datenbank, nicht ändern
         self.assertEqual(slugify("Gent–Wevelgem / In Flanders Fields"), "gentwevelgem-in-flanders-fields")
 
     def test_race_slug_frauen_eigene_id(self):
-        self.assertEqual(race_slug("UCI Road World Championships", 2026, "men"), "uci-road-world-championships/2026")
-        self.assertEqual(race_slug("UCI Road World Championships", 2026, "women"), "uci-road-world-championships/2026/w")
+        self.assertEqual(competition_id("UCI Road World Championships", 2026, "men"), "uci-road-world-championships/2026")
+        self.assertEqual(competition_id("UCI Road World Championships", 2026, "women"), "uci-road-world-championships/2026/w")
 
     def test_normalize_name(self):
         self.assertEqual(normalize_name("POGAČAR Tadej"), "pogacar tadej")

@@ -31,16 +31,16 @@ class ImportRiders(unittest.TestCase):
                 mock.patch.object(import_riders, "GENDERS", ["men"]), mock.patch.object(import_riders, "DRY_RUN", False), \
                 mock.patch("builtins.print"):
             import_riders.main()
-        (_, _, rows, key), = db.of("upsert", "riders")
-        self.assertEqual(key, "pcs_slug")
-        self.assertEqual([r["pcs_slug"] for r in rows], ["uci-1", "uci-2"])
+        (_, _, rows, key), = db.of("upsert", "athletes")
+        self.assertEqual(key, "id")
+        self.assertEqual([r["id"] for r in rows], ["uci-1", "uci-2"])
         first, second = rows
-        self.assertEqual((first["name"], first["nation"], first["birth_date"], first["uci_rank"]),
+        self.assertEqual((first["name"], first["nation"], first["birth_date"], first["pool_rank"]),
                          ("POGAČAR Tadej", "Slovenia", "1998-09-26", 1))
         self.assertEqual((second["nation"], second["team"], second["birth_date"]), (None, None, None))
-        (_, _, filters, values), = db.of("update", "riders")
+        (_, _, filters, values), = db.of("update", "athletes")
         self.assertEqual((filters["gender"], filters["updated_at"], values),
-                         ("eq.men", f"lt.{first['updated_at']}", {"uci_rank": None}))
+                         ("eq.men", f"lt.{first['updated_at']}", {"pool_rank": None}))
         self.assertEqual([c[1] for c in db.of("rpc")], ["relink_event_riders", "results_from_events"])
 
 

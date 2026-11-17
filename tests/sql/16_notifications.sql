@@ -16,13 +16,13 @@ select throws_ok($$select save_push_subscription('x', 'k', 'a')$$, 'P0001', 'Bit
 insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('e1', user_id(1), 'k', 'a'), ('e2', user_id(2), 'k', 'a');
 insert into matchdays (id, league_id, name, starts_on, ends_on, deadline, status, waivers_done, locked)
 values (matchday(), league(), 'Läuft', current_date - 2, current_date + 5, now() - interval '3 days', 'running', true, true);
-insert into results (rider_slug, race_slug, label, result_date, uci_points) values (rider(1), 'r', 'Etappe 1', current_date - 1, 25);
+insert into results (athlete_id, competition_id, label, result_date, points) values (rider(1), 'r', 'Etappe 1', current_date - 1, 25);
 select is(notify_new_points(), 1, 'Eine Nachricht für den Manager mit neuen Punkten');
 select ok(exists (select 1 from notifications where user_id = user_id(1) and title = '📈 Neue Punkte' and body like '%+25%'), 'Nachricht nennt die Punkte');
 select is(notify_new_points(), 0, 'Dieselben Punkte werden nicht erneut gemeldet');
-insert into results (rider_slug, race_slug, label, result_date, uci_points) values (rider(1), 'r', 'Etappe 2', current_date, 5), (rider(3), 'r', 'Etappe 2', current_date, 7);
+insert into results (athlete_id, competition_id, label, result_date, points) values (rider(1), 'r', 'Etappe 2', current_date, 5), (rider(3), 'r', 'Etappe 2', current_date, 7);
 select is(notify_new_points(), 2, 'Neue Ergebnisse: je Manager eine Nachricht');
-insert into results (rider_slug, race_slug, label, result_date, uci_points) values (rider(2), 'alt', 'x', current_date - 30, 50);
+insert into results (athlete_id, competition_id, label, result_date, points) values (rider(2), 'alt', 'x', current_date - 30, 50);
 select is(notify_new_points(), 0, 'Alte Ergebnisse (außerhalb des Spieltags) lösen nichts aus');
 -- Wochen-Zusammenfassung
 delete from notifications;

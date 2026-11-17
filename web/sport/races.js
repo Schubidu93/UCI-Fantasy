@@ -5,16 +5,16 @@ import { labelText, rank } from './index.js';
 
 // Standard: WorldTour (Männer/Frauen), WM, EM
 const WT = ['1.UWT', '2.UWT', '1.WWT', '2.WWT'];
-const isChampionship = (r) => r.uci_class === 'CM' || (r.uci_class === 'CC' && /europ/i.test(r.name));
-const isDefault = (r) => WT.includes(r.uci_class) || isChampionship(r);
+const isChampionship = (r) => r.category === 'CM' || (r.category === 'CC' && /europ/i.test(r.name));
+const isDefault = (r) => WT.includes(r.category) || isChampionship(r);
 
 const CLASS_GROUPS = [
   ['top', 'WorldTour + WM + EM'], ['wt', 'nur WorldTour'], ['champ', 'Meisterschaften'],
   ['pro', 'ProSeries (.Pro)'], ['1', 'Klasse .1'], ['2', 'Klasse .2'], ['all', 'Alle Rennen'],
 ];
-const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g === 'wt' ? WT.includes(r.uci_class)
-  : g === 'champ' ? ['CM', 'CC', 'NC'].includes(r.uci_class) || /champ/i.test(r.name)
-  : g === 'pro' ? /\.Pro$/i.test(r.uci_class || '') : (r.uci_class || '').endsWith('.' + g);
+const matchClass = (r, g) => g === 'all' ? true : g === 'top' ? isDefault(r) : g === 'wt' ? WT.includes(r.category)
+  : g === 'champ' ? ['CM', 'CC', 'NC'].includes(r.category) || /champ/i.test(r.name)
+  : g === 'pro' ? /\.Pro$/i.test(r.category || '') : (r.category || '').endsWith('.' + g);
 
 // Rennklassen mit vollständigen Ergebnislisten (siehe datasync/race_results.py)
 const FULL = ['1.UWT', '2.UWT', '1.WWT', '2.WWT', '1.Pro', '2.Pro', 'CM'];
@@ -29,7 +29,7 @@ const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 
 
 export function Races({ c, sub, sub2 }) {
   // Ergebnisse gibt es ab der Saison 2025
-  const races = useLoad(() => all(() => sb.from('races').select('pcs_slug,name,uci_class,country,start_date,end_date,provisional')
+  const races = useLoad(() => all(() => sb.from('competitions').select('id,name,category,country,start_date,end_date,provisional')
     .eq('gender', c.league.gender).or('dataride_id.not.is.null,provisional.is.true')
     .gte('start_date', '2025-01-01').order('start_date', { ascending: false })), [c.league.gender]);
   if (sub) return html`<${RaceDetail} key=${sub + (sub2 || '')} c=${c} slug=${decodeURIComponent(sub)} initialEvent=${sub2 ? +sub2 : null} />`;
@@ -95,22 +95,22 @@ function RaceList({ c, races }) {
         ${matchdays.map((m) => html`<option value=${m.id}>${m.name} (${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)})</option>`)}</select>`}
     </div>
     ${races.length === 0 ? html`<p class="muted">Noch keine Rennen geladen – der Abruf läuft täglich um 20 Uhr.</p>` : html`
-    <ul class="list race-list">${list.map((r) => html`<li key=${r.pcs_slug} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
-      <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.pcs_slug)}`}>
+    <ul class="list race-list">${list.map((r) => html`<li key=${r.id} class=${r.start_date <= today && (r.end_date || r.start_date) >= today ? 'live' : ''}>
+      <a class="race-link" href=${`#/league/${c.league.id}/races/${encodeURIComponent(r.id)}`}>
         <strong>${r.name}</strong>
         <span class="muted small">${fmtDate(r.start_date)}${r.end_date && r.end_date !== r.start_date ? ` – ${fmtDate(r.end_date)}` : ''}${r.country ? ` · ${withFlag(r.country)}` : ''}</span>
       </a>
-      <span class="race-tags">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}${r.provisional ? html`<span class="tag warn" title="Termin aus dem UCI-Wettkampfverzeichnis – wird ersetzt, sobald die UCI das Rennen in DataRide einträgt">vorläufig</span>` : ''}<span class="tag">${r.uci_class}</span></span></li>`)}</ul>`}
+      <span class="race-tags">${r.start_date <= today && (r.end_date || r.start_date) >= today ? html`<span class="tag ok">läuft</span>` : ''}${r.provisional ? html`<span class="tag warn" title="Termin aus dem UCI-Wettkampfverzeichnis – wird ersetzt, sobald die UCI das Rennen in DataRide einträgt">vorläufig</span>` : ''}<span class="tag">${r.category}</span></span></li>`)}</ul>`}
   </section>`;
 }
 
 function RaceDetail({ c, slug, initialEvent }) {
   const data = useLoad(async () => {
-    const [race] = await q(sb.from('races').select('*').eq('pcs_slug', slug));
-    const events = await q(sb.from('race_events').select('*').eq('race_slug', slug).order('stage_no').order('id'));
+    const [race] = await q(sb.from('competitions').select('*').eq('id', slug));
+    const events = await q(sb.from('race_events').select('*').eq('competition_id', slug).order('stage_no').order('id'));
     // Rennen ohne Elite-Ergebnisliste (z. B. U23): nur die UCI-Punkte, die Elite-Fahrer dort geholt haben
-    const points = events.length ? [] : await q(sb.from('results').select('rider_slug,label,result_date,rank,uci_points')
-      .eq('race_slug', slug).order('uci_points', { ascending: false }).limit(300));
+    const points = events.length ? [] : await q(sb.from('results').select('athlete_id,label,result_date,rank,points')
+      .eq('competition_id', slug).order('points', { ascending: false }).limit(300));
     return { race, events, points };
   }, [slug]);
   const [eventId, setEventId] = useState(initialEvent);
@@ -130,12 +130,12 @@ function RaceDetail({ c, slug, initialEvent }) {
   const current = events.find((e) => e.id === eventId) || (stages.length ? preferred(stages[stages.length - 1]) : null);
   const stageEvents = current ? stages.find((s) => s.events.includes(current)).events : [];
   // Eintagesrennen haben kein GC – dort heißt die Wertung „Ergebnis“
-  const label = (n) => (/^1\./.test(race?.uci_class || '') && eventLabel(n) === 'GC' ? 'Ergebnis' : eventLabel(n));
+  const label = (n) => (/^1\./.test(race?.category || '') && eventLabel(n) === 'GC' ? 'Ergebnis' : eventLabel(n));
 
   return html`<div class="stack">
     <a href=${`#/league/${c.league.id}/races`} class="muted small-link">← Alle Rennen</a>
     <section class="card">
-      <div class="row between"><h2>${race?.name}</h2><span class="tag">${race?.uci_class}</span></div>
+      <div class="row between"><h2>${race?.name}</h2><span class="tag">${race?.category}</span></div>
       <p class="muted small">${fmtDate(race?.start_date)}${race?.end_date !== race?.start_date ? ` – ${fmtDate(race?.end_date)}` : ''}${race?.country ? ` · ${withFlag(race.country)}` : ''}</p>
       ${stages.length > 1 && html`<label class="inline">Etappe
         <select value=${current ? stages.findIndex((s) => s.events.includes(current)) : 0}
@@ -150,8 +150,8 @@ function RaceDetail({ c, slug, initialEvent }) {
           <p class="muted small">Für dieses Rennen führt die UCI keine Elite-Ergebnisliste (z. B. U23-Rennen). Hier die UCI-Punkte, die Fahrer dort für die Weltrangliste geholt haben:</p>
           <table class="tbl"><thead><tr><th class="num">Platz</th><th>Fahrer</th><th class="hide-sm">Wertung</th><th class="num">Pkt.</th></tr></thead>
           <tbody>${points.map((p, i) => html`<tr key=${i}><td class="num">${p.rank || ''}</td>
-            <td><button class="linkish" onClick=${() => openRider(p.rider_slug)}>${c.riderMap[p.rider_slug]?.name || p.rider_slug}</button></td>
-            <td class="small hide-sm">${labelText(p.label)}</td><td class="num"><strong>${fmtPts(p.uci_points)}</strong></td></tr>`)}</tbody></table>
+            <td><button class="linkish" onClick=${() => openRider(p.athlete_id)}>${c.riderMap[p.athlete_id]?.name || p.athlete_id}</button></td>
+            <td class="small hide-sm">${labelText(p.label)}</td><td class="num"><strong>${fmtPts(p.points)}</strong></td></tr>`)}</tbody></table>
         </section>`
       : html`<p class="muted card">${race?.start_date > new Date().toISOString().slice(0, 10)
         ? 'Das Rennen hat noch nicht stattgefunden. Ergebnisse erscheinen nach dem Rennen beim täglichen Abruf um 20 Uhr.'
@@ -205,18 +205,18 @@ function ResultTable({ c, event, race }) {
   return html`<section class="card"><div class="scroll-x"><table class="tbl">
     <thead><tr><th class="num">Rang</th><th>Fahrer</th><th class="hide-sm">Team</th><th class="num">Zeit</th><th class="num">Pkt.</th><th class="hide-sm">Kader</th></tr></thead>
     <tbody>${rows.data.map((r) => {
-      const m = r.rider_slug && c.managerMap[c.owner[r.rider_slug]];
+      const m = r.athlete_id && c.managerMap[c.owner[r.athlete_id]];
       return html`<tr key=${r.sort_order} class=${m && m.id === c.me?.id ? 'me' : ''}>
         <td class="num">${r.rank_text || r.rank || ''}</td>
-        <td>${r.rider_slug ? html`<button class="linkish" onClick=${() => openRider(r.rider_slug)}>${r.rider_name}</button>` : r.rider_name}
+        <td>${r.athlete_id ? html`<button class="linkish" onClick=${() => openRider(r.athlete_id)}>${r.athlete_name}</button>` : r.athlete_name}
           ${r.nation ? html` <span class="muted small" title=${r.nation}>${flag(r.nation) || r.nation}</span>` : ''}</td>
         <td class="small hide-sm">${r.team || ''}</td>
         <td class="num">${r.result || ''}</td>
-        <td class="num">${r.uci_points ? html`<strong>${fmtPts(r.uci_points)}</strong>` : ''}</td>
+        <td class="num">${r.points ? html`<strong>${fmtPts(r.points)}</strong>` : ''}</td>
         <td class="small hide-sm">${m ? m.team_name : ''}</td></tr>`;
     })}</tbody></table></div>
     ${rows.data.length === 0 && html`<p class="muted">Für diese Wertung hat die UCI keine Ergebnisliste veröffentlicht.</p>`}
-    <p class="muted small">${FULL.includes(race?.uci_class) && !/Points|Mountain|Young|Youth|Team|Sprint|Combativ/i.test(event.event_name || '')
+    <p class="muted small">${FULL.includes(race?.category) && !/Points|Mountain|Young|Youth|Team|Sprint|Combativ/i.test(event.event_name || '')
       ? 'Vollständige Ergebnisliste.' : 'Top 25 und alle weiteren Plätze mit UCI-Punkten.'} Quelle: UCI DataRide.</p>
   </section>`;
 }

@@ -15,10 +15,10 @@ begin
      and exists (select 1 from lineups x where x.matchday_id = lm.id and x.manager_id = p_manager)
    order by lm.starts_on desc limit 1;
   if v_src is not null then
-    return query select x.rider_slug from lineups x where x.matchday_id = v_src and x.manager_id = p_manager;
+    return query select x.athlete_id from lineups x where x.matchday_id = v_src and x.manager_id = p_manager;
     return;
   end if;
-  return query select re.rider_slug from roster_entries re
+  return query select re.athlete_id from roster_entries re
     where re.manager_id = p_manager and re.acquired_on <= md.starts_on
       and (re.released_on is null or re.released_on > md.starts_on)
     order by re.price desc, re.id
@@ -39,9 +39,9 @@ begin
     raise exception 'Bitte genau % Fahrer aufstellen.', l.lineup_size;
   end if;
   if exists (select 1 from unnest(p_riders) r where not exists (
-      select 1 from roster_entries re where re.manager_id = v_me and re.rider_slug = r and re.released_on is null)) then
+      select 1 from roster_entries re where re.manager_id = v_me and re.athlete_id = r and re.released_on is null)) then
     raise exception 'Du kannst nur Fahrer aus deinem Kader aufstellen.';
   end if;
   delete from lineups where matchday_id = p_matchday and manager_id = v_me;
-  insert into lineups (matchday_id, manager_id, rider_slug) select p_matchday, v_me, unnest(p_riders);
+  insert into lineups (matchday_id, manager_id, athlete_id) select p_matchday, v_me, unnest(p_riders);
 end $$;

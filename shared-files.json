@@ -1,7 +1,7 @@
 {
   ".claude/hooks/session-start.sh": "496e6ec604efb422",
   ".claude/settings.json": "ef056e55192969b7",
-  ".claude/skills/aenderung/SKILL.md": "098e2c124c897101",
+  ".claude/skills/aenderung/SKILL.md": "38dec3f15ebc6cf4",
   ".github/workflows/ci.yml": "001eb17907a4d887",
   "datasync/db.py": "b2811a3e223b23d7",
   "datasync/send_feedback.py": "5c0c5a0ab9b2dca9",

@@ -120,7 +120,7 @@ begin
     delete from draft_projection d where d.league_id = p_league;
     insert into draft_projection (league_id, manager_id, points, per_md, signature)
     with team as (
-      select distinct d.manager_id, d.rider_slug from draft_lots d where d.league_id = p_league and d.manager_id is not null),
+      select distinct d.manager_id, d.athlete_id from draft_lots d where d.league_id = p_league and d.manager_id is not null),
     mds as (   -- Spieltage ein Jahr früher; ohne Spieltage: die ganze Vorsaison als ein Block
       select m.name, (m.starts_on - interval '1 year')::date s, (m.ends_on - interval '1 year')::date e
         from matchdays m where m.league_id = p_league
@@ -128,9 +128,9 @@ begin
       select 'Vorjahr', make_date(extract(year from l.season_start)::int - 1, 1, 1), make_date(extract(year from l.season_start)::int - 1, 12, 31)
        where not exists (select 1 from matchdays where league_id = p_league)),
     rp as (
-      select t.manager_id, md.name, t.rider_slug, sum(r.uci_points) p
+      select t.manager_id, md.name, t.athlete_id, sum(r.points) p
         from team t cross join mds md
-        join results r on r.rider_slug = t.rider_slug and r.result_date between md.s and md.e
+        join results r on r.athlete_id = t.athlete_id and r.result_date between md.s and md.e
        group by 1, 2, 3),
     best as (
       select rp.manager_id, rp.name, sum(rp.p) p from (
@@ -146,14 +146,14 @@ end $$;
 -- Fahrer, deren Punkte in der Weltrangliste nicht zu unseren Rennpunkten der letzten 52 Wochen passen
 -- (z. B. Punkte aus Mannschaftswertungen wie der Mixed-Staffel, die in keiner Einzel-Ergebnisliste stehen)
 create or replace function ranking_mismatch(p_limit int default 300)
-returns table (rider_slug text, gender text, ranking_points numeric, ours numeric)
+returns table (athlete_id text, gender text, ranking_points numeric, ours numeric)
 language sql stable security definer set search_path = public as $$
-  select x.pcs_slug, x.gender, x.ranking_points, coalesce(sum(r.uci_points), 0)
-    from riders x
-    left join results r on r.rider_slug = x.pcs_slug and r.result_date > current_date - 366
+  select x.id, x.gender, x.ranking_points, coalesce(sum(r.points), 0)
+    from athletes x
+    left join results r on r.athlete_id = x.id and r.result_date > current_date - 366
    where x.ranking_points > 0
-   group by x.pcs_slug, x.gender, x.ranking_points
-  having abs(x.ranking_points - coalesce(sum(r.uci_points), 0)) > 0.5
+   group by x.id, x.gender, x.ranking_points
+  having abs(x.ranking_points - coalesce(sum(r.points), 0)) > 0.5
    order by x.ranking_points desc
    limit p_limit;
 $$;
@@ -164,11 +164,11 @@ declare lg leagues; n int := 0; k int;
 begin
   for lg in select * from leagues where status = 'active' loop
     with week as (
-      select s.manager_id, s.rider_slug, sum(s.points) pts
+      select s.manager_id, s.athlete_id, sum(s.points) pts
         from _score_rows(lg.id) s where s.result_date > current_date - 7 group by 1, 2),
     per_mgr as (
       select manager_id, sum(pts) total,
-             (array_agg(rider_slug order by pts desc))[1] best_rider, max(pts) best_pts
+             (array_agg(athlete_id order by pts desc))[1] best_rider, max(pts) best_pts
         from week group by 1)
     insert into notifications (user_id, title, body, url)
     select m.user_id,
@@ -200,7 +200,7 @@ begin
   exception when others then raise warning 'process_due: %', sqlerrm;
   end;
   if m < 15 then
-    if h = 6 then perform dispatch_workflow('import-riders.yml'); end if;    -- Fahrer: Rang, Team, Geburtsdatum
+    if h = 6 then perform dispatch_workflow('import-athletes.yml'); end if;    -- Fahrer: Rang, Team, Geburtsdatum
     if h = 20 then perform dispatch_workflow('race-results.yml'); end if;    -- Rennergebnisse, Kalender, Punkte
     if h = 9 and extract(isodow from t) = 1 then perform weekly_summary(); end if;   -- Wochen-Zusammenfassung (Mo)
   end if;

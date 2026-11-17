@@ -12,12 +12,12 @@ export const NAME_PLACEHOLDER = 'z. B. Tour de France';
 const GT = [['Giro', /giro d.italia/i, 'Vor dem Giro'], ['Tour', /tour de france/i, 'Vor der Tour'],
   ['Vuelta', /vuelta.*espa[ñn]a/i, 'Vor der Vuelta']];
 async function calendarProposal(league) {
-  const races = await all(() => sb.from('races').select('name,uci_class,start_date,end_date')
+  const races = await all(() => sb.from('competitions').select('name,category,start_date,end_date')
     .eq('gender', league.gender).lte('start_date', league.season_end).gte('end_date', league.season_start)
     .not('start_date', 'is', null).order('start_date'));
-  const wt = races.filter((r) => /^[12]\.(UWT|WWT)$/.test(r.uci_class || '')).map((r) => ({ ...r, end_date: r.end_date || r.start_date }));
+  const wt = races.filter((r) => /^[12]\.(UWT|WWT)$/.test(r.category || '')).map((r) => ({ ...r, end_date: r.end_date || r.start_date }));
   const tours = GT.map(([short, re, gap]) => {
-    const r = wt.find((x) => x.uci_class.startsWith('2.') && re.test(x.name));
+    const r = wt.find((x) => x.category.startsWith('2.') && re.test(x.name));
     return r && { short, gap, name: r.name, starts_on: r.start_date, ends_on: r.end_date };
   }).filter(Boolean).sort((x, y) => (x.starts_on > y.starts_on ? 1 : -1))
     .filter((t, i, arr) => !arr.slice(0, i).some((x) => x.ends_on >= t.starts_on));

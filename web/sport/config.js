@@ -7,15 +7,15 @@ export const SPORT = {
   // Begriffe in den gebrauchten Fällen: ein Fahrer, einen Fahrer, die Fahrer, den Fahrern (Dativ Plural), des Fahrers
   one: 'Fahrer', oneAcc: 'Fahrer', many: 'Fahrer', manyDat: 'Fahrern', oneGen: 'Fahrers',
   // Spaltennamen in der Datenbank (historische Namen aus der Anfangszeit, siehe CLAUDE.md)
-  pk: 'pcs_slug',             // Schlüssel der Personentabelle
-  fk: 'rider_slug',           // Verweis darauf (Kader, Aufstellung, Ergebnisse …)
-  add: 'add_rider', drop: 'drop_rider',              // Waiver-Anträge
-  give: 'give_riders', take: 'take_riders',          // Tausch
-  current: 'current_rider',                          // Draft: aktuell versteigert
-  comp: 'race_slug', pts: 'uci_points',              // Ergebnisse
+  pk: 'id',             // Schlüssel der Personentabelle
+  fk: 'athlete_id',           // Verweis darauf (Kader, Aufstellung, Ergebnisse …)
+  add: 'add_athlete', drop: 'drop_athlete',              // Waiver-Anträge
+  give: 'give_athletes', take: 'take_athletes',          // Tausch
+  current: 'current_athlete',                          // Draft: aktuell versteigert
+  comp: 'competition_id', pts: 'points',              // Ergebnisse
   pointsWord: 'UCI-Punkten',                       // „Sortiert nach …“
   ptsFormat: { maximumFractionDigits: 1 },   // Anzeige der Punkte
-  pointsRpc: 'rider_points',
+  pointsRpc: 'athlete_points',
   // Texte
   dataLine: 'Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.',
   matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage
@@ -26,9 +26,9 @@ export const SPORT = {
   resultsSchedule: 'Rennergebnisse kommen täglich um 20 Uhr.',
 };
 /** Schlüssel einer Person (Athlet bzw. Fahrer) */
-export const pid = (r) => r?.pcs_slug;
+export const pid = (r) => r?.id;
 
 /** Platz der Person in der Auswahl (UCI-Rang) – für Sortierungen */
-export const rank = (r) => r?.uci_rank;
+export const rank = (r) => r?.pool_rank;
 /** Darf geholt werden (Waiver, Draft): alle Fahrer der Liga */
 export const selectable = () => true;

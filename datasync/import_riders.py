@@ -1,6 +1,6 @@
 """
 Fahrerliste aus der UCI-Weltrangliste (UCI DataRide) in die Tabelle riders laden.
-Rang (uci_rank) bestimmt beim Live-Draft die Aufruf-Reihenfolge und hilft beim
+Rang (pool_rank) bestimmt beim Live-Draft die Aufruf-Reihenfolge und hilft beim
 Filtern freier Fahrer. Neue Fahrer im Ranking sind damit automatisch frei.
 
 DRY_RUN=1 → nur anzeigen, nichts speichern.
@@ -8,7 +8,7 @@ DRY_RUN=1 → nur anzeigen, nichts speichern.
 import os
 from datetime import datetime, timezone
 
-from dataride import DataRide, ms_date, rider_slug
+from dataride import DataRide, ms_date, athlete_id
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 MAX_RIDERS = 6000           # alle Fahrer mit UCI-Punkten (Männer ca. 3400, Frauen weniger)
@@ -24,25 +24,25 @@ def main():
         rk = dr.world_ranking(gender, season["Id"])
         rows = dr.ranking_riders(rk, gender, season["Id"], MAX_RIDERS)
         riders = [{
-            "pcs_slug": rider_slug(r["ObjectId"]),
+            "id": athlete_id(r["ObjectId"]),
             "name": (r.get("DisplayName") or r.get("IndividualFullName") or "").strip(),
             "gender": gender,
             "nation": (r.get("NationName") or "").strip() or None,
             "team": (r.get("TeamName") or "").strip() or None,
-            "uci_rank": r.get("Rank"),
+            "pool_rank": r.get("Rank"),
             "ranking_points": r.get("Points"),
             "birth_date": (ms_date(r.get("BirthDate")) or None) and ms_date(r.get("BirthDate")).isoformat(),
             "updated_at": now,
         } for r in rows if r.get("ObjectId") and r.get("DisplayName")]
         print(f"{gender}: {rk['RankingName']} – {len(riders)} Fahrer")
         for r in riders[:5]:
-            print(f"  #{r['uci_rank']:>4} {r['name']:<28} {r['team'] or '':<32} {r['nation'] or ''} {r['ranking_points']}")
+            print(f"  #{r['pool_rank']:>4} {r['name']:<28} {r['team'] or '':<32} {r['nation'] or ''} {r['ranking_points']}")
         if DRY_RUN or not riders:
             continue
         import db
-        db.upsert("riders", riders, "pcs_slug")
+        db.upsert("athletes", riders, "id")
         # aus den Top-Plätzen gefallene Fahrer behalten ihren Eintrag ohne Rang
-        db.update("riders", {"gender": f"eq.{gender}", "updated_at": f"lt.{now}"}, {"uci_rank": None})
+        db.update("athletes", {"gender": f"eq.{gender}", "updated_at": f"lt.{now}"}, {"pool_rank": None})
         print("  gespeichert.")
     if not DRY_RUN:
         import db

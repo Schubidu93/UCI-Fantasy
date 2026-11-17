@@ -46,8 +46,8 @@ export function RiderCell({ r }) {
   return html`<span class="rider">
     <span class="rider-line">
       <button type="button" class="rider-name linkish" title="Ergebnisse anzeigen"
-        onClick=${(e) => { e.stopPropagation(); openRider(r.pcs_slug); }}>${r.name}</button>
-      ${r.uci_rank && html`<span class="rank-chip" title="Platz im UCI-Ranking">#${r.uci_rank}</span>`}
+        onClick=${(e) => { e.stopPropagation(); openRider(r.id); }}>${r.name}</button>
+      ${r.pool_rank && html`<span class="rank-chip" title="Platz im UCI-Ranking">#${r.pool_rank}</span>`}
       ${r.inactive && html`<span class="tag warn">inaktiv</span>`}
     </span>
     ${meta && html`<span class="rider-meta">${meta}</span>`}

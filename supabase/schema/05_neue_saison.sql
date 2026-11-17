@@ -25,15 +25,15 @@ end $$;
 
 -- Mögliche Keeper des aufrufenden Managers: sein Kader am Ende der Vorsaison
 create or replace function keeper_options(p_league uuid)
-returns table (rider_slug text, prev_price int, price int, chosen boolean)
+returns table (athlete_id text, prev_price int, price int, chosen boolean)
 language plpgsql stable security definer set search_path = public as $$
 declare v_me uuid; l leagues;
 begin
   v_me := _require_member(p_league);
   select * into l from leagues where id = p_league;
   return query
-  select re.rider_slug, re.price, greatest(1, re.price + l.keeper_surcharge),
-         exists (select 1 from keepers k where k.manager_id = v_me and k.rider_slug = re.rider_slug)
+  select re.athlete_id, re.price, greatest(1, re.price + l.keeper_surcharge),
+         exists (select 1 from keepers k where k.manager_id = v_me and k.athlete_id = re.athlete_id)
     from managers m join roster_entries re on re.manager_id = m.prev_manager and re.released_on is null
    where m.id = v_me
    order by re.price desc;
@@ -47,16 +47,16 @@ begin
   select * into l from leagues where id = p_league;
   if l.status <> 'setup' then raise exception 'Keeper können nur vor dem Draft gewählt werden.'; end if;
   if v_n > l.keeper_count then raise exception 'Du darfst höchstens % Keeper wählen.', l.keeper_count; end if;
-  if exists (select 1 from unnest(p_riders) r where r not in (select o.rider_slug from keeper_options(p_league) o)) then
+  if exists (select 1 from unnest(p_riders) r where r not in (select o.athlete_id from keeper_options(p_league) o)) then
     raise exception 'Nur Fahrer aus deinem Vorjahreskader.';
   end if;
-  select coalesce(sum(o.price), 0) into v_sum from keeper_options(p_league) o where o.rider_slug = any (p_riders);
+  select coalesce(sum(o.price), 0) into v_sum from keeper_options(p_league) o where o.athlete_id = any (p_riders);
   if l.draft_mode in ('live', 'blind') and v_sum > l.budget - (l.roster_size - v_n) then
     raise exception 'Zu teuer: Keeper kosten %, es muss Budget für die restlichen Plätze bleiben.', v_sum;
   end if;
   delete from keepers where manager_id = v_me;
-  insert into keepers (league_id, manager_id, rider_slug, price)
-    select p_league, v_me, o.rider_slug, o.price from keeper_options(p_league) o where o.rider_slug = any (p_riders);
+  insert into keepers (league_id, manager_id, athlete_id, price)
+    select p_league, v_me, o.athlete_id, o.price from keeper_options(p_league) o where o.athlete_id = any (p_riders);
 exception when unique_violation then
   raise exception 'Dieser Fahrer ist schon Keeper eines anderen Managers.';
 end $$;

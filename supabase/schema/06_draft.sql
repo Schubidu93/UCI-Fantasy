@@ -13,7 +13,7 @@ begin
   select * into d from draft_state where league_id = p_league;
 
   if not exists (select 1 from managers m where m.league_id = p_league and _open_slots(m.id) > 0) then
-    update draft_state set status = 'done', current_rider = null, current_bid = 0, current_bidder = null,
+    update draft_state set status = 'done', current_athlete = null, current_bid = 0, current_bidder = null,
                            deadline = null, nominator = null, updated_at = now()
      where league_id = p_league;
     update leagues set status = 'active', last_waiver_run = now() where id = p_league;
@@ -35,7 +35,7 @@ begin
        order by draft_position, id offset v_pos - 1 limit 1;
       exit when _open_slots(v_next) > 0;      -- Manager mit vollem Kader (Keeper) überspringen
     end loop;
-    update draft_state set phase = 'snake', lot_no = v_pick, current_rider = null, current_bid = 0, current_bidder = null,
+    update draft_state set phase = 'snake', lot_no = v_pick, current_athlete = null, current_bid = 0, current_bidder = null,
                            nominator = v_next, deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
      where league_id = p_league;
     perform _notify_turn(p_league, v_next, d.nominator, 'Dein Pick (Nr. ' || v_pick || ') – du hast ' || l.bid_seconds || ' Sekunden.',
@@ -44,12 +44,12 @@ begin
   end if;
 
   if d.phase = 'auction' and l.draft_order = 'ranking' then
-    select r.pcs_slug into v_rider from riders r
-     where r.gender = l.gender and r.uci_rank is not null and not r.inactive
-       and not exists (select 1 from draft_lots x where x.league_id = p_league and x.rider_slug = r.pcs_slug)
-     order by r.uci_rank, r.pcs_slug limit 1;
+    select r.id into v_rider from athletes r
+     where r.gender = l.gender and r.pool_rank is not null and not r.inactive
+       and not exists (select 1 from draft_lots x where x.league_id = p_league and x.athlete_id = r.id)
+     order by r.pool_rank, r.id limit 1;
     if v_rider is not null then
-      update draft_state set lot_no = lot_no + 1, current_rider = v_rider, current_bid = 0, current_bidder = null,
+      update draft_state set lot_no = lot_no + 1, current_athlete = v_rider, current_bid = 0, current_bidder = null,
                              deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
        where league_id = p_league;
       return;
@@ -63,7 +63,7 @@ begin
    where m.league_id = p_league and _open_slots(m.id) > 0
    order by case when m.draft_position > coalesce(v_cur_pos, 0) then 0 else 1 end, m.draft_position
    limit 1;
-  update draft_state set current_rider = null, current_bid = 0, current_bidder = null, deadline = null,
+  update draft_state set current_athlete = null, current_bid = 0, current_bidder = null, deadline = null,
                          nominator = v_next, updated_at = now()
    where league_id = p_league;
   perform _notify_turn(p_league, v_next, d.nominator,
@@ -112,7 +112,7 @@ begin
   if l.status <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
   if l.draft_mode = 'offline' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
   if (select count(*) from managers where league_id = p_league) < 2 then raise exception 'Mindestens 2 Manager nötig.'; end if;
-  if not exists (select 1 from riders where gender = l.gender and uci_rank is not null) then
+  if not exists (select 1 from athletes where gender = l.gender and pool_rank is not null) then
     raise exception 'Noch keine Fahrer importiert (Workflow "Fahrerliste importieren").';
   end if;
 
@@ -120,15 +120,15 @@ begin
     from (select id, row_number() over (order by random()) rn from managers where league_id = p_league) s
    where m.id = s.id;
   -- Keeper vorab in die Kader (zählen wie gekauft; die Auktion überspringt sie)
-  insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
-    select p_league, k.manager_id, k.rider_slug, k.price, 'draft', l.season_start from keepers k where k.league_id = p_league;
+  insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
+    select p_league, k.manager_id, k.athlete_id, k.price, 'draft', l.season_start from keepers k where k.league_id = p_league;
   update managers m set budget_left = budget_left - coalesce((select sum(price) from keepers k where k.manager_id = m.id), 0)
    where m.league_id = p_league;
-  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
-    select p_league, 0, k.rider_slug, k.manager_id, k.price from keepers k where k.league_id = p_league
-  on conflict (league_id, rider_slug) do nothing;
+  insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
+    select p_league, 0, k.athlete_id, k.manager_id, k.price from keepers k where k.league_id = p_league
+  on conflict (league_id, athlete_id) do nothing;
   insert into draft_state (league_id) values (p_league) on conflict (league_id) do nothing;
-  update draft_state set status = 'running', phase = 'auction', lot_no = 0, current_rider = null, current_bid = 0,
+  update draft_state set status = 'running', phase = 'auction', lot_no = 0, current_athlete = null, current_bid = 0,
                          current_bidder = null, deadline = null, nominator = null, updated_at = now()
    where league_id = p_league;
   update leagues set status = 'drafting' where id = p_league;
@@ -164,7 +164,7 @@ begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' then raise exception 'Der Draft läuft gerade nicht.'; end if;
-  if d.current_rider is null or d.deadline is null or now() >= d.deadline then raise exception 'Gerade wird kein Fahrer versteigert.'; end if;
+  if d.current_athlete is null or d.deadline is null or now() >= d.deadline then raise exception 'Gerade wird kein Fahrer versteigert.'; end if;
   if l.draft_mode = 'blind' then
     if d.phase <> 'tiebreak' then raise exception 'In der Blind-Auktion wird verdeckt geboten.'; end if;
     if not (v_me = any (d.tie_bidders)) then raise exception 'Nur die Manager mit Gleichstand bieten im Stechen.'; end if;
@@ -177,7 +177,7 @@ begin
   end if;
   v_max := _max_bid(v_me);
   if p_amount > v_max then raise exception 'Dein Höchstgebot ist %.', v_max; end if;
-  if not _team_limit_ok(v_me, d.current_rider) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
+  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
 
   update draft_state set current_bid = p_amount, current_bidder = v_me,
          deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
@@ -185,7 +185,7 @@ begin
   insert into draft_bids (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no, v_me, p_amount);
   -- Stechen: kann kein anderer mehr erhöhen, sofort Zuschlag
   if l.draft_mode = 'blind' and not exists (select 1 from unnest(d.tie_bidders) t
-       where t <> v_me and _max_bid(t) >= p_amount + 1 and _team_limit_ok(t, d.current_rider)) then
+       where t <> v_me and _max_bid(t) >= p_amount + 1 and _team_limit_ok(t, d.current_athlete)) then
     perform _draft_award(p_league, v_me, p_amount);
   end if;
 end $$;
@@ -198,12 +198,12 @@ begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league;
   if p_manager is not null then
-    insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
-    values (p_league, p_manager, d.current_rider, p_price, 'draft', l.season_start);
+    insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
+    values (p_league, p_manager, d.current_athlete, p_price, 'draft', l.season_start);
     update managers set budget_left = budget_left - p_price where id = p_manager;
   end if;
-  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
-  values (p_league, d.lot_no, d.current_rider, p_manager, case when p_manager is null then 0 else p_price end);
+  insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
+  values (p_league, d.lot_no, d.current_athlete, p_manager, case when p_manager is null then 0 else p_price end);
   update draft_state set phase = case when phase = 'tiebreak' then 'auction' else phase end where league_id = p_league;
   perform _draft_next(p_league);
 end $$;
@@ -255,7 +255,7 @@ begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league for update;
   if l.draft_mode <> 'blind' then raise exception 'Diese Liga nutzt keine Blind-Auktion.'; end if;
-  if d.status <> 'running' or d.phase <> 'auction' or d.current_rider is null or d.deadline is null or now() >= d.deadline then
+  if d.status <> 'running' or d.phase <> 'auction' or d.current_athlete is null or d.deadline is null or now() >= d.deadline then
     raise exception 'Gerade wird kein Fahrer versteigert.';
   end if;
   if coalesce(p_amount, 0) <= 0 then
@@ -266,14 +266,14 @@ begin
   if _open_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll.'; end if;
   v_max := _max_bid(v_me);
   if p_amount > v_max then raise exception 'Dein Höchstgebot ist %.', v_max; end if;
-  if not _team_limit_ok(v_me, d.current_rider) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
+  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
   insert into draft_sealed (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no, v_me, p_amount)
   on conflict (league_id, manager_id) do update set amount = excluded.amount, lot_no = excluded.lot_no, created_at = now();
   update draft_state set sealed_done = array_append(array_remove(sealed_done, v_me), v_me), updated_at = now()
    where league_id = p_league;
   -- Haben alle geboten, die noch bieten können? Dann sofort auswerten.
   if not exists (select 1 from managers m where m.league_id = p_league and _max_bid(m.id) >= 1
-                    and _team_limit_ok(m.id, d.current_rider)
+                    and _team_limit_ok(m.id, d.current_athlete)
                     and not exists (select 1 from draft_sealed s where s.league_id = p_league and s.manager_id = m.id)) then
     perform _blind_resolve(p_league);
   end if;
@@ -293,22 +293,22 @@ begin
     perform _snake_pick(p_league, null);
     return;
   end if;
-  if l.draft_mode = 'blind' and d.current_rider is not null then
+  if l.draft_mode = 'blind' and d.current_athlete is not null then
     if d.phase = 'tiebreak' then perform _draft_award(p_league, d.current_bidder, d.current_bid);
     else perform _blind_resolve(p_league); end if;
     return;
   end if;
 
-  if d.current_rider is not null then
+  if d.current_athlete is not null then
     if d.current_bid > 0 and d.current_bidder is not null then
-      insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
-      values (p_league, d.current_bidder, d.current_rider, d.current_bid, 'draft', l.season_start);
+      insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
+      values (p_league, d.current_bidder, d.current_athlete, d.current_bid, 'draft', l.season_start);
       update managers set budget_left = budget_left - d.current_bid where id = d.current_bidder;
-      insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
-      values (p_league, d.lot_no, d.current_rider, d.current_bidder, d.current_bid);
+      insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
+      values (p_league, d.lot_no, d.current_athlete, d.current_bidder, d.current_bid);
     else
-      insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
-      values (p_league, d.lot_no, d.current_rider, null, 0);
+      insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
+      values (p_league, d.lot_no, d.current_athlete, null, 0);
     end if;
   end if;
   perform _draft_next(p_league);
@@ -322,17 +322,17 @@ begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league;
   if v_rider is null then
-    select r.pcs_slug into v_rider from riders r
-     where r.gender = l.gender and r.uci_rank is not null and not r.inactive
-       and _rider_free(p_league, r.pcs_slug, 'infinity') and _team_limit_ok(d.nominator, r.pcs_slug)
-     order by r.uci_rank, r.pcs_slug limit 1;
+    select r.id into v_rider from athletes r
+     where r.gender = l.gender and r.pool_rank is not null and not r.inactive
+       and _athlete_free(p_league, r.id, 'infinity') and _team_limit_ok(d.nominator, r.id)
+     order by r.pool_rank, r.id limit 1;
     if v_rider is null then raise exception 'Kein freier Fahrer mehr verfügbar.'; end if;
   end if;
-  insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+  insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
   values (p_league, d.nominator, v_rider, 0, 'draft', l.season_start);
-  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
+  insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
   values (p_league, d.lot_no, v_rider, d.nominator, 0)
-  on conflict (league_id, rider_slug) do update set manager_id = excluded.manager_id, price = 0, lot_no = excluded.lot_no;
+  on conflict (league_id, athlete_id) do update set manager_id = excluded.manager_id, price = 0, lot_no = excluded.lot_no;
   perform _draft_next(p_league);
 end $$;
 
@@ -344,7 +344,7 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' or d.phase <> 'snake' then raise exception 'Der Snake-Draft läuft gerade nicht.'; end if;
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
-  if not _rider_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
+  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
   if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
   perform _snake_pick(p_league, p_rider);
 end $$;
@@ -357,22 +357,22 @@ begin
   v_me := _require_member(p_league);
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league for update;
-  if d.status <> 'running' or d.phase <> 'auction' or d.current_rider is not null then
+  if d.status <> 'running' or d.phase <> 'auction' or d.current_athlete is not null then
     raise exception 'Gerade kann niemand nominieren.';
   end if;
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
-  if exists (select 1 from draft_lots where league_id = p_league and rider_slug = p_rider)
-     or not _rider_free(p_league, p_rider, 'infinity') then
+  if exists (select 1 from draft_lots where league_id = p_league and athlete_id = p_rider)
+     or not _athlete_free(p_league, p_rider, 'infinity') then
     raise exception 'Dieser Fahrer ist nicht verfügbar.';
   end if;
   if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
   if l.draft_mode = 'blind' then
-    update draft_state set lot_no = lot_no + 1, current_rider = p_rider, current_bid = 0, current_bidder = null,
+    update draft_state set lot_no = lot_no + 1, current_athlete = p_rider, current_bid = 0, current_bidder = null,
            deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
      where league_id = p_league;
     return;
   end if;
-  update draft_state set lot_no = lot_no + 1, current_rider = p_rider, current_bid = 1, current_bidder = d.nominator,
+  update draft_state set lot_no = lot_no + 1, current_athlete = p_rider, current_bid = 1, current_bidder = d.nominator,
          deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
    where league_id = p_league;
   insert into draft_bids (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no + 1, d.nominator, 1);
@@ -388,14 +388,14 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' or d.phase <> 'fill' or d.nominator is null then raise exception 'Die Auffüllphase läuft nicht.'; end if;
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
-  if not _rider_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
+  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
   if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
-  insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+  insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
   values (p_league, d.nominator, p_rider, 1, 'draft', l.season_start);
   update managers set budget_left = budget_left - 1 where id = d.nominator;
-  insert into draft_lots (league_id, lot_no, rider_slug, manager_id, price)
+  insert into draft_lots (league_id, lot_no, athlete_id, manager_id, price)
   values (p_league, d.lot_no + 1, p_rider, d.nominator, 1)
-  on conflict (league_id, rider_slug) do update set manager_id = excluded.manager_id, price = 1;
+  on conflict (league_id, athlete_id) do update set manager_id = excluded.manager_id, price = 1;
   update draft_state set lot_no = lot_no + 1 where league_id = p_league;
   perform _draft_next(p_league);
 end $$;

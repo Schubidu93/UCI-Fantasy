@@ -43,27 +43,27 @@ class ProvisionalRows(unittest.TestCase):
             item("Belegt", "1.2", "2027-03-03"),                          # ID schon von DataRide vergeben
             item("Frauenrennen", "1.WWT", "2027-04-12"),                  # andere Wertung
         ]
-        dataride_cal = [{"uci_class": "1.Pro", "start_date": "2027-02-05"}]
+        dataride_cal = [{"category": "1.Pro", "start_date": "2027-02-05"}]
         rows = provisional_rows(items, "men", dataride_cal,
                                 {"belegt/2027"}, TODAY)
-        self.assertEqual(sorted(r["pcs_slug"] for r in rows), ["andere-klasse/2027", "paris-roubaix/2027"])
-        pr = next(r for r in rows if r["pcs_slug"] == "paris-roubaix/2027")
-        self.assertEqual(pr, {"pcs_slug": "paris-roubaix/2027", "name": "Paris-Roubaix", "gender": "men",
-                              "uci_class": "1.UWT", "country": "FRA", "start_date": "2027-04-11",
+        self.assertEqual(sorted(r["id"] for r in rows), ["andere-klasse/2027", "paris-roubaix/2027"])
+        pr = next(r for r in rows if r["id"] == "paris-roubaix/2027")
+        self.assertEqual(pr, {"id": "paris-roubaix/2027", "name": "Paris-Roubaix", "gender": "men",
+                              "category": "1.UWT", "country": "FRA", "start_date": "2027-04-11",
                               "end_date": "2027-04-11", "season": 2027, "provisional": True})
 
     def test_frauen_eigene_id(self):
         rows = provisional_rows([item("Paris-Roubaix Femmes", "1.WWT", "2027-04-10")], "women", [], set(), TODAY)
-        self.assertEqual(rows[0]["pcs_slug"], "paris-roubaix-femmes/2027/w")
+        self.assertEqual(rows[0]["id"], "paris-roubaix-femmes/2027/w")
 
 
 class Sync(unittest.TestCase):
     def test_vorlaeufige_neu_setzen(self):
-        db = FakeDb({"races": [{"pcs_slug": "belegt/2027"}]}).install()
+        db = FakeDb({"competitions": [{"id": "belegt/2027"}]}).install()
         uci_calendar.sync("men", [], TODAY, [item("Belegt", "1.2", "2027-03-03"), item("Neu", "1.2", "2027-03-04")])
-        self.assertEqual(db.of("delete", "races"), [("delete", "races", {"gender": "eq.men", "provisional": "is.true"})])
-        (_, _, rows, key), = db.of("upsert", "races")
-        self.assertEqual(([r["pcs_slug"] for r in rows], key), (["neu/2027"], "pcs_slug"))
+        self.assertEqual(db.of("delete", "competitions"), [("delete", "competitions", {"gender": "eq.men", "provisional": "is.true"})])
+        (_, _, rows, key), = db.of("upsert", "competitions")
+        self.assertEqual(([r["id"] for r in rows], key), (["neu/2027"], "id"))
 
 
 if __name__ == "__main__":

@@ -12,32 +12,32 @@ export function Riders({ c }) {
   const recent = sort === 'recent';
   const sel = recent || sort === 'rank' || !ys.length || ys.includes(sort) ? sort : ys[0];
   const year = sel === 'rank' || recent ? +(ys[0] || new Date().getFullYear()) : +sel;
-  const pts = useLoad(() => recent ? rpcAll('rider_points_recent', { p_gender: c.league.gender, p_days: 30 })
-    : rpcAll('rider_points', { p_gender: c.league.gender, p_year: year }), [c.league.gender, year, recent]);
+  const pts = useLoad(() => recent ? rpcAll('athlete_points_recent', { p_gender: c.league.gender, p_days: 30 })
+    : rpcAll('athlete_points', { p_gender: c.league.gender, p_year: year }), [c.league.gender, year, recent]);
   // Heiße freie Fahrer: die 10 freien mit den meisten Punkten der letzten 30 Tage (🔥 in der Liste)
-  const hot = useLoad(() => rpcAll('rider_points_recent', { p_gender: c.league.gender, p_days: 30 }), [c.league.gender]);
-  const hotSet = useMemo(() => new Set((hot.data || []).filter((p) => !c.owner[p.rider_slug] && c.riderMap[p.rider_slug])
-    .sort((a, b) => b.points - a.points).slice(0, 10).map((p) => p.rider_slug)), [hot.data]);
+  const hot = useLoad(() => rpcAll('athlete_points_recent', { p_gender: c.league.gender, p_days: 30 }), [c.league.gender]);
+  const hotSet = useMemo(() => new Set((hot.data || []).filter((p) => !c.owner[p.athlete_id] && c.riderMap[p.athlete_id])
+    .sort((a, b) => b.points - a.points).slice(0, 10).map((p) => p.athlete_id)), [hot.data]);
   const [term, setTerm] = useState('');
   const [team, setTeam] = useState('');
   const [nation, setNation] = useState('');
   const [owner, setOwner] = useState('');          // '' alle, 'free' frei, 'mine' meine, sonst Manager-ID
   const [limit, setLimit] = useState(100);
 
-  const pmap = useMemo(() => Object.fromEntries((pts.data || []).map((p) => [p.rider_slug, p])), [pts.data]);
+  const pmap = useMemo(() => Object.fromEntries((pts.data || []).map((p) => [p.athlete_id, p])), [pts.data]);
   const teams = useMemo(() => [...new Set(c.people.map((r) => r.team).filter(Boolean))].sort(), [c.people]);
   const nations = useMemo(() => [...new Set(c.people.map((r) => r.nation).filter(Boolean))].sort(), [c.people]);
   if (!pts.data) return html`<${Loading} error=${pts.error} />`;
 
   const t = normName(term);
   const list = c.people
-    .filter((r) => recent ? pmap[r.pcs_slug] : r.uci_rank || pmap[r.pcs_slug] || c.owner[r.pcs_slug])   // 30 Tage: nur wer gepunktet hat
+    .filter((r) => recent ? pmap[r.id] : r.pool_rank || pmap[r.id] || c.owner[r.id])   // 30 Tage: nur wer gepunktet hat
     .filter((r) => (!team || normName(team).split(' ').every((w) => normName(r.team || '').includes(w))) && (!nation || r.nation === nation))
-    .filter((r) => !owner || (owner === 'free' ? !c.owner[r.pcs_slug] : owner === 'mine' ? c.owner[r.pcs_slug] === c.me?.id : c.owner[r.pcs_slug] === owner))
+    .filter((r) => !owner || (owner === 'free' ? !c.owner[r.id] : owner === 'mine' ? c.owner[r.id] === c.me?.id : c.owner[r.id] === owner))
     .filter((r) => !t || t.split(' ').every((w) => normName(r.name).includes(w)))
     .sort((a, b) => sel === 'rank'
-      ? (a.uci_rank ?? 1e9) - (b.uci_rank ?? 1e9)
-      : (Number(pmap[b.pcs_slug]?.points) || 0) - (Number(pmap[a.pcs_slug]?.points) || 0) || (a.uci_rank ?? 1e9) - (b.uci_rank ?? 1e9));
+      ? (a.pool_rank ?? 1e9) - (b.pool_rank ?? 1e9)
+      : (Number(pmap[b.id]?.points) || 0) - (Number(pmap[a.id]?.points) || 0) || (a.pool_rank ?? 1e9) - (b.pool_rank ?? 1e9));
 
   return html`<section class="card">
     <div class="row between"><h2>Fahrer</h2><span class="muted small">${list.length} Fahrer · UCI-Punkte ${recent ? 'letzte 30 Tage' : year}</span></div>
@@ -63,12 +63,12 @@ export function Riders({ c }) {
     <div class="scroll-x"><table class="tbl people-tbl">
       <thead><tr><th class="num hide-sm col-no">#</th><th>Fahrer</th><th class="col-owner">Kader</th><th class="num hide-sm col-res">Ergebnisse</th><th class="num col-pts" title=${recent ? 'UCI-Punkte der letzten 30 Tage' : `UCI-Punkte ${year}`}>Pkt.</th></tr></thead>
       <tbody>${list.slice(0, limit).map((r, i) => {
-        const m = c.managerMap[c.owner[r.pcs_slug]];
-        const p = pmap[r.pcs_slug];
-        return html`<tr key=${r.pcs_slug} class=${m && m.id === c.me?.id ? 'me' : ''}>
+        const m = c.managerMap[c.owner[r.id]];
+        const p = pmap[r.id];
+        return html`<tr key=${r.id} class=${m && m.id === c.me?.id ? 'me' : ''}>
           <td class="num muted hide-sm">${i + 1}</td>
           <td><${RiderCell} r=${r} /></td>
-          <td class="col-owner">${m ? m.team_name : html`<span class="tag ok">frei</span>${hotSet.has(r.pcs_slug) ? html` <span title="Heiß: unter den 10 freien Fahrern mit den meisten Punkten der letzten 30 Tage">🔥</span>` : ''}`}</td>
+          <td class="col-owner">${m ? m.team_name : html`<span class="tag ok">frei</span>${hotSet.has(r.id) ? html` <span title="Heiß: unter den 10 freien Fahrern mit den meisten Punkten der letzten 30 Tage">🔥</span>` : ''}`}</td>
           <td class="num hide-sm">${p?.results || 0}</td>
           <td class="num"><strong>${Math.round(Number(p?.points) || 0).toLocaleString('de-DE')}</strong></td></tr>`;
       })}</tbody>

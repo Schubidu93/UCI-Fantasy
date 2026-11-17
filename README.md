@@ -83,7 +83,7 @@ einfrieren) erledigt die Datenbank selbst.
   kommen zusätzlich aus dem UCI-Wettkampfverzeichnis (uci-competition.tech.uci.ch, öffentliche Schnittstelle der Website,
   `datasync/uci_calendar.py`) und gelten als „vorläufig“, bis DataRide sie führt. Andere Quellen (z. B. ProCyclingStats)
   werden nicht verwendet.
-- Fahrer-IDs heißen aus historischen Gründen `pcs_slug` (Format `uci-<DataRide-ID>`).
+- Fahrer stehen in `athletes` (ID `uci-<DataRide-ID>`), Rennen in `competitions` – dieselben Namen wie in Runner Fantasy.
 - Ergebnisse werden ab der Saison 2025 gespeichert.
 - Live-Updates im Draft-Raum laufen über Supabase Realtime; fällt das aus, fragt die App alle 1,5 s nach.
 - Die Spielregeln stehen in der App unter *Mehr → Regeln* und passen sich den Liga-Einstellungen an.

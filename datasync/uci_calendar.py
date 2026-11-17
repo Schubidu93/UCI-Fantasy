@@ -13,7 +13,7 @@ from datetime import date
 
 import requests
 
-from dataride import USER_AGENT, race_slug
+from dataride import USER_AGENT, competition_id
 
 API = "https://uci-competition.tech.uci.ch/api/competitions"
 PAUSE = 1.0
@@ -57,7 +57,7 @@ def genders(item):
 def provisional_rows(items, gender, dataride_cal, taken_slugs, today):
     """Kalenderzeilen für eine Wertung – ohne Rennen, die DataRide schon liefert
     (gleiche Klasse, Start höchstens 3 Tage auseinander) und ohne belegte Rennen-IDs."""
-    known = [(c["uci_class"], date.fromisoformat(c["start_date"])) for c in dataride_cal]
+    known = [(c["category"], date.fromisoformat(c["start_date"])) for c in dataride_cal]
     rows = {}
     for it in items:
         if it.get("classCode") not in CLASSES or gender not in genders(it) or not it.get("startDate"):
@@ -67,10 +67,10 @@ def provisional_rows(items, gender, dataride_cal, taken_slugs, today):
             continue
         if any(cls == it["classCode"] and abs((d - start).days) <= 3 for cls, d in known):
             continue
-        slug = race_slug(it["name"], start.year, gender)
+        slug = competition_id(it["name"], start.year, gender)
         if slug in taken_slugs:
             continue
-        rows[slug] = {"pcs_slug": slug, "name": it["name"].strip(), "gender": gender, "uci_class": it["classCode"],
+        rows[slug] = {"id": slug, "name": it["name"].strip(), "gender": gender, "category": it["classCode"],
                       "country": it.get("countryCode"), "start_date": it["startDate"],
                       "end_date": it.get("endDate") or it["startDate"], "season": it.get("seasonYear"),
                       "provisional": True}
@@ -80,12 +80,12 @@ def provisional_rows(items, gender, dataride_cal, taken_slugs, today):
 def sync(gender, dataride_cal, today, items):
     """Vorläufige Kalendereinträge einer Wertung neu setzen."""
     import db
-    taken = {r["pcs_slug"] for r in db.select("races", {"select": "pcs_slug", "gender": f"eq.{gender}",
+    taken = {r["id"] for r in db.select("competitions", {"select": "id", "gender": f"eq.{gender}",
                                                          "provisional": "is.false",
                                                          "start_date": f"gte.{today.year}-01-01",
                                                          "limit": 5000})}
     rows = provisional_rows(items, gender, dataride_cal, taken, today)
-    db.delete("races", {"gender": f"eq.{gender}", "provisional": "is.true"})
+    db.delete("competitions", {"gender": f"eq.{gender}", "provisional": "is.true"})
     if rows:
-        db.upsert("races", rows, "pcs_slug")
+        db.upsert("competitions", rows, "id")
     print(f"  {len(rows)} künftige Rennen aus dem UCI-Wettkampfverzeichnis (vorläufig)")

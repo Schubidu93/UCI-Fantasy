@@ -80,7 +80,7 @@ end $$;
 
 create or replace function _rname(p_slug text) returns text
 language sql stable security definer set search_path = public as $$
-  select coalesce((select name from riders where pcs_slug = p_slug), p_slug);
+  select coalesce((select name from athletes where id = p_slug), p_slug);
 $$;
 
 create or replace function vapid_public_key() returns text
@@ -125,21 +125,21 @@ create or replace function _team_limit_ok(p_manager uuid, p_rider text, p_withou
 language sql stable security definer set search_path = public as $$
   select l.max_per_team is null
       or rd.team is null
-      or (select count(*) from roster_entries re join riders x on x.pcs_slug = re.rider_slug
+      or (select count(*) from roster_entries re join athletes x on x.id = re.athlete_id
           where re.manager_id = m.id and re.released_on is null and x.team = rd.team
-            and re.rider_slug is distinct from p_without) < l.max_per_team
-  from managers m join leagues l on l.id = m.league_id, riders rd
-  where m.id = p_manager and rd.pcs_slug = p_rider;
+            and re.athlete_id is distinct from p_without) < l.max_per_team
+  from managers m join leagues l on l.id = m.league_id, athletes rd
+  where m.id = p_manager and rd.id = p_rider;
 $$;
 
 -- Ist ein Fahrer in der Liga frei? Abgegebene Fahrer sind gesperrt, wenn sie
 -- seit p_locked_since abgegeben wurden (= bis zum nächsten Stichtag).
-create or replace function _rider_free(p_league uuid, p_rider text, p_locked_since timestamptz) returns boolean
+create or replace function _athlete_free(p_league uuid, p_rider text, p_locked_since timestamptz) returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from riders r join leagues l on l.id = p_league
-                 where r.pcs_slug = p_rider and r.gender = l.gender)
+  select exists (select 1 from athletes r join leagues l on l.id = p_league
+                 where r.id = p_rider and r.gender = l.gender)
      and not exists (select 1 from roster_entries
-                     where league_id = p_league and rider_slug = p_rider
+                     where league_id = p_league and athlete_id = p_rider
                        and (released_on is null or released_at >= p_locked_since));
 $$;
 
@@ -147,6 +147,6 @@ create or replace function _release(p_league uuid, p_manager uuid, p_rider text,
 language plpgsql security definer set search_path = public as $$
 begin
   update roster_entries set released_on = p_on, released_at = now()
-   where league_id = p_league and manager_id = p_manager and rider_slug = p_rider and released_on is null;
+   where league_id = p_league and manager_id = p_manager and athlete_id = p_rider and released_on is null;
   return found;
 end $$;

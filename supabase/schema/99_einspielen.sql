@@ -15,11 +15,11 @@ select results_from_events();
 
 -- Ergebnisse vor 2025 werden nicht gespeichert (auch keine Rennen der Saison 2025, die schon im Herbst 2024 lagen)
 delete from results where result_date < date '2025-01-01';
-delete from races where coalesce(end_date, start_date) < date '2025-01-01';
+delete from competitions where coalesce(end_date, start_date) < date '2025-01-01';
 
 -- Saison bisher nicht bekannter Rennen vorläufig schätzen (ab 20. Oktober zählt die nächste UCI-Saison);
 -- der nächste Ergebnisabruf setzt den genauen Wert aus DataRide
-update races set season = extract(year from start_date)::int
+update competitions set season = extract(year from start_date)::int
        + case when start_date >= make_date(extract(year from start_date)::int, 10, 20) then 1 else 0 end
  where season is null and start_date is not null;
 
@@ -68,8 +68,8 @@ alter table schema_changes enable row level security;
 do $$
 begin
   if not exists (select 1 from schema_changes where name = 'point_pushes_seed') then
-    insert into point_pushes (manager_id, rider_slug, race_slug, label)
-    select distinct x.manager_id, x.rider_slug, x.race_slug, x.label
+    insert into point_pushes (manager_id, athlete_id, competition_id, label)
+    select distinct x.manager_id, x.athlete_id, x.competition_id, x.label
       from leagues l cross join lateral _score_rows(l.id) x where l.status = 'active' and x.points > 0
     on conflict do nothing;
     insert into schema_changes (name) values ('point_pushes_seed');
