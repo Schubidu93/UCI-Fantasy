@@ -1,5 +1,7 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, fmtDate, fmtDateTime } from '../lib.js';
+import { SPORT } from '../sport/index.js';
+import { LEAGUE_DEFAULTS, SEASON_END, GENDER_OPTIONS, genderLabel, DRAFT_MODE_ORDER, adjustSettings, settingsPayload, SquadFields } from '../sport/settings.js';
 import { PushToggle } from './push.js';
 
 // Echter Stand der Liga: Draft geplant/läuft/abgeschlossen, Saison läuft mit aktuellem Spieltag, beendet
@@ -27,7 +29,7 @@ export function Home({ session }) {
 
   return html`<main class="wrap stack home">
     <div class="row between">
-      <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> UCI Fantasy</div>
+      <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> ${SPORT.app}</div>
       <button class="ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button>
     </div>
     <h2>Meine Ligen</h2>
@@ -37,7 +39,7 @@ export function Home({ session }) {
           <a class="card link" href=${`#/league/${m.leagues.id}`}>
             <span class="row between"><strong>${m.leagues.name}</strong>
               ${m.leagues.admin_user === session.user.id && html`<span class="tag admin-tag" title="Du verwaltest diese Liga">⚙️ Admin</span>`}</span>
-            <span class="muted">${m.team_name} · ${m.leagues.gender === 'women' ? 'Frauen' : 'Männer'}</span>
+            <span class="muted">${m.team_name} · ${genderLabel(m.leagues.gender)}</span>
             ${(([text, cls]) => html`<span class=${`tag ${cls}`}>${text}</span>`)(leagueStatus(m.leagues, (mds.data || []).filter((x) => x.league_id === m.leagues.id)))}
             <span class="muted small">${fmtDate(m.leagues.season_start)} – ${fmtDate(m.leagues.season_end)}</span>
           </a></li>`)}</ul>`}
@@ -63,25 +65,20 @@ export function Home({ session }) {
 function CreateLeague({ onCancel }) {
   const y = new Date().getMonth() >= 9 ? new Date().getFullYear() + 1 : new Date().getFullYear();
   const [f, setF] = useState({
-    name: '', team_name: '', max_managers: 8, roster_size: 15, scoring_mode: 'full', lineup_size: 9,
-    max_per_team: '', draft_mode: 'live', draft_order: 'ranking', bid_seconds: 15, waiver_mode: 'priority', transfer_mode: 'waiver_free',
-    gender: 'men', season_start: `${y}-01-01`, season_end: `${y}-10-31`,
+    name: '', team_name: '', max_managers: 8, draft_order: 'ranking', waiver_mode: 'priority', transfer_mode: 'waiver_free',
+    season_start: `${y}-01-01`, season_end: `${y}-${SEASON_END}`, ...LEAGUE_DEFAULTS,
   });
   const a = useAction();
-  // Beim Wechsel auf Snake-Draft eine sinnvolle Pick-Zeit vorschlagen
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value,
-    ...(k === 'draft_mode' && e.target.value === 'snake' && +f.bid_seconds === 15 ? { bid_seconds: 60 } : {}),
-    ...(k === 'draft_mode' && e.target.value === 'blind' && +f.bid_seconds === 15 ? { bid_seconds: 20 } : {}) });
+  const set = (k) => (e) => setF(adjustSettings(f, k, e.target.value));   // ggf. passende Folgewerte (Sportart)
 
   const submit = (e) => {
     e.preventDefault();
     a.run(async () => {
       const s = {
         max_managers: +f.max_managers, roster_size: +f.roster_size, scoring_mode: f.scoring_mode,
-        lineup_size: f.scoring_mode === 'lineup' ? +f.lineup_size : null,
-        max_per_team: f.max_per_team ? +f.max_per_team : null, draft_mode: f.draft_mode, draft_order: f.draft_order,
+        draft_mode: f.draft_mode, draft_order: f.draft_order,
         bid_seconds: +f.bid_seconds, waiver_mode: f.waiver_mode, transfer_mode: f.transfer_mode, gender: f.gender,
-        season_start: f.season_start, season_end: f.season_end,
+        ...settingsPayload(f), season_start: f.season_start, season_end: f.season_end,
       };
       const id = await rpc('create_league', { p_name: f.name, p_team_name: f.team_name, p_settings: s });
       location.hash = `#/league/${id}/admin`;
@@ -101,24 +98,19 @@ function CreateLeague({ onCancel }) {
 }
 
 // Gemeinsame Felder für "Liga anlegen" und Admin-Einstellungen.
-// locked = nach dem Draft: nur noch Wertungsmodus, Waiver-Modus, Saisonende änderbar.
+// locked = nach dem Draft: nur noch Wertungsmodus, Transfers, Waiver-Modus, Saisonende änderbar.
 export function LeagueSettingsFields({ f, set, locked }) {
+  const modes = Object.fromEntries(DRAFT_MODES.map(([k, t]) => [k, t]));
   return html`<fieldset class="grid2 compact">
     <label>Wertung
       <select value=${f.gender} onChange=${set('gender')} disabled=${locked}>
-        <option value="men">Männer Elite</option><option value="women">Frauen Elite</option>
+        ${GENDER_OPTIONS.map(([k, label]) => html`<option value=${k}>${label}</option>`)}
       </select></label>
     <label>Anzahl Mitspieler (2–20)<input type="number" min="2" max="20" value=${f.max_managers} onInput=${set('max_managers')} disabled=${locked} /></label>
-    <label>Fahrer pro Team (5–30)<input type="number" min="5" max="30" value=${f.roster_size} onInput=${set('roster_size')} disabled=${locked} /></label>
-    <label>Max. Fahrer pro Profiteam<input type="number" min="1" placeholder="keine Grenze" value=${f.max_per_team ?? ''} onInput=${set('max_per_team')} disabled=${locked} /></label>
-    <label>Wertungsmodus
-      <select value=${f.scoring_mode} onChange=${set('scoring_mode')}>
-        <option value="full">Gesamtkader zählt</option><option value="lineup">Aufstellung pro Spieltag</option>
-      </select></label>
-    ${f.scoring_mode === 'lineup' && html`<label>Wertende Fahrer<input type="number" min="1" max=${f.roster_size} value=${f.lineup_size ?? ''} onInput=${set('lineup_size')} /></label>`}
+    <${SquadFields} f=${f} set=${set} locked=${locked} />
     <label>Draft-Modus
       <select value=${f.draft_mode} onChange=${set('draft_mode')} disabled=${locked}>
-        <option value="live">Live-Auktion</option><option value="blind">Blind-Auktion (verdeckt)</option><option value="snake">Snake-Draft</option><option value="offline">Offline-Import</option>
+        ${DRAFT_MODE_ORDER.map((k) => html`<option value=${k}>${k === 'blind' ? 'Blind-Auktion (verdeckt)' : modes[k]}</option>`)}
       </select></label>
     <${DraftModeHelp} mode=${f.draft_mode} />
     ${f.draft_mode === 'snake' && html`
@@ -126,9 +118,9 @@ export function LeagueSettingsFields({ f, set, locked }) {
     ${(f.draft_mode === 'live' || f.draft_mode === 'blind') && html`
       <label>Reihenfolge
         <select value=${f.draft_order} onChange=${set('draft_order')} disabled=${locked}>
-          <option value="ranking">nach UCI-Rangliste</option><option value="nominate">reihum nominieren</option>
+          <option value="ranking">${SPORT.rankingOption}</option><option value="nominate">reihum nominieren</option>
         </select></label>
-      <label>${f.draft_mode === 'blind' ? 'Sekunden pro Fahrer' : 'Sekunden pro Gebot'}<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
+      <label>${f.draft_mode === 'blind' ? `Sekunden pro ${SPORT.one}` : 'Sekunden pro Gebot'}<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
     <label>Transfers
       <select value=${f.transfer_mode || 'waiver_free'} onChange=${set('transfer_mode')}>
         <option value="waiver_free">Waiver-Runde + freie Phase</option><option value="waiver">Nur Waiver (bis zum Stichtag)</option>
@@ -140,21 +132,21 @@ export function LeagueSettingsFields({ f, set, locked }) {
     <label>Saisonstart<input type="date" value=${f.season_start} onInput=${set('season_start')} disabled=${locked} /></label>
     <label>Saisonende<input type="date" value=${f.season_end} onInput=${set('season_end')} /></label>
   </fieldset>
-  <p class="muted small">${f.draft_mode === 'snake' ? 'Im Snake-Draft kosten Fahrer nichts; das Budget von 100 bleibt für FAAB-Waiver.' : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
+  <p class="muted small">${f.draft_mode === 'snake' ? `Im Snake-Draft kosten ${SPORT.many} nichts; das Budget von 100 bleibt für FAAB-Waiver.` : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
 }
 
 // Erklärung der Draft-Modi (aufklappbar), der gewählte ist markiert
 export const DRAFT_MODES = [
-  ['live', 'Live-Auktion', 'Alle bieten gleichzeitig auf einen Fahrer. Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr zurück. Läuft sie ab, bekommt das Höchstgebot den Fahrer. Spannend, wenn alle gleichzeitig online sind.'],
-  ['blind', 'Blind-Auktion', 'Pro Fahrer gibt jeder innerhalb der Zeit ein verdecktes Gebot ab – niemand sieht die anderen. Das höchste Gebot gewinnt sofort zu diesem Preis. Bei Gleichstand gibt es ein Stechen um +1 unter den Gleichauf-Bietern. Schneller als die Live-Auktion, mit Poker-Effekt.'],
-  ['snake', 'Snake-Draft', 'Reihum wählt jeder einen Fahrer, in jeder Runde dreht sich die Reihenfolge um (1–2–3 … 3–2–1). Fahrer kosten nichts, es gibt kein Budget. Einfach und fair, auch für Einsteiger.'],
+  ['live', 'Live-Auktion', `Alle bieten gleichzeitig auf einen ${SPORT.oneAcc}. Jedes Gebot muss das vorige um mindestens 1 übertreffen und setzt die Uhr zurück. Läuft sie ab, bekommt das Höchstgebot den ${SPORT.oneAcc}. Spannend, wenn alle gleichzeitig online sind.`],
+  ['blind', 'Blind-Auktion', `Pro ${SPORT.one} gibt jeder innerhalb der Zeit ein verdecktes Gebot ab – niemand sieht die anderen. Das höchste Gebot gewinnt sofort zu diesem Preis. Bei Gleichstand gibt es ein Stechen um +1 unter den Gleichauf-Bietern. Schneller als die Live-Auktion, mit Poker-Effekt.`],
+  ['snake', 'Snake-Draft', `Reihum wählt jeder einen ${SPORT.oneAcc}, in jeder Runde dreht sich die Reihenfolge um (1–2–3 … 3–2–1). ${SPORT.many} kosten nichts, es gibt kein Budget. Einfach und fair, auch für Einsteiger.`],
   ['offline', 'Offline-Import', 'Ihr draftet außerhalb der App (z. B. am Stammtisch). Der Admin trägt danach die Kader samt Preisen ein.'],
 ];
 function DraftModeHelp({ mode }) {
   return html`<details class="span2 help">
     <summary>Was bedeuten die Draft-Modi?</summary>
     <ul>${DRAFT_MODES.map(([k, t, d]) => html`<li class=${k === mode ? 'chosen' : ''}><strong>${t}${k === mode ? ' (gewählt)' : ''}:</strong> ${d}</li>`)}</ul>
-    <p class="muted small">Bei Live- und Blind-Auktion hat jeder 100 Budgetpunkte; die Fahrer kommen nach UCI-Rangliste dran oder werden reihum nominiert.
+    <p class="muted small">Bei Live- und Blind-Auktion hat jeder 100 Budgetpunkte; die ${SPORT.many} kommen ${SPORT.rankingPhrase} dran oder werden reihum nominiert.
       Alle Details stehen nach dem Anlegen unter Mehr → Regeln.</p>
   </details>`;
 }

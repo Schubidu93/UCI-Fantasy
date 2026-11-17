@@ -184,10 +184,10 @@ export function SearchSelect({ value, onChange, options, placeholder, label = (x
 }
 
 // Fahrerauswahl mit Suche
-export function RiderPicker({ riders, onPick, placeholder = 'Fahrer suchen …', limit = 30, action = 'Wählen' }) {
+export function RiderPicker({ people, onPick, placeholder = 'Fahrer suchen …', limit = 30, action = 'Wählen' }) {
   const [term, setTerm] = useState('');
   const t = normName(term);
-  const list = riders
+  const list = people
     .filter((r) => !t || normName(r.name + ' ' + (r.team || '')).includes(t) || t.split(' ').every((w) => normName(r.name + ' ' + (r.team || '')).includes(w)))
     .slice(0, limit);
   return html`<div class="picker">

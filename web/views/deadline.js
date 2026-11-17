@@ -1,6 +1,7 @@
 // Fristen transparent: wann ist der nächste Stichtag, was passiert dort, was muss man bis dahin tun
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { fmtDate, fmtUntil } from '../lib.js';
+import { SPORT } from '../sport/index.js';
 
 export const fmtDeadline = (d) => fmtUntil(d, { weekday: true });
 
@@ -43,7 +44,7 @@ export function NextDeadline({ c, compact }) {
   const next = two && phase === 'waiver' ? wd : lock;
   const steps = two ? [
     ['Waiver-Runde', `bis ${fmtDeadline(wd)}`, 'Anträge stellen – ausgewertet in Waiver-Reihenfolge', phase === 'waiver'],
-    ['Freie Phase', `bis ${fmtDeadline(lock)}`, 'freie Fahrer sofort holen und abgeben, wer zuerst kommt', phase === 'free'],
+    ['Freie Phase', `bis ${fmtDeadline(lock)}`, `freie ${SPORT.many} sofort holen und abgeben, wer zuerst kommt`, phase === 'free'],
     ['Stichtag', `danach`, `Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
   ] : [
     ['Waiver', `bis ${fmtDeadline(lock)}`, `Anträge stellen${lineup ? ', Aufstellung festlegen' : ''}`, true],

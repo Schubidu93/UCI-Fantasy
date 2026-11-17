@@ -1,6 +1,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, RiderCell, RiderPicker } from '../lib.js';
 import { DraftReport } from './report.js';
+import { SPORT, pid, rank } from '../sport/index.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
 let clockOffset = 0;
@@ -26,15 +27,15 @@ function DraftLobby({ c }) {
     ${offline
       ? html`<p>Diese Liga nutzt einen <strong>Offline-Draft</strong>. Der Admin trägt die Kader unter „Admin“ ein.</p>`
       : snake
-      ? html`<p><strong>Snake-Draft:</strong> Die Manager wählen reihum je einen Fahrer, in jeder Runde dreht sich die
+      ? html`<p><strong>Snake-Draft:</strong> Die Manager wählen reihum je einen ${SPORT.oneAcc}, in jeder Runde dreht sich die
           Reihenfolge um (1–2–3 … 3–2–1). Pro Pick gibt es ${c.league.bid_seconds} Sekunden – danach wird automatisch der
-          beste freie Fahrer nach UCI-Rang gewählt. Die Reihenfolge wird beim Start ausgelost.</p>`
+          beste freie ${SPORT.one} ${SPORT.bestBy} gewählt. Die Reihenfolge wird beim Start ausgelost.</p>`
       : c.league.draft_mode === 'blind'
-      ? html`<p><strong>Blind-Auktion</strong> mit ${c.league.budget} Budgetpunkten pro Manager. Pro Fahrer haben alle
+      ? html`<p><strong>Blind-Auktion</strong> mit ${c.league.budget} Budgetpunkten pro Manager. Pro ${SPORT.one} haben alle
           ${c.league.bid_seconds} Sekunden für ein verdecktes Gebot – das höchste gewinnt sofort. Bei Gleichstand wird um +1 gestochen.
-          Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`
+          Reihenfolge: ${c.league.draft_order === 'ranking' ? SPORT.orderLabel : 'reihum nominieren'}.</p>`
       : html`<p>Live-Auktion mit ${c.league.budget} Budgetpunkten pro Manager. Jedes Gebot setzt
-          die Uhr auf ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? 'UCI-Rangliste' : 'reihum nominieren'}.</p>`}
+          die Uhr auf ${c.league.bid_seconds} Sekunden zurück. Reihenfolge: ${c.league.draft_order === 'ranking' ? SPORT.orderLabel : 'reihum nominieren'}.</p>`}
     ${!offline && html`<${DraftSchedule} c=${c} />`}
     ${c.league.keeper_count > 0 && c.league.prev_league && html`<${Keepers} c=${c} />`}
     <h3>Manager (${c.managers.length}/${c.league.max_managers})</h3>
@@ -59,16 +60,16 @@ function Keepers({ c }) {
   const [sel, setSel] = useState(null);
   const a = useAction();
   if (!opts.data || !all.data) return null;
-  const chosen = sel || new Set(opts.data.filter((o) => o.chosen).map((o) => o.rider_slug));
+  const chosen = sel || new Set(opts.data.filter((o) => o.chosen).map((o) => o[SPORT.fk]));
   const flip = (slug) => { const s = new Set(chosen); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
-  const sum = opts.data.filter((o) => chosen.has(o.rider_slug)).reduce((s, o) => s + o.price, 0);
+  const sum = opts.data.filter((o) => chosen.has(o[SPORT.fk])).reduce((s, o) => s + o.price, 0);
   return html`<div class="schedule">
     <strong>Keeper (bis zu ${c.league.keeper_count})</strong>
-    <p class="muted small">Behalte Fahrer aus der Vorsaison – zum Vorjahrespreis + ${c.league.keeper_surcharge}. Sie stehen beim Draft-Start fest in deinem Kader.</p>
+    <p class="muted small">Behalte ${SPORT.many} aus der Vorsaison – zum Vorjahrespreis + ${c.league.keeper_surcharge}. Sie stehen beim Draft-Start fest in deinem Kader.</p>
     ${opts.data.length === 0 ? html`<p class="muted small">Kein Vorjahreskader gefunden.</p>` : html`
-      <ul class="list compact">${opts.data.map((o) => html`<li key=${o.rider_slug}>
-        <label class="check"><input type="checkbox" checked=${chosen.has(o.rider_slug)} onChange=${() => flip(o.rider_slug)} />
-          <${RiderCell} r=${c.riderMap[o.rider_slug]} /></label>
+      <ul class="list compact">${opts.data.map((o) => html`<li key=${o[SPORT.fk]}>
+        <label class="check"><input type="checkbox" checked=${chosen.has(o[SPORT.fk])} onChange=${() => flip(o[SPORT.fk])} />
+          <${RiderCell} r=${c.riderMap[o[SPORT.fk]]} /></label>
         <span class="muted small">${o.prev_price} → <strong>${o.price}</strong></span></li>`)}</ul>
       <div class="row">
         <button class="primary" disabled=${a.busy || chosen.size > c.league.keeper_count}
@@ -77,7 +78,7 @@ function Keepers({ c }) {
       </div>`}
     <${Msg} msg=${a.msg} />
     ${all.data.length > 0 && html`<details><summary>Keeper aller Manager (${all.data.length})</summary>
-      <ul class="list compact">${all.data.map((k) => html`<li key=${k.rider_slug}><span>${c.riderMap[k.rider_slug]?.name || k.rider_slug}</span>
+      <ul class="list compact">${all.data.map((k) => html`<li key=${k[SPORT.fk]}><span>${c.riderMap[k[SPORT.fk]]?.name || k[SPORT.fk]}</span>
         <span class="muted small">${c.managerMap[k.manager_id]?.team_name} · ${k.price}</span></li>`)}</ul></details>`}
   </div>`;
 }
@@ -148,7 +149,7 @@ function DraftRoom({ c }) {
   const [now, setNow] = useState(serverNow());
   const [amount, setAmount] = useState('');
   const [sealed, setSealed] = useState(null);      // Blind-Auktion: eigenes verdecktes Gebot
-  const [lastBids, setLastBids] = useState([]);    // Blind-Auktion: offengelegte Gebote des letzten Fahrers
+  const [lastBids, setLastBids] = useState([]);    // Blind-Auktion: offengelegte Gebote der letzten Versteigerung
   const a = useAction();
   const lastLot = useRef(null);
   const blind = c.league.draft_mode === 'blind';
@@ -196,7 +197,7 @@ function DraftRoom({ c }) {
   }, [remaining === 0, d?.deadline]);
 
   // Du bist dran: Vibration, Tab-Titel und – wenn die App im Hintergrund ist – eine Benachrichtigung
-  const myTurnNow = !!(c.me && d?.status === 'running' && d.nominator === c.me.id && !d.current_rider);
+  const myTurnNow = !!(c.me && d?.status === 'running' && d.nominator === c.me.id && !d[SPORT.current]);
   useEffect(() => {
     if (!myTurnNow) return;
     const title = document.title;
@@ -216,7 +217,7 @@ function DraftRoom({ c }) {
   const me = c.me;
   const open = (m) => c.league.roster_size - c.active.filter((r) => r.manager_id === m.id).length;
   const maxBid = (m) => (open(m) <= 0 ? 0 : m.budget_left - (open(m) - 1));
-  const rider = c.riderMap[d.current_rider];
+  const rider = c.riderMap[d[SPORT.current]];
   const minNext = Math.max(1, d.current_bid + 1);
   const iAmHigh = me && d.current_bidder === me.id;
   const canBid = me && d.status === 'running' && rider && remaining > 0 && !iAmHigh && open(me) > 0 && maxBid(me) >= minNext;
@@ -224,8 +225,8 @@ function DraftRoom({ c }) {
   const nominatorName = c.managerMap[d.nominator]?.team_name;
   const myTurn = me && d.nominator === me.id;
   const asAdmin = (r, verb) => myTurn || adminConfirm(r, nominatorName, verb);
-  const drafted = new Set(lots.map((l) => l.rider_slug));
-  const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive);
+  const drafted = new Set(lots.map((l) => l[SPORT.fk]));
+  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive);
 
   return html`<div class="draft">
     <section class="card auction">
@@ -250,7 +251,7 @@ function DraftRoom({ c }) {
         <div class="bid-now">
           ${d.current_bid > 0
             ? html`Höchstgebot <strong>${d.current_bid}</strong> von <strong>${c.managerMap[d.current_bidder]?.team_name}</strong>${iAmHigh ? ' (du)' : ''}`
-            : html`<span class="muted">Noch kein Gebot – ohne Gebot wird der Fahrer übersprungen.</span>`}
+            : html`<span class="muted">Noch kein Gebot – ohne Gebot wird der ${SPORT.one} übersprungen.</span>`}
         </div>
         ${me && html`<div class="bid-controls">
           ${[0, 1, 4, 9].map((plus) => minNext + plus <= maxBid(me) && html`
@@ -263,17 +264,17 @@ function DraftRoom({ c }) {
           <span class="muted small">Dein Höchstgebot: ${maxBid(me)}</span>
         </div>`}
       ` : d.phase === 'fill' ? html`
-        <p>Die Rangliste ist durch. Restplätze werden reihum mit freien Fahrern zum Preis 1 gefüllt.</p>
+        <p>Die Rangliste ist durch. Restplätze werden reihum mit freien ${SPORT.manyDat} zum Preis 1 gefüllt.</p>
         ${myTurn && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         <p>An der Reihe: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
-        ${(myTurn || c.isAdmin) && html`<${RiderPicker} riders=${free} action="Für 1 holen"
-          onPick=${(r) => asAdmin(r, 'holen') && a.run(async () => { await rpc('draft_fill_pick', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
+        ${(myTurn || c.isAdmin) && html`<${RiderPicker} people=${free} action="Für 1 holen"
+          onPick=${(r) => asAdmin(r, 'holen') && a.run(async () => { await rpc('draft_fill_pick', { p_league: L, p_rider: pid(r) }); load(); })} />`}
       ` : html`
         ${myTurn && html`<div class="your-turn">⏰ Du bist dran!</div>`}
         <p>An der Reihe zum Nominieren: <strong>${nominatorName}</strong>${myTurn ? ' – du!' : ''}</p>
-        ${(myTurn || c.isAdmin) && html`<p class="muted small">${blind ? 'Danach bieten alle verdeckt.' : 'Der nominierte Fahrer startet mit deinem Gebot 1.'}</p>
-          <${RiderPicker} riders=${free.filter((r) => !drafted.has(r.pcs_slug))} action="Nominieren"
-          onPick=${(r) => asAdmin(r, 'nominieren') && a.run(async () => { await rpc('draft_nominate', { p_league: L, p_rider: r.pcs_slug }); load(); })} />`}
+        ${(myTurn || c.isAdmin) && html`<p class="muted small">${blind ? 'Danach bieten alle verdeckt.' : `Der nominierte ${SPORT.one} startet mit deinem Gebot 1.`}</p>
+          <${RiderPicker} people=${free.filter((r) => !drafted.has(pid(r)))} action="Nominieren"
+          onPick=${(r) => asAdmin(r, 'nominieren') && a.run(async () => { await rpc('draft_nominate', { p_league: L, p_rider: pid(r) }); load(); })} />`}
       `}
       <${Msg} msg=${a.msg} />
     </section>
@@ -294,10 +295,10 @@ function DraftRoom({ c }) {
 
     <section class="card">
       <h3>Letzte Zuschläge</h3>
-      ${blind && lots[0] && lastBids.length > 0 && html`<p class="muted small">Gebote für ${c.riderMap[lots[0].rider_slug]?.name || lots[0].rider_slug}:
+      ${blind && lots[0] && lastBids.length > 0 && html`<p class="muted small">Gebote für ${c.riderMap[lots[0][SPORT.fk]]?.name || lots[0][SPORT.fk]}:
         ${lastBids.map((b, i) => html`${i ? ' · ' : ''}${c.managerMap[b.manager_id]?.team_name} <strong>${b.amount}</strong>`)}</p>`}
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
-        <span>${c.riderMap[l.rider_slug]?.name || l.rider_slug}</span>
+        <span>${c.riderMap[l[SPORT.fk]]?.name || l[SPORT.fk]}</span>
         <span class="muted">${l.manager_id ? `${c.managerMap[l.manager_id]?.team_name} · ${l.price}` : 'übersprungen'}</span></li>`)}</ul>
     </section>
   </div>`;
@@ -321,7 +322,7 @@ function BlindLot({ c, d, rider, remaining, sealed, maxBid, open, onBid, onRaise
     return html`${head}
       <div class="bid-now">⚖️ Gleichstand – Stechen zwischen <strong>${tied}</strong></div>
       <p>Vorn: <strong>${leader}</strong>${iLead ? ' (du)' : ''} mit <strong>${d.current_bid}</strong>.</p>
-      <p class="muted small">Erhöht niemand um 1, ${iLead ? 'bekommst du' : `bekommt ${leader}`} den Fahrer.</p>
+      <p class="muted small">Erhöht niemand um 1, ${iLead ? 'bekommst du' : `bekommt ${leader}`} den ${SPORT.oneAcc}.</p>
       ${iAmIn && !iLead && html`<div class="bid-controls">
         <button class="primary" disabled=${!running || busy || maxBid(me) < next} onClick=${() => onRaise(next)}>Auf ${next} erhöhen</button>
         <span class="muted small">${maxBid(me) < next ? 'Dein Budget reicht nicht für mehr.' : 'Nichts tun = aussteigen.'}</span></div>`}`;
@@ -332,7 +333,7 @@ function BlindLot({ c, d, rider, remaining, sealed, maxBid, open, onBid, onRaise
   const canBid = me && running && open(me) > 0 && maxBid(me) >= 1;
   const send = (v) => { onBid(v); setVal(''); };
   return html`${head}
-    <div class="bid-now">${sealed ? html`Dein verdecktes Gebot: <strong>${sealed}</strong>` : html`<span class="muted">Verdeckt bieten – niemand sieht dein Gebot. Ohne Gebot wird der Fahrer übersprungen.</span>`}</div>
+    <div class="bid-now">${sealed ? html`Dein verdecktes Gebot: <strong>${sealed}</strong>` : html`<span class="muted">Verdeckt bieten – niemand sieht dein Gebot. Ohne Gebot wird der ${SPORT.one} übersprungen.</span>`}</div>
     ${me && html`<div class="bid-controls">
       ${[1, 5, 10, 20].filter((v) => v <= maxBid(me)).map((v) => html`
         <button class=${sealed === v ? 'primary' : ''} disabled=${!canBid || busy} onClick=${() => send(v)}>${v}</button>`)}
@@ -370,10 +371,10 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
   const round = Math.floor((d.lot_no - 1) / n) + 1;
   const myTurn = me && d.nominator === me.id;
   const picker = c.managerMap[d.nominator];
-  const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive && r.uci_rank);
+  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive && rank(r));
   const next = [];
   for (let p = d.lot_no + 1; p <= Math.min(total, d.lot_no + 6); p++) next.push([p, snakeManager(order, p)]);
-  const pick = (r) => (myTurn || adminConfirm(r, picker?.team_name, 'draften')) && a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: r.pcs_slug }); await load(); });
+  const pick = (r) => (myTurn || adminConfirm(r, picker?.team_name, 'draften')) && a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: pid(r) }); await load(); });
 
   return html`<div class="draft">
     <section class="card auction">
@@ -394,9 +395,9 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
         </div>
       </div>
       ${(myTurn || c.isAdmin) && d.status === 'running'
-        ? html`<p class="muted small">${myTurn ? 'Wähle deinen Fahrer.' : `Admin-Modus: Du bist nicht dran – ein Pick hier geht an ${picker?.team_name}.`}${" "}
-            Läuft die Uhr ab, wird automatisch der beste freie Fahrer nach UCI-Rang gewählt.</p>
-          <${RiderPicker} riders=${free} limit=${40} action="Wählen" onPick=${pick} />`
+        ? html`<p class="muted small">${myTurn ? `Wähle deinen ${SPORT.oneAcc}.` : `Admin-Modus: Du bist nicht dran – ein Pick hier geht an ${picker?.team_name}.`}${" "}
+            Läuft die Uhr ab, wird automatisch der beste freie ${SPORT.one} ${SPORT.bestBy} gewählt.</p>
+          <${RiderPicker} people=${free} limit=${40} action="Wählen" onPick=${pick} />`
         : html`<p class="muted">Warte auf den Pick von ${picker?.team_name} …</p>`}
       <${Msg} msg=${a.msg} />
     </section>
@@ -416,7 +417,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
     <section class="card">
       <h3>Letzte Picks</h3>
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
-        <span>${l.lot_no}. ${c.riderMap[l.rider_slug]?.name || l.rider_slug}</span>
+        <span>${l.lot_no}. ${c.riderMap[l[SPORT.fk]]?.name || l[SPORT.fk]}</span>
         <span class="muted">${c.managerMap[l.manager_id]?.team_name}</span></li>`)}</ul>
     </section>
   </div>`;
@@ -426,7 +427,7 @@ function RosterMini({ c, managerId }) {
   const mine = c.active.filter((r) => r.manager_id === managerId);
   if (!mine.length) return html`<p class="muted">Noch leer.</p>`;
   return html`<ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-    <span>${c.riderMap[r.rider_slug]?.name || r.rider_slug}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
+    <span>${c.riderMap[r[SPORT.fk]]?.name || r[SPORT.fk]}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
 }
 
 function DraftSummary({ c }) {

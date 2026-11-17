@@ -1,6 +1,7 @@
 // Bereich "Mehr": Regeln, Draft, Admin, Benachrichtigungen, Liga wechseln, Abmelden
 import { html } from '../vendor/preact-htm.js';
 import { sb } from '../lib.js';
+import { SPORT } from '../sport/index.js';
 import { PushToggle } from './push.js';
 
 export function More({ c }) {
@@ -17,6 +18,6 @@ export function More({ c }) {
     <${PushToggle} />
     <div class="row between"><button class="ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button>
       <a class="muted small" href=${`#/league/${L}/feedback`}>💬 Feedback geben</a></div>
-    <p class="muted small">Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.</p>
+    <p class="muted small">${SPORT.dataLine}</p>
   </div>`;
 }

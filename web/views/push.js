@@ -1,6 +1,7 @@
 // Push-Benachrichtigungen ein-/ausschalten
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { rpc, useAction, Msg } from '../lib.js';
+import { SPORT } from '../sport/index.js';
 
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
@@ -51,7 +52,7 @@ export function PushToggle() {
   return html`<div class="card stack">
     <div class="row between"><h3>🔔 Benachrichtigungen</h3>
       ${state === 'on' && html`<span class="tag ok">an</span>`}</div>
-    <p class="muted small">Waiver-Ergebnisse, Tauschangebote, Draft-Start, abgeschlossene Spieltage und neue Punkte deiner Fahrer.</p>
+    <p class="muted small">Waiver-Ergebnisse, Tauschangebote, Draft-Start, abgeschlossene Spieltage und neue Punkte deiner ${SPORT.many}.</p>
     ${!supported && isIOS && !standalone ? html`<p class="small">Auf dem iPhone zuerst die App installieren: in Safari auf <strong>Teilen</strong>
         (Quadrat mit Pfeil) → <strong>Zum Home-Bildschirm</strong>, dann die App vom Home-Bildschirm öffnen und hier einschalten.</p>`
       : !supported ? html`<p class="small muted">Dieser Browser unterstützt keine Push-Benachrichtigungen.</p>`

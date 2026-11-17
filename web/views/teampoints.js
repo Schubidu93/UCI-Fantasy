@@ -1,6 +1,7 @@
 // Team → Punkte: wer hat dem Team in der Saison bzw. an einem Spieltag wie viele Punkte gebracht
 import { html, useState } from '../vendor/preact-htm.js';
-import { rpc, useLoad, Loading, fmtPts, fmtDate, openRider, teamName } from '../lib.js';
+import { rpc, useLoad, Loading, fmtPts, fmtDate, openRider } from '../lib.js';
+import { SPORT, PersonLine } from '../sport/index.js';
 
 const sum = (rows) => rows.reduce((s, x) => s + Number(x.points), 0);
 
@@ -16,7 +17,7 @@ export function TeamPoints({ c }) {
   if (!pts.data) return html`<${Loading} error=${pts.error} />`;
   const mine = pts.data.filter((x) => x.manager_id === mid);
   const isMe = mid === c.me?.id;
-  const inRoster = (a) => c.active.some((r) => r.manager_id === mid && r.rider_slug === a);
+  const inRoster = (a) => c.active.some((r) => r.manager_id === mid && r[SPORT.fk] === a);
 
   // Zeile: Name (antippen öffnet das Profil), darunter Kurzinfo; rechts Punkte, darunter Balken für den Anteil
   const Row = ({ a, points, share, sub }) => {
@@ -24,7 +25,7 @@ export function TeamPoints({ c }) {
     return html`<li class="pts-row" key=${a}>
       <span class="pts-name">
         <button type="button" class="linkish" onClick=${() => openRider(a)}>${r?.name || a}</button>
-        <small class="muted">${[r?.team && teamName(r.team), sub].filter(Boolean).join(' · ')}</small>
+        <small class="muted"><${PersonLine} r=${r} sub=${sub} /></small>
         <span class="pts-bar"><span style=${`width:${Math.max(0, Math.min(100, share))}%`}></span></span>
       </span>
       <span class="pts-val"><strong>${fmtPts(points)}</strong><small class="muted">${Math.round(share)} %</small></span>
@@ -38,12 +39,12 @@ export function TeamPoints({ c }) {
     const total = sum(mine);
     const by = {};
     for (const x of mine) {
-      by[x.rider_slug] ??= { pts: 0, mds: new Set() };
-      by[x.rider_slug].pts += Number(x.points);
-      if (Number(x.points) > 0) by[x.rider_slug].mds.add(x.matchday_id);
+      by[x[SPORT.fk]] ??= { pts: 0, mds: new Set() };
+      by[x[SPORT.fk]].pts += Number(x.points);
+      if (Number(x.points) > 0) by[x[SPORT.fk]].mds.add(x.matchday_id);
     }
-    // auch Kaderfahrer ohne Punkte zeigen (unten)
-    for (const r of c.active.filter((r) => r.manager_id === mid)) by[r.rider_slug] ??= { pts: 0, mds: new Set() };
+    // auch Kadermitglieder ohne Punkte zeigen (unten)
+    for (const r of c.active.filter((r) => r.manager_id === mid)) by[r[SPORT.fk]] ??= { pts: 0, mds: new Set() };
     const list = Object.entries(by).sort((a, b) => b[1].pts - a[1].pts);
     body = html`<div class="row between"><span class="muted small">Saison bis heute · ${started.length} Spieltag${started.length === 1 ? '' : 'e'}</span>
         <span><span class="big">${fmtPts(total)}</span> <span class="muted small">Punkte</span></span></div>
@@ -60,9 +61,9 @@ export function TeamPoints({ c }) {
       <div class="row between"><span class="muted small">Platz ${place} von ${c.managers.length} an diesem Spieltag</span>
         <span><span class="big">${fmtPts(total)}</span> <span class="muted small">Punkte</span></span></div>
       ${rows.length === 0 ? html`<p class="muted">An diesem Spieltag noch keine Punkte.</p>` : html`<ul class="list pts-list">
-        ${rows.map((x) => html`<${Row} a=${x.rider_slug} points=${x.points} share=${total ? (x.points / total) * 100 : 0}
-          sub=${[x.overridden && 'von Hand korrigiert', !inRoster(x.rider_slug) && 'inzwischen abgegeben'].filter(Boolean).join(' · ')} />`)}</ul>`}
-      <p class="muted small">Fahrer ohne Punkte an diesem Spieltag sind nicht aufgeführt.</p>`;
+        ${rows.map((x) => html`<${Row} a=${x[SPORT.fk]} points=${x.points} share=${total ? (x.points / total) * 100 : 0}
+          sub=${[x.overridden && 'von Hand korrigiert', !inRoster(x[SPORT.fk]) && 'inzwischen abgegeben'].filter(Boolean).join(' · ')} />`)}</ul>`}
+      <p class="muted small">${SPORT.many} ohne Punkte an diesem Spieltag sind nicht aufgeführt.</p>`;
   }
 
   return html`<div class="stack">

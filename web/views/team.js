@@ -1,5 +1,7 @@
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { sb, q, rpc, useLoad, useAction, Msg, Loading, RiderCell, fmtDate, fmtPts, SOURCE_LABEL, budgetRelevant, useRiderPoints } from '../lib.js';
+import { SPORT } from '../sport/index.js';
+import { Lineup } from '../sport/lineup.js';
 
 import { NextDeadline, fmtDeadline } from './deadline.js';
 
@@ -29,61 +31,30 @@ function Roster({ c, managerId, points }) {
   const entries = c.active.filter((r) => r.manager_id === managerId);
   const past = c.roster.filter((r) => r.manager_id === managerId && r.released_on);
   const started = c.matchdays.filter((md) => md.starts_on <= new Date().toISOString().slice(0, 10));
-  const p = (slug, md) => points.filter((x) => x.manager_id === managerId && x.rider_slug === slug && (!md || x.matchday_id === md))
+  const p = (slug, md) => points.filter((x) => x.manager_id === managerId && x[SPORT.fk] === slug && (!md || x.matchday_id === md))
     .reduce((s, x) => s + Number(x.points), 0);
   const total = points.filter((x) => x.manager_id === managerId).reduce((s, x) => s + Number(x.points), 0);
 
   return html`<section class="card">
     <div class="row between"><h2>Kader</h2><span class="big">${fmtPts(total)} <span class="muted small">Punkte</span></span></div>
     <div class="scroll-x"><table class="tbl">
-      <thead><tr><th>Fahrer</th><th class="num">Preis</th>
+      <thead><tr><th>${SPORT.one}</th><th class="num">Preis</th>
         ${started.map((md) => html`<th class="num" title=${md.name}>${md.name}</th>`)}
         <th class="num">Gesamt</th></tr></thead>
       <tbody>
-        ${entries.sort((a, b) => p(b.rider_slug) - p(a.rider_slug)).map((r) => html`<tr key=${r.id}>
-          <td><${RiderCell} r=${c.riderMap[r.rider_slug]} />
+        ${entries.sort((a, b) => p(b[SPORT.fk]) - p(a[SPORT.fk])).map((r) => html`<tr key=${r.id}>
+          <td><${RiderCell} r=${c.riderMap[r[SPORT.fk]]} />
             ${r.source !== 'draft' && html`<span class="tag">${SOURCE_LABEL[r.source]} ab ${fmtDate(r.acquired_on)}</span>`}</td>
           <td class="num">${r.price}</td>
-          ${started.map((md) => html`<td class="num">${fmtPts(p(r.rider_slug, md.id))}</td>`)}
-          <td class="num"><strong>${fmtPts(p(r.rider_slug))}</strong></td></tr>`)}
+          ${started.map((md) => html`<td class="num">${fmtPts(p(r[SPORT.fk], md.id))}</td>`)}
+          <td class="num"><strong>${fmtPts(p(r[SPORT.fk]))}</strong></td></tr>`)}
       </tbody>
     </table></div>
-    ${past.length > 0 && html`<details><summary>Abgegebene Fahrer (${past.length})</summary>
+    ${past.length > 0 && html`<details><summary>Abgegebene ${SPORT.many} (${past.length})</summary>
       <ul class="list compact">${past.map((r) => html`<li key=${r.id}>
-        <span>${c.riderMap[r.rider_slug]?.name || r.rider_slug}</span>
-        <span class="muted">${fmtDate(r.acquired_on)} – ${fmtDate(r.released_on)} · ${fmtPts(p(r.rider_slug))} Pkt.</span></li>`)}</ul>
+        <span>${c.riderMap[r[SPORT.fk]]?.name || r[SPORT.fk]}</span>
+        <span class="muted">${fmtDate(r.acquired_on)} – ${fmtDate(r.released_on)} · ${fmtPts(p(r[SPORT.fk]))} Pkt.</span></li>`)}</ul>
     </details>`}
-  </section>`;
-}
-
-function Lineup({ c }) {
-  const md = c.nextMatchday;
-  const size = c.league.lineup_size;
-  const mine = c.active.filter((r) => r.manager_id === c.me.id);
-  const [sel, setSel] = useState(null);
-  const a = useAction();
-  useEffect(() => {
-    if (!md) return;
-    rpc('effective_lineup', { p_matchday: md.id, p_manager: c.me.id })
-      .then((rows) => setSel(new Set(rows.map((r) => (typeof r === 'string' ? r : r.effective_lineup)))))
-      .catch(() => setSel(new Set()));
-  }, [md?.id]);
-  if (!md) return html`<section class="card"><h3>Aufstellung</h3><p class="muted">Kein kommender Spieltag angelegt.${c.isAdmin ? html` <a href=${`#/league/${c.league.id}/admin`}>Spieltag anlegen →</a>` : ''}</p></section>`;
-  if (!sel) return null;
-  const toggle = (slug) => { const s = new Set(sel); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
-  return html`<section class="card">
-    <h3>Aufstellung für ${md.name}</h3>
-    <p class="muted small">${size} von ${c.league.roster_size} Fahrern werten. Änderbar bis <strong>${fmtDeadline(md.deadline)}</strong>,
-      danach ist sie für ${md.name} fest. Ohne neue Eingabe gilt die letzte Aufstellung.</p>
-    <ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-      <label class="check"><input type="checkbox" checked=${sel.has(r.rider_slug)} onChange=${() => toggle(r.rider_slug)} />
-        <${RiderCell} r=${c.riderMap[r.rider_slug]} /></label></li>`)}</ul>
-    <div class="row">
-      <button class="primary" disabled=${a.busy || sel.size !== size}
-        onClick=${() => a.run(() => rpc('set_lineup', { p_matchday: md.id, p_riders: [...sel] }), 'Aufstellung gespeichert.')}>
-        Speichern (${sel.size}/${size})</button>
-    </div>
-    <${Msg} msg=${a.msg} />
   </section>`;
 }
 
@@ -101,7 +72,7 @@ const TRADE_STATUS = { proposed: 'offen', accepted: 'angenommen – wird zum nä
 
 function Trades({ c }) {
   const trades = useLoad(() => q(sb.from('trades').select('*').eq('league_id', c.league.id).order('created_at', { ascending: false }).limit(50)), [c.league.id]);
-  const claims = useLoad(() => q(sb.from('waiver_claims').select('drop_rider').eq('manager_id', c.me.id).eq('status', 'pending')), [c.me.id]);
+  const claims = useLoad(() => q(sb.from('waiver_claims').select(SPORT.drop).eq('manager_id', c.me.id).eq('status', 'pending')), [c.me.id]);
   const [partner, setPartner] = useState('');
   const [give, setGive] = useState([]);
   const [take, setTake] = useState([]);
@@ -115,7 +86,7 @@ function Trades({ c }) {
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
   const theirs = c.active.filter((r) => r.manager_id === partner);
   const openSlots = c.league.roster_size - mine.length;
-  const pendingDrops = new Set((claims.data || []).map((x) => x.drop_rider).filter(Boolean));
+  const pendingDrops = new Set((claims.data || []).map((x) => x[SPORT.drop]).filter(Boolean));
   const flip = (list, set, slug) => set(list.includes(slug) ? list.filter((x) => x !== slug) : [...list, slug]);
   const act = (fn, args) => a.run(async () => { await rpc(fn, args); trades.reload(); c.reload(); });
   // Fahrer, die ich zusätzlich entlassen muss, wenn ich mehr bekomme als ich abgebe
@@ -123,27 +94,27 @@ function Trades({ c }) {
   const myNeed = needDrop(take.length, give.length);
   const DropPicker = ({ exclude, need, sel, set }) => html`<div class="drop-pick">
     <h4>Zusätzlich entlassen (${sel.length}/${need})</h4>
-    <p class="muted small">Du bekommst mehr Fahrer als du abgibst – damit der Kader nicht zu groß wird. Fahrer aus offenen Waiver-Anträgen sind ausgenommen.</p>
-    ${mine.filter((r) => !exclude.includes(r.rider_slug)).map((r) => html`<label class="check" key=${r.id}>
-      <input type="checkbox" disabled=${pendingDrops.has(r.rider_slug)} checked=${sel.includes(r.rider_slug)} onChange=${() => flip(sel, set, r.rider_slug)} />
-      ${name(r.rider_slug)}${pendingDrops.has(r.rider_slug) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r.rider_slug] || 0)}</span>`}</label>`)}
+    <p class="muted small">Du bekommst mehr ${SPORT.many} als du abgibst – damit der Kader nicht zu groß wird. ${SPORT.many} aus offenen Waiver-Anträgen sind ausgenommen.</p>
+    ${mine.filter((r) => !exclude.includes(r[SPORT.fk])).map((r) => html`<label class="check" key=${r.id}>
+      <input type="checkbox" disabled=${pendingDrops.has(r[SPORT.fk])} checked=${sel.includes(r[SPORT.fk])} onChange=${() => flip(sel, set, r[SPORT.fk])} />
+      ${name(r[SPORT.fk])}${pendingDrops.has(r[SPORT.fk]) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r[SPORT.fk]] || 0)}</span>`}</label>`)}
   </div>`;
 
   return html`<section class="card stack">
     <h3>Tausch</h3>
-    <p class="muted small">Auch ungleich möglich (z. B. 1 gegen 2): Wer mehr Fahrer bekommt, entlässt dafür eigene. Beide müssen zustimmen;
+    <p class="muted small">Auch ungleich möglich (z. B. 1 gegen 2): Wer mehr ${SPORT.many} bekommt, entlässt dafür eigene. Beide müssen zustimmen;
       danach hat der Admin 24 Stunden Vetorecht. Ausgeführt wird zum nächsten Stichtag.</p>
     ${trades.data && trades.data.length > 0 && html`<ul class="list">${trades.data.map((t) => {
       const incoming = t.to_manager === c.me.id;
       const vetoOpen = t.status === 'accepted' && Date.now() < new Date(t.accepted_at).getTime() + 864e5;
-      const need = needDrop(t.give_riders.length, t.take_riders.length);
+      const need = needDrop(t[SPORT.give].length, t[SPORT.take].length);
       return html`<li key=${t.id} class="stack-sm">
-        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t.give_riders.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.give_riders))})</span>
-          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_riders.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.take_riders))})</span>
+        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t[SPORT.give].map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t[SPORT.give]))})</span>
+          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t[SPORT.take].map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t[SPORT.take]))})</span>
           ${(t.from_drop?.length || t.to_drop?.length) ? html`<div class="muted small">entlassen: ${[...(t.from_drop || []), ...(t.to_drop || [])].map(name).join(', ')}</div>` : ''}</div>
         <div class="row"><span class="tag">${TRADE_STATUS[t.status]}</span>
           ${incoming && t.status === 'proposed' && html`
-            <button class="small primary" onClick=${() => (need ? setAccept({ id: t.id, need, drop: [], exclude: t.take_riders })
+            <button class="small primary" onClick=${() => (need ? setAccept({ id: t.id, need, drop: [], exclude: t[SPORT.take] })
               : act('respond_trade', { p_trade: t.id, p_accept: true }))}>Annehmen</button>
             <button class="small" onClick=${() => act('respond_trade', { p_trade: t.id, p_accept: false })}>Ablehnen</button>`}
           ${t.from_manager === c.me.id && ['proposed', 'accepted'].includes(t.status) && html`
@@ -166,13 +137,13 @@ function Trades({ c }) {
           </select></label>
         ${partner && html`<div class="grid2">
           <div><h4>Ich gebe</h4>${mine.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${give.includes(r.rider_slug)} onChange=${() => { flip(give, setGive, r.rider_slug); setDrop(drop.filter((x) => x !== r.rider_slug)); }} /> ${withPts(r.rider_slug)}</label>`)}</div>
+            <input type="checkbox" checked=${give.includes(r[SPORT.fk])} onChange=${() => { flip(give, setGive, r[SPORT.fk]); setDrop(drop.filter((x) => x !== r[SPORT.fk])); }} /> ${withPts(r[SPORT.fk])}</label>`)}</div>
           <div><h4>Ich bekomme</h4>${theirs.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${take.includes(r.rider_slug)} onChange=${() => flip(take, setTake, r.rider_slug)} /> ${withPts(r.rider_slug)}</label>`)}</div>
+            <input type="checkbox" checked=${take.includes(r[SPORT.fk])} onChange=${() => flip(take, setTake, r[SPORT.fk])} /> ${withPts(r[SPORT.fk])}</label>`)}</div>
         </div>
         ${(give.length > 0 || take.length > 0) && html`<p class="small trade-sum">Punkte ${new Date().getFullYear()}: du gibst <strong>${fmtPts(sumPts(give))}</strong>, du bekommst <strong>${fmtPts(sumPts(take))}</strong></p>`}
         ${myNeed > 0 && html`<${DropPicker} exclude=${give} need=${myNeed} sel=${drop} set=${setDrop} />`}
-        ${give.length > take.length && take.length > 0 && html`<p class="muted small">Du gibst mehr Fahrer ab – ${c.managerMap[partner]?.team_name} wählt bei der Annahme, wen er dafür entlässt.</p>`}
+        ${give.length > take.length && take.length > 0 && html`<p class="muted small">Du gibst mehr ${SPORT.many} ab – ${c.managerMap[partner]?.team_name} wählt bei der Annahme, wen er dafür entlässt.</p>`}
         <button class="primary" disabled=${a.busy || !give.length || !take.length || drop.length !== myNeed}
           onClick=${() => act('propose_trade', { p_league: c.league.id, p_to: partner, p_give: give, p_take: take, p_drop: myNeed ? drop : [] })
             .then(() => { setGive([]); setTake([]); setDrop([]); })}>
