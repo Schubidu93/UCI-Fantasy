@@ -1,7 +1,7 @@
 // Sportart Radsport: eigene Seiten, Navigation und Laden der Fahrer (von app.js eingebunden).
-import { all, sb } from './lib.js';
-import { Riders } from './views/riders.js';
-import { Races } from './views/races.js';
+import { all, sb } from '../lib.js';
+import { Riders } from './riders.js';
+import { Races } from './races.js';
 
 /** Alle Fahrer der Liga, sortiert nach UCI-Rang */
 export const loadPeople = (league) => all(() => sb.from('riders').select('*').eq('gender', league.gender)

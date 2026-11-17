@@ -10,14 +10,14 @@ import { Waiver } from './views/waiver.js';
 import { Results } from './views/results.js';
 import { Table } from './views/table.js';
 import { Admin } from './views/admin.js';
-import { RiderModal } from './views/rider.js';
+import { RiderModal } from './sport/rider.js';
 import { Rules } from './views/rules.js';
 import { More } from './views/more.js';
 import { Feedback } from './views/feedback.js';
 import { Overview } from './views/overview.js';
 import { registerServiceWorker } from './views/push.js';
-import { SPORT, pid } from './sport.js';
-import { loadPeople, SPORT_SECTIONS, SPORT_VIEWS, PEOPLE_ICON } from './sport-views.js';
+import { SPORT, pid } from './sport/index.js';
+import { loadPeople, SPORT_SECTIONS, SPORT_VIEWS, PEOPLE_ICON } from './sport/views.js';
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');

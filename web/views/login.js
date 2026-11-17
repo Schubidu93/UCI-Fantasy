@@ -1,6 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { sb, useAction, Msg } from '../lib.js';
-import { SPORT } from '../sport.js';
+import { SPORT } from '../sport/index.js';
 
 export function Login() {
   const [mode, setMode] = useState('login');   // login | signup | magic

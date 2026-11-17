@@ -1,7 +1,7 @@
 // Bereich "Mehr": Regeln, Draft, Admin, Benachrichtigungen, Liga wechseln, Abmelden
 import { html } from '../vendor/preact-htm.js';
 import { sb } from '../lib.js';
-import { SPORT } from '../sport.js';
+import { SPORT } from '../sport/index.js';
 import { PushToggle } from './push.js';
 
 export function More({ c }) {

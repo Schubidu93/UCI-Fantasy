@@ -1,7 +1,7 @@
 // Sportart Radsport: alles, worin sich UCI Fantasy von Runner Fantasy unterscheidet (Begriffe,
 // Spaltennamen, Texte). Der übrige App-Code ist in beiden Apps gleich und liest diese Werte hier.
-import { html } from './vendor/preact-htm.js';
-import { teamName } from './lib.js';
+import { html } from '../vendor/preact-htm.js';
+import { teamName } from '../lib.js';
 
 export const SPORT = {
   app: 'UCI Fantasy', emoji: '🚴', source: 'UCI DataRide',
