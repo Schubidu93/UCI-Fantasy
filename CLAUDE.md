@@ -81,7 +81,11 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
   Quellen (kein ProCyclingStats), keine Umgehung von Bot-Schutz.
 - `datasync/race_results.py`: Kalender, Ergebnislisten und Punkte (täglich 20 Uhr; WorldTour/ProSeries/WM vollständig).
   Punkte der Wertung stehen in `results`, die Ergebnislisten in `race_events`/`event_results`.
-- `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr). Fahrer-ID heißt historisch `pcs_slug` (`uci-<id>`).
+- `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr).
+- Namen wie in Runner Fantasy: Fahrer in `athletes` (`id` = `uci-<DataRide-ID>`, Fremdschlüssel überall `athlete_id`, Weltranglistenplatz
+  `pool_rank`), Rennen in `competitions` (`id` z. B. `tour-de-france/2026`, Klasse `category`), UCI-Punkte `results.points` bzw.
+  `event_results.points`. Bis November 2026 hießen sie `riders`/`pcs_slug`/`rider_slug`/`races`/`race_slug`/`uci_*` – die
+  Umbenennung steht oben in `supabase/schema/01_tabellen.sql` (in beiden Apps gleich).
 - Daten erst ab Saison 2025. Ländercodes in der App einheitlich IOC (`nationCode` in `web/lib.js`).
 
 ## Push „Neue Punkte“ und heiße freie Fahrer

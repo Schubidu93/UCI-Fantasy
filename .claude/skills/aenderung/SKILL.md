@@ -35,7 +35,14 @@ Antworten an den Nutzer: Deutsch, kurz, ohne Fachjargon.
 - Eigenen Diff kritisch lesen: Was würde die CI ablehnen? Was bricht in der anderen App?
 
 ## 5. Abschließen
-- Commit mit deutscher Nachricht, Push, Pull Request auf `main` (je App einer), CI abwarten, bei Rot Ursache beheben (nie Tests abschalten).
+- Commit-Regeln (Squash-Merge: der Titel des Pull Requests wird zum Eintrag in `main`, also dort genauso):
+  - Erste Zeile `Bereich: was sich ändert` auf Deutsch, höchstens 72 Zeichen, ohne Punkt am Ende –
+    Bereiche: `App`, `Datenbank`, `Datenabruf`, `Regeln`, `Tests`, `Abläufe` (Workflows), `Doku`, `Angleichen` (beide Apps).
+    Beispiel: `Waiver: Push bei abgelehntem Antrag`.
+  - Darunter nach einer Leerzeile kurz das Warum und was Spieler merken; Hinweise wie „App neu laden“ oder „Datenbank wird umgebaut“.
+  - Ein Thema je Commit bzw. Pull Request; Änderungen, die beide Apps betreffen, in beiden mit demselben Titel.
+  - Keine Geheimnisse, keine persönlichen Daten, keine Modellnamen in Commits.
+- Push, Pull Request auf `main` (je App einer), CI abwarten, bei Rot Ursache beheben (nie Tests abschalten).
 - Grün → Squash-Merge, Zweig auf `origin/main` zurücksetzen. Bei SQL-Änderungen prüfen, dass „Datenbank einrichten“ grün ist;
   Live-Daten bei Bedarf mit „Datenbank abfragen (nur lesen)“ kontrollieren.
 - `CLAUDE.md`/`README.md` aktualisieren, wenn sich Aufbau oder Abläufe ändern.

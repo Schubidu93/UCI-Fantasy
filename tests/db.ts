@@ -85,6 +85,6 @@ export async function as(db: Db, userId: string | null) {
 /** Fahrer anlegen (r-<id>), Rang = Platz im UCI-Ranking. */
 export async function rider(db: Db, id: number, name: string, gender: "men" | "women" = "men", rank = id) {
   const slug = `r-${id}`;
-  await db.query("insert into riders (pcs_slug, name, gender, nation, uci_rank) values ($1, $2, $3, 'GER', $4)", [slug, name, gender, rank]);
+  await db.query("insert into athletes (id, name, gender, nation, pool_rank) values ($1, $2, $3, 'GER', $4)", [slug, name, gender, rank]);
   return slug;
 }

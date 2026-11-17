@@ -39,13 +39,13 @@ class SavePoints(unittest.TestCase):
     ]
 
     def row(self, event_id, slug, pts, rank=1):
-        return {"event_id": event_id, "rider_slug": slug, "uci_points": pts, "rank": rank}
+        return {"event_id": event_id, "athlete_id": slug, "points": pts, "rank": rank}
 
     def test_punkte_uebernehmen_und_veraltete_entfernen(self):
         existing = [
-            {"id": 10, "rider_slug": "uci-1", "label": "Stage 1 · Stage Classification", "result_date": "2026-07-04", "uci_points": 50},
-            {"id": 11, "rider_slug": "uci-9", "label": "Stage 1 · Stage Classification", "result_date": "2026-07-04", "uci_points": 20},
-            {"id": 12, "rider_slug": "uci-9", "label": "Team Time Trial", "result_date": "2026-07-04", "uci_points": 5},
+            {"id": 10, "athlete_id": "uci-1", "label": "Stage 1 · Stage Classification", "result_date": "2026-07-04", "points": 50},
+            {"id": 11, "athlete_id": "uci-9", "label": "Stage 1 · Stage Classification", "result_date": "2026-07-04", "points": 20},
+            {"id": 12, "athlete_id": "uci-9", "label": "Team Time Trial", "result_date": "2026-07-04", "points": 5},
         ]
         db = FakeDb({"results": existing}).install()
         rr.save_points("tour/2026", self.EVENTS, [
@@ -60,8 +60,8 @@ class SavePoints(unittest.TestCase):
         # aberkannt: uci-9 fällt weg, die Mannschaftswertung bleibt stehen (kommt aus dem Ranking-Abgleich)
         self.assertEqual(db.of("delete", "results"), [("delete", "results", {"id": "in.(11)"})])
         (_, _, rows, key), = db.of("upsert", "results")
-        self.assertEqual(key, "rider_slug,race_slug,label")
-        self.assertEqual(sorted((r["rider_slug"], r["label"], r["uci_points"]) for r in rows), [
+        self.assertEqual(key, "athlete_id,competition_id,label")
+        self.assertEqual(sorted((r["athlete_id"], r["label"], r["points"]) for r in rows), [
             ("uci-1", "Stage 1 · Stage Classification", 60.0),
             ("uci-3", "Stage 1", 5.0),
         ])
@@ -75,21 +75,21 @@ class SavePoints(unittest.TestCase):
 
 class ReplaceProvisional(unittest.TestCase):
     def test_ersetzt_und_abgelaufen(self):
-        db = FakeDb({"races": [
-            {"pcs_slug": "a/2027", "uci_class": "1.UWT", "start_date": "2027-04-11", "end_date": None},   # DataRide hat es
-            {"pcs_slug": "b/2026", "uci_class": "1.1", "start_date": "2026-11-01", "end_date": "2026-11-02"},  # abgelaufen
-            {"pcs_slug": "c/2027", "uci_class": "1.1", "start_date": "2027-05-01", "end_date": "2027-05-01"},  # bleibt
+        db = FakeDb({"competitions": [
+            {"id": "a/2027", "category": "1.UWT", "start_date": "2027-04-11", "end_date": None},   # DataRide hat es
+            {"id": "b/2026", "category": "1.1", "start_date": "2026-11-01", "end_date": "2026-11-02"},  # abgelaufen
+            {"id": "c/2027", "category": "1.1", "start_date": "2027-05-01", "end_date": "2027-05-01"},  # bleibt
         ]}).install()
-        rr.replace_provisional("men", [{"uci_class": "1.UWT", "start_date": "2027-04-13"}], TODAY)
-        self.assertEqual([c[2]["pcs_slug"] for c in db.of("delete", "races")], ["eq.a/2027", "eq.b/2026"])
+        rr.replace_provisional("men", [{"category": "1.UWT", "start_date": "2027-04-13"}], TODAY)
+        self.assertEqual([c[2]["id"] for c in db.of("delete", "competitions")], ["eq.a/2027", "eq.b/2026"])
 
 
 class RemoveUnlisted(unittest.TestCase):
     def test_nur_ungeladene_ohne_dataride_eintrag(self):
-        db = FakeDb({"races": [{"pcs_slug": "u23/2026", "dataride_id": 5}, {"pcs_slug": "ok/2026", "dataride_id": 6}]}).install()
+        db = FakeDb({"competitions": [{"id": "u23/2026", "dataride_id": 5}, {"id": "ok/2026", "dataride_id": 6}]}).install()
         rr.remove_unlisted("men", {6}, 2026)
-        self.assertEqual(db.of("delete", "races"), [("delete", "races", {"pcs_slug": "eq.u23/2026", "loaded_at": "is.null"})])
-        self.assertEqual(db.of("select", "races")[0][2]["loaded_at"], "is.null")
+        self.assertEqual(db.of("delete", "competitions"), [("delete", "competitions", {"id": "eq.u23/2026", "loaded_at": "is.null"})])
+        self.assertEqual(db.of("select", "competitions")[0][2]["loaded_at"], "is.null")
 
 
 class SetSeasons(unittest.TestCase):
@@ -97,7 +97,7 @@ class SetSeasons(unittest.TestCase):
         db = FakeDb().install()
         comps = [{"CompetitionId": i, "_season": 2026} for i in range(200)] + [{"CompetitionId": 999, "_season": 2027}]
         rr.set_seasons("women", comps)
-        ups = db.of("update", "races")
+        ups = db.of("update", "competitions")
         self.assertEqual([(len(u[2]["dataride_id"].split(",")), u[3]) for u in ups],
                          [(150, {"season": 2026}), (50, {"season": 2026}), (1, {"season": 2027})])
 

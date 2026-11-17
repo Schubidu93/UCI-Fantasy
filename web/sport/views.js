@@ -4,8 +4,8 @@ import { Races } from './races.js';
 import { all, sb } from '../lib.js';
 
 /** Alle Fahrer der Liga, sortiert nach UCI-Rang */
-export const loadPeople = (league) => all(() => sb.from('riders').select('*').eq('gender', league.gender)
-  .order('uci_rank', { nullsFirst: false }).order('pcs_slug'));
+export const loadPeople = (league) => all(() => sb.from('athletes').select('*').eq('gender', league.gender)
+  .order('pool_rank', { nullsFirst: false }).order('id'));
 
 /** Bereiche der Navigation für Personen und Rennen */
 export const SPORT_SECTIONS = [

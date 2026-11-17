@@ -39,7 +39,7 @@ let rank = 0;
 for (const [name, nation, team, pts] of RIDERS) {
   const slug = `uci-${100000 + ++rank}`;
   slugs.push(slug);
-  await db.query(`insert into riders (pcs_slug, name, gender, nation, team, uci_rank, ranking_points, birth_date)
+  await db.query(`insert into athletes (id, name, gender, nation, team, pool_rank, ranking_points, birth_date)
                   values ($1, $2, 'men', $3, $4, $5, $6, $7)`, [slug, name, nation, team, rank, pts, `${1993 + (rank % 9)}-0${1 + (rank % 9)}-15`]);
 }
 
@@ -51,18 +51,18 @@ const RACES: [string, string, string, string, number][] = [
 ];
 let ev = 900;
 for (const [slug, name, cls, country, off] of RACES) {
-  await db.query(`insert into races (pcs_slug, name, gender, start_date, end_date, uci_class, country, season, dataride_id)
+  await db.query(`insert into competitions (id, name, gender, start_date, end_date, category, country, season, dataride_id)
                   values ($1, $2, 'men', $3, $4, $5, $6, $7, $8)`, [slug, name, day(off), day(off + (cls.startsWith("2.") ? 2 : 0)), cls, country, Y, 50000 + ev++]);
 }
 const result = async (race: string, stage: string | null, eventName: string, date: string, label: string, rows: [number, number][]) => {
-  await db.query("insert into race_events (id, race_slug, stage_name, stage_no, event_name, event_date, winner) values ($1, $2, $3, $4, $5, $6, $7)",
+  await db.query("insert into race_events (id, competition_id, stage_name, stage_no, event_name, event_date, winner) values ($1, $2, $3, $4, $5, $6, $7)",
     [++ev, race, stage, stage ? Number(stage.replace(/\D/g, "")) || 99 : null, eventName, date, RIDERS[rows[0][0]][0]]);
   let i = 0;
   for (const [ri, pts] of rows) {
-    await db.query(`insert into event_results (event_id, sort_order, rank, rank_text, rider_name, rider_slug, team, nation, result, uci_points)
+    await db.query(`insert into event_results (event_id, sort_order, rank, rank_text, athlete_name, athlete_id, team, nation, result, points)
                     values ($1, $2, $3, $10, $4, $5, $6, $7, $8, $9)`,
       [ev, ++i, i, RIDERS[ri][0], slugs[ri], RIDERS[ri][2], RIDERS[ri][1], i === 1 ? "4:12:33" : `+0:${String(i * 4).padStart(2, "0")}`, pts, String(i)]);
-    await db.query("insert into results (rider_slug, race_slug, label, result_date, rank, uci_points) values ($1, $2, $3, $4, $5, $6)",
+    await db.query("insert into results (athlete_id, competition_id, label, result_date, rank, points) values ($1, $2, $3, $4, $5, $6)",
       [slugs[ri], race, label, date, i, pts]);
   }
 };
@@ -96,7 +96,7 @@ let pos = 0;
 for (const [team, idx] of Object.entries(rosters)) {
   await db.query("update managers set draft_position = $2 where id = $1", [mgr[team], ++pos]);
   for (const i of idx) {
-    await db.query("insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on) values ($1, $2, $3, 0, 'draft', $4)",
+    await db.query("insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on) values ($1, $2, $3, 0, 'draft', $4)",
       [league, mgr[team], slugs[i], `${Y}-01-01`]);
   }
 }

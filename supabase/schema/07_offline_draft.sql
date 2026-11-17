@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Offline-Draft-Import
--- p_rows: [{"manager_id": "...", "rider_slug": "...", "price": 12}, …]
+-- p_rows: [{"manager_id": "...", "athlete_id": "...", "price": 12}, …]
 -- Gibt eine Liste von Fehlern zurück; nur ohne Fehler und mit p_commit wird gespeichert.
 -- =====================================================================
 
@@ -14,30 +14,30 @@ begin
 
   drop table if exists _imp;   -- Prüfen und Übernehmen können in derselben Transaktion laufen
   create temp table _imp on commit drop as
-    select (e->>'manager_id')::uuid manager_id, e->>'rider_slug' rider_slug,
+    select (e->>'manager_id')::uuid manager_id, e->>'athlete_id' athlete_id,
            coalesce(nullif(e->>'price', '')::int, 0) price
       from jsonb_array_elements(p_rows) e;
 
   for r in select i.manager_id from _imp i where not exists (select 1 from managers m where m.id = i.manager_id and m.league_id = p_league) group by 1 loop
     errs := errs || format('Unbekannter Manager %s', r.manager_id);
   end loop;
-  for r in select i.rider_slug from _imp i where not exists (select 1 from riders x where x.pcs_slug = i.rider_slug and x.gender = l.gender) loop
-    errs := errs || format('Fahrer %s nicht im UCI-Ranking gefunden', r.rider_slug);
+  for r in select i.athlete_id from _imp i where not exists (select 1 from athletes x where x.id = i.athlete_id and x.gender = l.gender) loop
+    errs := errs || format('Fahrer %s nicht im UCI-Ranking gefunden', r.athlete_id);
   end loop;
-  for r in select rider_slug from _imp group by 1 having count(*) > 1 loop
-    errs := errs || format('Fahrer %s ist mehrfach vergeben', r.rider_slug);
+  for r in select athlete_id from _imp group by 1 having count(*) > 1 loop
+    errs := errs || format('Fahrer %s ist mehrfach vergeben', r.athlete_id);
   end loop;
-  for r in select m.team_name, count(i.rider_slug) n, coalesce(sum(i.price), 0) s
+  for r in select m.team_name, count(i.athlete_id) n, coalesce(sum(i.price), 0) s
              from managers m left join _imp i on i.manager_id = m.id
             where m.league_id = p_league group by m.id, m.team_name loop
     if r.n <> l.roster_size then errs := errs || format('%s: %s statt %s Fahrer', r.team_name, r.n, l.roster_size); end if;
     if r.s > l.budget then errs := errs || format('%s: Summe %s über Budget %s', r.team_name, r.s, l.budget); end if;
   end loop;
   for r in select * from _imp where price < 0 loop
-    errs := errs || format('Negativer Preis bei %s', r.rider_slug);
+    errs := errs || format('Negativer Preis bei %s', r.athlete_id);
   end loop;
   if l.max_per_team is not null then
-    for r in select m.team_name, x.team, count(*) n from _imp i join riders x on x.pcs_slug = i.rider_slug
+    for r in select m.team_name, x.team, count(*) n from _imp i join athletes x on x.id = i.athlete_id
                join managers m on m.id = i.manager_id where x.team is not null
               group by m.team_name, x.team having count(*) > l.max_per_team loop
       errs := errs || format('%s: %s Fahrer von %s (max. %s)', r.team_name, r.n, r.team, l.max_per_team);
@@ -45,8 +45,8 @@ begin
   end if;
 
   if array_length(errs, 1) is null and p_commit then
-    insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
-      select p_league, manager_id, rider_slug, price, 'offline', l.season_start from _imp;
+    insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
+      select p_league, manager_id, athlete_id, price, 'offline', l.season_start from _imp;
     update managers m set budget_left = l.budget - coalesce((select sum(price) from _imp i where i.manager_id = m.id), 0),
            draft_position = s.rn
       from (select id, row_number() over (order by random()) rn from managers where league_id = p_league) s

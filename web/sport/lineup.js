@@ -24,8 +24,8 @@ export function Lineup({ c }) {
     <p class="muted small">${size} von ${c.league.roster_size} Fahrern werten. Änderbar bis <strong>${fmtDeadline(md.deadline)}</strong>,
       danach ist sie für ${md.name} fest. Ohne neue Eingabe gilt die letzte Aufstellung.</p>
     <ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-      <label class="check"><input type="checkbox" checked=${sel.has(r.rider_slug)} onChange=${() => toggle(r.rider_slug)} />
-        <${RiderCell} r=${c.riderMap[r.rider_slug]} /></label></li>`)}</ul>
+      <label class="check"><input type="checkbox" checked=${sel.has(r.athlete_id)} onChange=${() => toggle(r.athlete_id)} />
+        <${RiderCell} r=${c.riderMap[r.athlete_id]} /></label></li>`)}</ul>
     <div class="row">
       <button class="primary" disabled=${a.busy || sel.size !== size}
         onClick=${() => a.run(() => rpc('set_lineup', { p_matchday: md.id, p_riders: [...sel] }), 'Aufstellung gespeichert.')}>

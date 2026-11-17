@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from helpers import FakeDb
-from dataride import DataRide, ms_date, normalize_name, race_slug
+from dataride import DataRide, ms_date, normalize_name, competition_id
 import import_riders
 import race_results as rr
 
@@ -47,13 +47,13 @@ class Ranking(unittest.TestCase):
         with mock.patch.object(import_riders, "DataRide", Replay), mock.patch.object(import_riders, "GENDERS", ["men"]), \
                 mock.patch.object(import_riders, "DRY_RUN", False), mock.patch("builtins.print"):
             import_riders.main()
-        (_, _, rows, _), = db.of("upsert", "riders")
+        (_, _, rows, _), = db.of("upsert", "athletes")
         self.assertEqual(len(rows), 20)
         first = rows[0]
-        self.assertEqual({k: first[k] for k in ("pcs_slug", "name", "nation", "team", "uci_rank", "ranking_points", "birth_date")},
-                         {"pcs_slug": "uci-149727", "name": "POGAČAR Tadej", "nation": "SLO", "team": "UAE TEAM EMIRATES XRG",
-                          "uci_rank": 1, "ranking_points": 11680.0, "birth_date": "1998-09-21"})
-        self.assertEqual([r["uci_rank"] for r in rows], list(range(1, 21)))
+        self.assertEqual({k: first[k] for k in ("id", "name", "nation", "team", "pool_rank", "ranking_points", "birth_date")},
+                         {"id": "uci-149727", "name": "POGAČAR Tadej", "nation": "SLO", "team": "UAE TEAM EMIRATES XRG",
+                          "pool_rank": 1, "ranking_points": 11680.0, "birth_date": "1998-09-21"})
+        self.assertEqual([r["pool_rank"] for r in rows], list(range(1, 21)))
         self.assertTrue(all(r["nation"] and len(r["nation"]) == 3 for r in rows), "Ländercodes ohne Leerzeichen")
 
 
@@ -62,7 +62,7 @@ class TourDeFrance(unittest.TestCase):
         tour = load("competitions")[0]
         self.assertEqual((tour["CompetitionName"], tour["ClassCode"]), ("Tour de France", "2.UWT"))
         self.assertEqual((ms_date(tour["StartDate"]), ms_date(tour["EndDate"])), (date(2025, 7, 5), date(2025, 7, 27)))
-        self.assertEqual(race_slug(tour["CompetitionName"], 2025, "men"), "tour-de-france/2025")
+        self.assertEqual(competition_id(tour["CompetitionName"], 2025, "men"), "tour-de-france/2025")
 
     def test_etappen(self):
         races = load("races")
@@ -82,11 +82,11 @@ class TourDeFrance(unittest.TestCase):
         rows = [r for r in rows if r]
         self.assertEqual(len(rows), len(res))
         first = rows[0]
-        self.assertEqual({k: first[k] for k in ("sort_order", "rank", "rank_text", "rider_name", "rider_slug", "nation", "result")},
-                         {"sort_order": 1, "rank": 1, "rank_text": "1", "rider_name": "GIRMAY Biniam", "rider_slug": "uci-1",
+        self.assertEqual({k: first[k] for k in ("sort_order", "rank", "rank_text", "athlete_name", "athlete_id", "nation", "result")},
+                         {"sort_order": 1, "rank": 1, "rank_text": "1", "athlete_name": "GIRMAY Biniam", "athlete_id": "uci-1",
                           "nation": "ERI", "result": "3:53:05"})
         self.assertEqual([r["sort_order"] for r in rows], sorted(r["sort_order"] for r in rows))
-        self.assertIsNone(rows[1]["rider_slug"], "unbekannte Fahrer bleiben ohne Verknüpfung")
+        self.assertIsNone(rows[1]["athlete_id"], "unbekannte Fahrer bleiben ohne Verknüpfung")
 
 
 if __name__ == "__main__":

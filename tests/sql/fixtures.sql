@@ -23,7 +23,7 @@ end $$;
 
 insert into auth.users (id, email)
 select test_support.user_id(n), 'user' || n || '@example.invalid' from generate_series(1, 3) n;
-insert into riders (pcs_slug, name, gender, team, uci_rank)
+insert into athletes (id, name, gender, team, pool_rank)
 select test_support.rider(n), 'Testfahrer ' || n, 'men',
        case when n % 2 = 1 then 'Team A' else 'Team B' end, n
   from generate_series(1, 12) n;
@@ -35,7 +35,7 @@ values (test_support.manager(1), test_support.league(1), test_support.user_id(1)
        (test_support.manager(2), test_support.league(1), test_support.user_id(2), 'Manager B', 80, 2),
        (test_support.manager(3), test_support.league(2), test_support.user_id(3), 'Manager C', 100, 1);
 insert into draft_state (league_id) values (test_support.league(1)), (test_support.league(2));
-insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
 values (test_support.league(1), test_support.manager(1), test_support.rider(1), 10, 'draft', current_date - 60),
        (test_support.league(1), test_support.manager(1), test_support.rider(2), 20, 'draft', current_date - 60),
        (test_support.league(1), test_support.manager(2), test_support.rider(3), 15, 'draft', current_date - 60),

@@ -3,7 +3,7 @@ set local search_path = public, extensions, test_support;
 \ir ../support/fixtures.sql
 -- Tausch: ungleiche Tausche mit Entlassung, Zurückziehen, Veto, geplatzter Tausch, Push
 insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('e1', user_id(1), 'k', 'a'), ('e2', user_id(2), 'k', 'a');
-insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
 select league(), manager(1), rider(n), 0, 'admin', current_date - 30 from unnest(array[5, 6, 7]) n;   -- Manager A: voller Kader (5)
 select login(1);
 select throws_ok($$select propose_trade(league(), manager(2), array[rider(1)], array[rider(3), rider(4)])$$, 'P0001',

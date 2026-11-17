@@ -24,8 +24,8 @@ begin
     if not md.waivers_done and coalesce(md.waiver_deadline, md.deadline) <= now() then
       perform _process_waivers(md.id);
       perform _notify(w.manager_id, '📋 Waiver-Ergebnis',
-          coalesce('Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
-          || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_rider), ', ') filter (where w.status = 'lost'), ''),
+          coalesce('Zuschlag: ' || string_agg(_rname(w.add_athlete), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
+          || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_athlete), ', ') filter (where w.status = 'lost'), ''),
           '#/league/' || md.league_id || '/waiver')
          from waiver_claims w where w.matchday_id = md.id and w.processed_at >= now() - interval '1 minute'
          group by w.manager_id;
@@ -49,30 +49,30 @@ create or replace function notify_new_points() returns int
 language plpgsql security definer set search_path = public as $$
 declare r record; n int := 0;
 begin
-  create temp table if not exists _np (league_id uuid, league_name text, manager_id uuid, rider_slug text,
-                                       race_slug text, label text, points numeric) on commit drop;
+  create temp table if not exists _np (league_id uuid, league_name text, manager_id uuid, athlete_id text,
+                                       competition_id text, label text, points numeric) on commit drop;
   delete from _np;
   insert into _np
-  select l.id, l.name, x.manager_id, x.rider_slug, x.race_slug, x.label, x.points
+  select l.id, l.name, x.manager_id, x.athlete_id, x.competition_id, x.label, x.points
     from leagues l cross join lateral _score_rows(l.id) x
    where l.status = 'active' and x.points > 0 and x.result_date >= current_date - 14
-     and not exists (select 1 from point_pushes p where p.manager_id = x.manager_id and p.rider_slug = x.rider_slug
-                       and p.race_slug = x.race_slug and p.label = x.label);
+     and not exists (select 1 from point_pushes p where p.manager_id = x.manager_id and p.athlete_id = x.athlete_id
+                       and p.competition_id = x.competition_id and p.label = x.label);
   for r in
     with per as (   -- je Fahrer und Rennen zusammenfassen (z. B. Etappe + Gesamtwertung)
-      select league_id, league_name, manager_id, rider_slug, race_slug, sum(points) pts
+      select league_id, league_name, manager_id, athlete_id, competition_id, sum(points) pts
         from _np group by 1, 2, 3, 4, 5)
     select per.league_id, per.league_name, per.manager_id,
-           string_agg(_rname(per.rider_slug) || ' +' || round(per.pts)::text
+           string_agg(_rname(per.athlete_id) || ' +' || round(per.pts)::text
                       || coalesce(' (' || c.name || ')', ''), ' · ' order by per.pts desc) txt
-      from per left join races c on c.pcs_slug = per.race_slug
+      from per left join competitions c on c.id = per.competition_id
      group by 1, 2, 3
   loop
     perform _notify(r.manager_id, '📈 Neue Punkte', r.league_name || ': ' || r.txt, '#/league/' || r.league_id || '/points');
     n := n + 1;
   end loop;
-  insert into point_pushes (manager_id, rider_slug, race_slug, label)
-  select distinct manager_id, rider_slug, race_slug, label from _np on conflict do nothing;
+  insert into point_pushes (manager_id, athlete_id, competition_id, label)
+  select distinct manager_id, athlete_id, competition_id, label from _np on conflict do nothing;
   if n > 0 and exists (select 1 from notifications where sent_at is null) then
     begin
       perform dispatch_workflow('push.yml');
@@ -96,8 +96,8 @@ begin
        from _league_table(md.league_id) t;
   end loop;
   for md in select * from matchdays where status = 'closed' and not frozen and closed_at <= now() - interval '7 days' loop
-    insert into score_snapshot (league_id, matchday_id, manager_id, rider_slug, race_slug, label, result_date, points)
-      select md.league_id, s.matchday_id, s.manager_id, s.rider_slug, s.race_slug, s.label, s.result_date, s.points
+    insert into score_snapshot (league_id, matchday_id, manager_id, athlete_id, competition_id, label, result_date, points)
+      select md.league_id, s.matchday_id, s.manager_id, s.athlete_id, s.competition_id, s.label, s.result_date, s.points
         from _score_rows(md.league_id) s where s.matchday_id = md.id;
     update matchdays set frozen = true where id = md.id;
   end loop;

@@ -25,7 +25,7 @@ async function league(settings: Record<string, unknown>) {
   const m = await db.all("select id, team_name from managers where league_id = $1", [id]);
   const L = { id, alice: m.find((x) => x.team_name === "Team Alice").id, bob: m.find((x) => x.team_name === "Team Bob").id };
   for (const [mgr, a] of [[L.alice, "r-1"], [L.alice, "r-2"], [L.bob, "r-3"], [L.bob, "r-4"]]) {
-    await db.query("insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on) values ($1, $2, $3, 10, 'offline', $4)",
+    await db.query("insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on) values ($1, $2, $3, 10, 'offline', $4)",
       [id, mgr, a, `${Y}-01-01`]);
   }
   // Kader nur teilweise gefüllt (2 von 5) – reicht für die Tests, Abgaben sind trotzdem angegeben
@@ -34,7 +34,7 @@ async function league(settings: Record<string, unknown>) {
   return { ...L, md };
 }
 const roster = async (mgr: string) => (await db.all(
-  "select rider_slug from roster_entries where manager_id = $1 and released_on is null order by rider_slug", [mgr])).map((r) => r.rider_slug);
+  "select athlete_id from roster_entries where manager_id = $1 and released_on is null order by athlete_id", [mgr])).map((r) => r.athlete_id);
 // Waiver-Frist erreicht (Stichtag selbst noch offen) → Auswertung wie beim Öffnen der App
 const runWaivers = async (md: string) => {
   await db.query("update matchdays set waiver_deadline = now() where id = $1", [md]);
@@ -49,8 +49,8 @@ describe("Waiver", () => {
     await db.query("select submit_waiver($1, 'r-5', 'r-3')", [L.id]);
     await db.query("select submit_waiver($1, 'r-6', 'r-3')", [L.id]);
     await runWaivers(L.md);
-    const claims = await db.all("select m.team_name, add_rider, status from waiver_claims c join managers m on m.id = c.manager_id order by m.team_name, add_rider");
-    const wonFive = claims.find((c) => c.add_rider === "r-5" && c.status === "won");
+    const claims = await db.all("select m.team_name, add_athlete, status from waiver_claims c join managers m on m.id = c.manager_id order by m.team_name, add_athlete");
+    const wonFive = claims.find((c) => c.add_athlete === "r-5" && c.status === "won");
     expect(wonFive).toBeTruthy();
     expect(claims.filter((c) => c.status === "won")).toHaveLength(2);   // Verlierer bekommt seinen zweiten Wunsch
     expect(await roster(L.alice)).toHaveLength(2);

@@ -143,8 +143,8 @@ def ms_date(value):
 
 # ---- Umwandlung in unsere Tabellen --------------------------------------------
 
-def rider_slug(object_id):
-    """Stabile Fahrer-ID in unserer Datenbank (Spalte pcs_slug)."""
+def athlete_id(object_id):
+    """Stabile Fahrer-ID in unserer Datenbank (Spalte id)."""
     return f"uci-{object_id}"
 
 
@@ -153,7 +153,7 @@ def slugify(text):
     return re.sub(r"[^a-z0-9]+", "-", t).strip("-")
 
 
-def race_slug(competition_name, year, gender):
+def competition_id(competition_name, year, gender):
     """Stabile Rennen-ID; Frauenrennen bekommen '/w', weil z. B. die WM gleich heißt."""
     return f"{slugify(competition_name)}/{year}" + ("/w" if gender == "women" else "")
 

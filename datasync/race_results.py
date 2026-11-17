@@ -23,7 +23,7 @@ import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
-from dataride import DataRide, ms_date, normalize_name, race_slug
+from dataride import DataRide, ms_date, normalize_name, competition_id
 import uci_calendar
 
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
@@ -46,7 +46,7 @@ def set_seasons(gender, comps):
         by_season[c["_season"]].append(c["CompetitionId"])
     for year, ids in by_season.items():
         for i in range(0, len(ids), 150):
-            db.update("races", {"gender": f"eq.{gender}", "dataride_id": f"in.({','.join(map(str, ids[i:i + 150]))})"},
+            db.update("competitions", {"gender": f"eq.{gender}", "dataride_id": f"in.({','.join(map(str, ids[i:i + 150]))})"},
                       {"season": year})
 
 
@@ -54,12 +54,12 @@ def remove_unlisted(gender, listed_ids, year):
     """Rennen der Saison entfernen, die DataRide für diese Wertung nicht (mehr) führt und für die nie Ergebnisse
     geladen wurden – z. B. reine U23-/Nachwuchs-Meisterschaften. Sie würden sonst ewig ohne Ergebnis im Kalender stehen."""
     import db
-    rows = db.select("races", {"select": "pcs_slug,dataride_id", "gender": f"eq.{gender}", "provisional": "is.false",
+    rows = db.select("competitions", {"select": "id,dataride_id", "gender": f"eq.{gender}", "provisional": "is.false",
                                "dataride_id": "not.is.null", "loaded_at": "is.null",
                                "start_date": f"gte.{year}-01-01", "limit": 5000})
-    gone = [r["pcs_slug"] for r in rows if r["dataride_id"] not in listed_ids]
+    gone = [r["id"] for r in rows if r["dataride_id"] not in listed_ids]
     for slug in gone:
-        db.delete("races", {"pcs_slug": f"eq.{slug}", "loaded_at": "is.null"})
+        db.delete("competitions", {"id": f"eq.{slug}", "loaded_at": "is.null"})
     if gone:
         print(f"  {len(gone)} Rennen ohne Elite-Wertung bei der UCI entfernt")
 
@@ -68,18 +68,18 @@ def replace_provisional(gender, cal, today):
     """Vorläufige Kalendereinträge (von Hand, provisional=true) löschen, sobald DataRide das Rennen liefert:
     gleiche Klasse und Start höchstens 3 Tage auseinander. Abgelaufene Platzhalter ebenfalls entfernen."""
     import db
-    prov = db.select("races", {"select": "pcs_slug,uci_class,start_date,end_date", "gender": f"eq.{gender}",
+    prov = db.select("competitions", {"select": "id,category,start_date,end_date", "gender": f"eq.{gender}",
                                "provisional": "is.true", "limit": 500})
     gone = []
     for p in prov:
         start = date.fromisoformat(p["start_date"])
         end = date.fromisoformat(p["end_date"] or p["start_date"])
         if end < today - timedelta(days=7) or any(
-                c["uci_class"] == p["uci_class"] and abs((date.fromisoformat(c["start_date"]) - start).days) <= 3
+                c["category"] == p["category"] and abs((date.fromisoformat(c["start_date"]) - start).days) <= 3
                 for c in cal):
-            gone.append(p["pcs_slug"])
+            gone.append(p["id"])
     for slug in gone:
-        db.delete("races", {"pcs_slug": f"eq.{slug}", "provisional": "is.true"})
+        db.delete("competitions", {"id": f"eq.{slug}", "provisional": "is.true"})
     if gone:
         print(f"  {len(gone)} vorläufige Kalendereinträge durch DataRide ersetzt bzw. entfernt")
 
@@ -93,26 +93,26 @@ def save_points(slug, events, rows):
     points = {}
     for r in rows:
         ev = ev_by_id[r["event_id"]]
-        if not r["rider_slug"] or not r["uci_points"] or float(r["uci_points"]) <= 0 or not ev["event_date"]:
+        if not r["athlete_id"] or not r["points"] or float(r["points"]) <= 0 or not ev["event_date"]:
             continue
         parts = [p.strip() for p in (ev["stage_name"], ev["event_name"]) if p and p.strip()]
         label = (" · ".join(dict.fromkeys(parts)) or "Ergebnis")[:200]
-        points[(r["rider_slug"], label)] = {"rider_slug": r["rider_slug"], "race_slug": slug, "label": label,
+        points[(r["athlete_id"], label)] = {"athlete_id": r["athlete_id"], "competition_id": slug, "label": label,
                                             "result_date": ev["event_date"], "rank": r["rank"],
-                                            "uci_points": float(r["uci_points"])}
+                                            "points": float(r["points"])}
     dates = [e["event_date"] for e in events if e["event_date"]]
     if not dates:
         return
-    existing = db.select("results", {"select": "id,rider_slug,label,result_date,uci_points", "race_slug": f"eq.{slug}",
+    existing = db.select("results", {"select": "id,athlete_id,label,result_date,points", "competition_id": f"eq.{slug}",
                                      "result_date": f"gte.{min(dates)}", "limit": 5000})
     # Mannschaftswertungen (Mixed-Staffel, Teamzeitfahren) stehen ohne Fahrernamen in der Liste – deren Punkte
     # kommen aus dem Abgleich mit der Weltrangliste (check_ranking.py) und bleiben stehen
-    stale = [r["id"] for r in existing if (r["rider_slug"], r["label"]) not in points
+    stale = [r["id"] for r in existing if (r["athlete_id"], r["label"]) not in points
              and not re.search(r"Team Time Trial|Mixed Relay|TTT", r["label"], re.I)]
     for i in range(0, len(stale), 200):
         db.delete("results", {"id": f"in.({','.join(map(str, stale[i:i + 200]))})"})
     if points:
-        db.upsert("results", list(points.values()), "rider_slug,race_slug,label")
+        db.upsert("results", list(points.values()), "athlete_id,competition_id,label")
     # Push „Neue Punkte“ verschickt die Datenbank (notify_new_points in run_maintenance) – hier nicht noch einmal
 
 
@@ -139,11 +139,11 @@ def result_row(event_id, r, name_to_slug):
         "event_id": event_id, "sort_order": r.get("SortOrder") or 0,
         "rank": r.get("RankNumber") or rank_int(r.get("Rank")),
         "rank_text": (r.get("Irm") or r.get("Rank") or "").strip() or None,
-        "rider_name": name, "rider_slug": name_to_slug.get(normalize_name(name)),
+        "athlete_name": name, "athlete_id": name_to_slug.get(normalize_name(name)),
         "team": (r.get("TeamName") or "").strip() or None,
         "nation": (r.get("NationName") or "").strip() or None,
         "result": (r.get("ResultValue") or "").strip() or None,
-        "uci_points": r.get("PointPcR"),
+        "points": r.get("PointPcR"),
     }
 
 
@@ -185,15 +185,15 @@ def main():
         if not DRY_RUN:
             offset = 0
             while True:
-                rows = db.select("riders", {"select": "pcs_slug,name", "gender": f"eq.{gender}",
-                                            "order": "pcs_slug", "limit": 1000, "offset": offset})
+                rows = db.select("athletes", {"select": "id,name", "gender": f"eq.{gender}",
+                                            "order": "id", "limit": 1000, "offset": offset})
                 for r in rows:
-                    name_to_slug.setdefault(normalize_name(r["name"]), r["pcs_slug"])
+                    name_to_slug.setdefault(normalize_name(r["name"]), r["id"])
                 offset += len(rows)
                 if len(rows) < 1000:
                     break
-            loaded = {r["dataride_id"]: r for r in db.select("races", {
-                "select": "pcs_slug,dataride_id,end_date,loaded_at", "gender": f"eq.{gender}",
+            loaded = {r["dataride_id"]: r for r in db.select("competitions", {
+                "select": "id,dataride_id,end_date,loaded_at", "gender": f"eq.{gender}",
                 "dataride_id": "not.is.null", "limit": 5000})}
         else:
             loaded = {}
@@ -215,14 +215,14 @@ def main():
             start, end = ms_date(c.get("StartDate")), ms_date(c.get("EndDate"))
             if not start:
                 continue
-            cal.append({"pcs_slug": race_slug(c["CompetitionName"], start.year, gender), "name": c["CompetitionName"].strip(),
-                        "gender": gender, "uci_class": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
+            cal.append({"id": competition_id(c["CompetitionName"], start.year, gender), "name": c["CompetitionName"].strip(),
+                        "gender": gender, "category": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
                         "dataride_id": c["CompetitionId"], "start_date": start.isoformat(),
                         "end_date": end.isoformat() if end else None, "season": c["_season"]})
-        cal = list({r["pcs_slug"]: r for r in cal}.values())
+        cal = list({r["id"]: r for r in cal}.values())
         print(f"\n{gender}: {len(cal)} kommende Rennen im Kalender")
         if cal and not DRY_RUN:
-            db.upsert("races", cal, "pcs_slug")
+            db.upsert("competitions", cal, "id")
         if not DRY_RUN and not LIMIT and not CLASSES:
             if future is not None:
                 uci_calendar.sync(gender, cal, today, future)
@@ -257,16 +257,16 @@ def main():
 
         for n, c in enumerate(todo, 1):
             start, end = ms_date(c.get("StartDate")), ms_date(c.get("EndDate"))
-            slug = race_slug(c["CompetitionName"], (start or today).year, gender)
-            race_row = {"pcs_slug": slug, "name": c["CompetitionName"].strip(), "gender": gender,
-                        "uci_class": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
+            slug = competition_id(c["CompetitionName"], (start or today).year, gender)
+            race_row = {"id": slug, "name": c["CompetitionName"].strip(), "gender": gender,
+                        "category": c.get("ClassCode"), "country": c.get("CountryIsoCode3"),
                         "dataride_id": c["CompetitionId"], "season": c["_season"],
                         "start_date": start.isoformat() if start else None, "end_date": end.isoformat() if end else None}
             events, results = [], []
             # Rundfahrten: ältere, schon gespeicherte Etappen nicht jedes Mal neu abfragen
             full = DRY_RUN or c["CompetitionId"] in final_pass
             have = set() if full else {e["stage_name"] for e in db.select(
-                "race_events", {"select": "stage_name", "race_slug": f"eq.{slug}", "limit": 2000})}
+                "race_events", {"select": "stage_name", "competition_id": f"eq.{slug}", "limit": 2000})}
             cutoff = today - timedelta(days=FENSTER)
             skipped = 0
             try:
@@ -280,7 +280,7 @@ def main():
                         skipped += 1
                         continue
                     for ev in dr.events(race["Id"]):
-                        events.append({"id": ev["EventId"], "race_slug": slug, "stage_name": race.get("RaceName"),
+                        events.append({"id": ev["EventId"], "competition_id": slug, "stage_name": race.get("RaceName"),
                                        "stage_no": stage_order(race), "event_name": ev.get("EventName") or "",
                                        "event_date": day.isoformat() if day else None,
                                        "winner": ev.get("WinnerName") or ev.get("IndividualWinner")})
@@ -296,13 +296,13 @@ def main():
             print(label)
             if DRY_RUN:
                 for row in results[:3]:
-                    print(f"      {row['rank_text']:>4} {row['rider_name']:<26} {row['team'] or '':<28} {row['result'] or '':>10} {row['uci_points']}")
+                    print(f"      {row['rank_text']:>4} {row['athlete_name']:<26} {row['team'] or '':<28} {row['result'] or '':>10} {row['points']}")
                 continue
-            db.upsert("races", [race_row], "pcs_slug")
+            db.upsert("competitions", [race_row], "id")
             # alte Wertungen dieses Rennens entfernen (auch fälschlich zugeordnete anderer Kategorien) –
             # bei nur teilweise geladenen Rundfahrten bleiben die übersprungenen Etappen stehen
             if not skipped:
-                db.delete("race_events", {"race_slug": f"eq.{slug}"})
+                db.delete("race_events", {"competition_id": f"eq.{slug}"})
             if events:
                 db.upsert("race_events", events, "id")
                 ids = ",".join(str(e["id"]) for e in events)
@@ -311,7 +311,7 @@ def main():
                 uniq = list({(r["event_id"], r["sort_order"]): r for r in results}.values())
                 db.upsert("event_results", uniq, "event_id,sort_order")
                 save_points(slug, events, uniq)
-            db.update("races", {"pcs_slug": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
+            db.update("competitions", {"id": f"eq.{slug}"}, {"loaded_at": datetime.now(timezone.utc).isoformat()})
 
     errors = []
     if not DRY_RUN:

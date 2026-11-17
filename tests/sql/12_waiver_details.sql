@@ -23,10 +23,10 @@ select is((select status from waiver_claims where id = (select id from c where n
 select throws_ok($$select submit_waiver(league(), rider(7), rider(2), 0, true)$$, 'P0001', 'Sofort-Ersatz nur für Fahrer mit Karriereende oder Sperre.', 'Sofort-Ersatz nur für inaktive Fahrer');
 select admin_mark_inactive(league(), rider(2), true);
 select lives_ok($$select submit_waiver(league(), rider(7), rider(2), 0, true)$$, 'Inaktiver Fahrer wird sofort ersetzt');
-select ok(exists (select 1 from roster_entries where manager_id = manager(1) and rider_slug = rider(7) and released_on is null)
-      and not exists (select 1 from roster_entries where manager_id = manager(1) and rider_slug = rider(2) and released_on is null), 'Ersatz ist im Kader, inaktiver Fahrer nicht mehr');
+select ok(exists (select 1 from roster_entries where manager_id = manager(1) and athlete_id = rider(7) and released_on is null)
+      and not exists (select 1 from roster_entries where manager_id = manager(1) and athlete_id = rider(2) and released_on is null), 'Ersatz ist im Kader, inaktiver Fahrer nicht mehr');
 -- voller Kader verlangt eine Abgabe
-insert into roster_entries (league_id, manager_id, rider_slug, price, source, acquired_on)
+insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
 select league(), manager(1), rider(n), 0, 'admin', current_date - 30 from unnest(array[8, 9, 10]) n;
 select is(_open_roster_slots(manager(1)), 0, 'Kader ist voll');
 select throws_ok($$select submit_waiver(league(), rider(11), null)$$, 'P0001', 'Dein Kader ist voll – bitte einen Fahrer zum Abgeben wählen.', 'Voller Kader braucht eine Abgabe');

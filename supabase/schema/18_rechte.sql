@@ -2,9 +2,9 @@
 -- Rechte
 -- =====================================================================
 
-alter table riders          enable row level security;
-alter table races           enable row level security;
-alter table rider_season_stats enable row level security;
+alter table athletes          enable row level security;
+alter table competitions           enable row level security;
+alter table athlete_season_stats enable row level security;
 alter table results         enable row level security;
 alter table sync_status     enable row level security;
 alter table leagues         enable row level security;
@@ -31,7 +31,7 @@ do $$
 declare t text;
 begin
   -- öffentliche Stammdaten: lesbar für angemeldete Nutzer
-  foreach t in array array['riders', 'races', 'results', 'sync_status', 'race_events', 'event_results', 'rider_season_stats'] loop
+  foreach t in array array['athletes', 'competitions', 'results', 'sync_status', 'race_events', 'event_results', 'athlete_season_stats'] loop
     execute format('drop policy if exists read_all on %I', t);
     execute format('create policy read_all on %I for select to authenticated using (true)', t);
   end loop;
@@ -71,7 +71,7 @@ declare f text;
 begin
   foreach f in array array[
     '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
-    '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_rider_free(uuid,text,timestamptz)',
+    '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_athlete_free(uuid,text,timestamptz)',
     '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_draft_award(uuid,uuid,int)', '_blind_resolve(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
     'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_push_soon()', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
     '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',

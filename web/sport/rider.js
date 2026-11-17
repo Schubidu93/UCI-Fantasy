@@ -10,12 +10,12 @@ const FIRST_YEAR = 2025;
 // Zwischenstand einer Rundfahrt nach einer Etappe, z. B. „Etappe 7 · GC“
 const isInterim = (x) => /^(Etappe \d+|Prolog) · /.test(describeEvent(x.ev.stage_name, x.ev.event_name));
 // Berg-, Punkte- und Nebenwertungen nach einzelnen Etappen ohne UCI-Punkte – nur die Endwertung zählt
-const interimSide = (x) => isInterim(x) && !/ · GC$/.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && !Number(x.uci_points);
+const interimSide = (x) => isInterim(x) && !/ · GC$/.test(describeEvent(x.ev.stage_name, x.ev.event_name)) && !Number(x.points);
 
 // Eintagesrennen (Klasse 1.x) haben kein GC – dort heißt die Wertung „Ergebnis“
 const label = (x) => {
   const l = describeEvent(x.ev.stage_name, x.ev.event_name);
-  return l === 'GC' && /^1\./.test(x.race?.uci_class || '') ? 'Ergebnis' : l;
+  return l === 'GC' && /^1\./.test(x.race?.category || '') ? 'Ergebnis' : l;
 };
 
 // Platz 1–3 als Gold/Silber/Bronze – nicht bei Zwischenständen in Rundfahrten (z. B. „Etappe 7 · GC“)
@@ -30,23 +30,23 @@ const shortDate = (d) => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.` : '');
 const leagueId = () => (location.hash.match(/^#\/league\/([^/]+)/) || [])[1];
 
 async function loadRider(slug) {
-  const [rider] = await q(sb.from('riders').select('*').eq('pcs_slug', slug));
-  const rows = await all(() => sb.from('event_results').select('event_id,rank,rank_text,result,uci_points')
-    .eq('rider_slug', slug).order('event_id'));
+  const [rider] = await q(sb.from('athletes').select('*').eq('id', slug));
+  const rows = await all(() => sb.from('event_results').select('event_id,rank,rank_text,result,points')
+    .eq('athlete_id', slug).order('event_id'));
   const ids = [...new Set(rows.map((r) => r.event_id))];
   const events = {};
   for (let i = 0; i < ids.length; i += 150) {
-    for (const e of await q(sb.from('race_events').select('id,race_slug,stage_name,stage_no,event_name,event_date').in('id', ids.slice(i, i + 150)))) events[e.id] = e;
+    for (const e of await q(sb.from('race_events').select('id,competition_id,stage_name,stage_no,event_name,event_date').in('id', ids.slice(i, i + 150)))) events[e.id] = e;
   }
-  const slugs = [...new Set(Object.values(events).map((e) => e.race_slug))];
+  const slugs = [...new Set(Object.values(events).map((e) => e.competition_id))];
   const races = {};
   for (let i = 0; i < slugs.length; i += 100) {
-    for (const r of await q(sb.from('races').select('pcs_slug,name,uci_class,start_date,season').in('pcs_slug', slugs.slice(i, i + 100)))) races[r.pcs_slug] = r;
+    for (const r of await q(sb.from('competitions').select('id,name,category,start_date,season').in('id', slugs.slice(i, i + 100)))) races[r.id] = r;
   }
   // Saisonplätze aller Jahre direkt mitladen (fest gespeichert, keine Berechnung nötig)
-  const season = Object.fromEntries((await q(sb.from('rider_season_stats').select('year,season_rank,points,riders').eq('rider_slug', slug)))
+  const season = Object.fromEntries((await q(sb.from('athlete_season_stats').select('year,season_rank,points,athletes').eq('athlete_id', slug)))
     .map((x) => [x.year, x]));
-  const results = rows.filter((r) => events[r.event_id]).map((r) => ({ ...r, ev: events[r.event_id], race: races[events[r.event_id].race_slug] }));
+  const results = rows.filter((r) => events[r.event_id]).map((r) => ({ ...r, ev: events[r.event_id], race: races[events[r.event_id].competition_id] }));
   return { rider, results, season };
 }
 
@@ -76,36 +76,36 @@ export function RiderModal() {
   const r = data?.rider;
   // Kalenderjahr des Ergebnisses
   const yearOf = (x) => +(x.ev.event_date || x.race?.start_date || '0').slice(0, 4);
-  const withPoints = (data?.results || []).filter((x) => Number(x.uci_points) > 0);
+  const withPoints = (data?.results || []).filter((x) => Number(x.points) > 0);
   const years = [...new Set(withPoints.map(yearOf))].filter((yy) => yy >= FIRST_YEAR).sort();
   const thisYear = new Date().getFullYear();
   const y = year || (years.includes(thisYear) ? thisYear : years[years.length - 1]);
   const shown = (allPlaces ? data?.results || [] : withPoints).filter((x) => yearOf(x) === y && !interimSide(x))
     .sort((a, b) => (b.ev.event_date || '').localeCompare(a.ev.event_date || '') || a.ev.id - b.ev.id);
-  const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.uci_points), 0);
+  const total = withPoints.filter((x) => yearOf(x) === y).reduce((s, x) => s + Number(x.points), 0);
   // Oben immer die aktuelle UCI-Weltrangliste, darunter Punkte und Platz im gewählten Jahr
   const sr = data?.season?.[y];
-  const rankLine = r && (r.uci_rank ? `UCI-Rang ${r.uci_rank} · ${fmtPts(r.ranking_points)} Ranking-Punkte` : 'Kein aktueller UCI-Rang');
+  const rankLine = r && (r.pool_rank ? `UCI-Rang ${r.pool_rank} · ${fmtPts(r.ranking_points)} Ranking-Punkte` : 'Kein aktueller UCI-Rang');
   const yearLine = y && `${y}: ${fmtPts(total)} Punkte${sr ? ` · Platz ${sr.season_rank}` : ''}`;
   const groups = [];
   for (const x of shown) {
-    let g = groups.find((g) => g.slug === x.ev.race_slug);
-    if (!g) groups.push(g = { slug: x.ev.race_slug, race: x.race, rows: [], sum: 0 });
-    g.rows.push(x); g.sum += Number(x.uci_points) || 0;
+    let g = groups.find((g) => g.slug === x.ev.competition_id);
+    if (!g) groups.push(g = { slug: x.ev.competition_id, race: x.race, rows: [], sum: 0 });
+    g.rows.push(x); g.sum += Number(x.points) || 0;
   }
   // Beste Ergebnisse: jedes einzelne Ergebnis mit Punkten, absteigend
   const best = withPoints.filter((x) => yearOf(x) === y)
-    .sort((a, b) => Number(b.uci_points) - Number(a.uci_points) || (b.ev.event_date || '').localeCompare(a.ev.event_date || ''));
+    .sort((a, b) => Number(b.points) - Number(a.points) || (b.ev.event_date || '').localeCompare(a.ev.event_date || ''));
   const L = leagueId();
   const row = (x, withRace) => html`<div key=${x.event_id} class=${`res-row ${L ? 'clickable' : ''} ${isInterim(x) ? 'interim' : ''}`} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
     <span class="res-date">${shortDate(x.ev.event_date)}</span>
     <span class="res-what">${withRace
-      ? html`<b>${x.race?.name || x.ev.race_slug}</b><small>${label(x)}${x.result ? ` · ${x.result}` : ''}</small>`
+      ? html`<b>${x.race?.name || x.ev.competition_id}</b><small>${label(x)}${x.result ? ` · ${x.result}` : ''}</small>`
       : html`${label(x)}${x.result ? html`<small>${x.result}</small>` : ''}`}</span>
     <span class="res-place">${placeLabel(x)}</span>
-    <span class="res-pts">${Number(x.uci_points) ? fmtPts(x.uci_points) : ''}</span>
+    <span class="res-pts">${Number(x.points) ? fmtPts(x.points) : ''}</span>
   </div>`;
-  const go = (x) => { if (!L) return; setSlug(null); location.hash = `#/league/${L}/races/${encodeURIComponent(x.ev.race_slug)}/${x.ev.id}`; };
+  const go = (x) => { if (!L) return; setSlug(null); location.hash = `#/league/${L}/races/${encodeURIComponent(x.ev.competition_id)}/${x.ev.id}`; };
 
   if (!slug) return null;
   return html`<div class="modal-back" onClick=${() => setSlug(null)}>
@@ -145,7 +145,7 @@ export function RiderModal() {
           ${byPoints
             ? html`<div class="res-table">${best.map((x) => row(x, true))}</div>`
             : groups.map((g) => html`<div class="detail-rider" key=${g.slug}>
-              <div class="row between"><strong>${g.race?.name || g.slug}${g.race?.uci_class ? html` <span class="tag">${g.race.uci_class}</span>` : ''}</strong>
+              <div class="row between"><strong>${g.race?.name || g.slug}${g.race?.category ? html` <span class="tag">${g.race.category}</span>` : ''}</strong>
                 <span>${g.sum ? fmtPts(g.sum) : ''}</span></div>
               <div class="res-table">${g.rows.map((x) => row(x, false))}</div>
             </div>`)}

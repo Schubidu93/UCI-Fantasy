@@ -22,9 +22,9 @@ select is((select status from trades where id = (select id from trade_fixture)),
 update matchdays set deadline = now() + interval '25 hours' where id = matchday();
 select _process_trades(matchday());
 select is((select status from trades where id = (select id from trade_fixture)), 'done', 'Tausch nach der Vetofrist wird ausgeführt');
-select ok(exists (select 1 from roster_entries where manager_id = manager(2) and rider_slug = rider(1) and released_on is null)
-      and exists (select 1 from roster_entries where manager_id = manager(1) and rider_slug = rider(3) and released_on is null), 'Beide Fahrer wechseln den Besitzer');
-select is((select released_on from roster_entries where manager_id = manager(1) and rider_slug = rider(1)), current_date + 3, 'Alte Zugehörigkeit endet am Spieltagstart');
+select ok(exists (select 1 from roster_entries where manager_id = manager(2) and athlete_id = rider(1) and released_on is null)
+      and exists (select 1 from roster_entries where manager_id = manager(1) and athlete_id = rider(3) and released_on is null), 'Beide Fahrer wechseln den Besitzer');
+select is((select released_on from roster_entries where manager_id = manager(1) and athlete_id = rider(1)), current_date + 3, 'Alte Zugehörigkeit endet am Spieltagstart');
 select _process_trades(matchday());
 select is((select count(*)::int from roster_entries where league_id = league()), 6, 'Erneute Verarbeitung legt keine doppelten Kaderzeilen an');
 select throws_ok($$select veto_trade((select id from trade_fixture))$$,
