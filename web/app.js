@@ -5,6 +5,7 @@ import { Login } from './views/login.js';
 import { Home, Join } from './views/home.js';
 import { Draft } from './views/draft.js';
 import { Team } from './views/team.js';
+import { TeamPoints } from './views/teampoints.js';
 import { Waiver } from './views/waiver.js';
 import { Results } from './views/results.js';
 import { Table } from './views/table.js';
@@ -82,7 +83,7 @@ function sections(c) {
     { key: 'liga', label: 'Liga', tabs: [['home', 'Übersicht'], ['table', 'Tabelle'], ['results', 'Spieltage']] },
     beforeDraft
       ? { key: 'draft', label: 'Draft', tabs: [['draft', 'Draft']] }
-      : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['waiver', 'Waiver']] : [])] },
+      : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['points', 'Punkte'], ['waiver', 'Waiver']] : [])] },
     { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
     { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
     { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
@@ -96,7 +97,7 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'drafting' ? 'draft' : 'home';
   const t = tab || defaultTab;
-  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, results: Results,
+  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, points: TeamPoints, results: Results,
     table: Table, admin: Admin, more: More, feedback: Feedback, home: Overview }[t] || Overview;
   const secs = sections(c);
   const current = secs.find((x) => x.tabs.some(([k]) => k === t))
