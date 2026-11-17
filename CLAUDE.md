@@ -5,6 +5,8 @@
 ## Arbeitsregeln
 
 - Sprache der App und der Antworten: Deutsch. Die Nutzer sind keine Entwickler – kurz, verständlich, ohne Fachjargon antworten.
+- **Beide Apps mitdenken:** Bei jeder Änderung prüfen, ob sie auch für Runner Fantasy (github.com/Schubidu93/FantasyAthletics) sinnvoll ist,
+  und dem Nutzer dann kurz vorschlagen, sie dort zu übernehmen (ausdrücklicher Wunsch des Nutzers).
 - **Regeln mitziehen:** Bei jeder Änderung an Spielregeln, Wertung, Draft, Waiver, Tausch, Spieltagen,
   Datenabruf (Zeiten, Quellen, Umfang) oder Liga-Einstellungen immer auch `web/views/rules.js`
   (Reiter „Regeln“) aktualisieren. Die Regeln sind dynamisch: Texte hängen von den Liga-Einstellungen ab
