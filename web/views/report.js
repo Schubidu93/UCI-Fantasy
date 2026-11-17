@@ -23,16 +23,16 @@ export function buildReport(c, lots, pts, proj = null) {
   const picks = lots.filter((l) => l.manager_id).sort((a, b) => a.lot_no - b.lot_no || a.id - b.id);
   const value = (slug) => Number(pts[slug] || 0);
   // erwartete Pick-Position nach Vorjahrespunkten (1 = wertvollste gezogene Person)
-  const byValue = [...picks].sort((a, b) => value(b[SPORT.fk]) - value(a[SPORT.fk]));
-  const expected = Object.fromEntries(byValue.map((p, i) => [p[SPORT.fk], i + 1]));
+  const byValue = [...picks].sort((a, b) => value(b.athlete_id) - value(a.athlete_id));
+  const expected = Object.fromEntries(byValue.map((p, i) => [p.athlete_id, i + 1]));
   const auction = draftCosts(c.league);
   let no = 0;
   picks.forEach((p) => {
     p.keeper = p.lot_no === 0;                       // Keeper aus der Vorsaison zählen mit, sind aber kein Pick
     p.pickNo = p.keeper ? null : ++no;
-    p.value = value(p[SPORT.fk]);
+    p.value = value(p.athlete_id);
     // Snake: späte Picks mit vielen Punkten = Steal; Auktion: Punkte pro Budgetpunkt
-    p.delta = p.keeper ? 0 : auction ? p.value / Math.max(1, p.price) : p.pickNo - expected[p[SPORT.fk]];
+    p.delta = p.keeper ? 0 : auction ? p.value / Math.max(1, p.price) : p.pickNo - expected[p.athlete_id];
   });
   const teams = c.managers.map((m) => {
     const mine = picks.filter((p) => p.manager_id === m.id);
@@ -51,8 +51,8 @@ export function buildReport(c, lots, pts, proj = null) {
     t.reach = auction
       ? [...real].filter((p) => p.price > 1).sort((a, b) => a.delta - b.delta)[0]
       : [...real].sort((a, b) => a.delta - b.delta)[0];
-    if (t.reach && t.steal && t.reach[SPORT.fk] === t.steal[SPORT.fk]) t.reach = null;
-    const name = (p) => c.riderMap[p[SPORT.fk]]?.name || p[SPORT.fk];
+    if (t.reach && t.steal && t.reach.athlete_id === t.steal.athlete_id) t.reach = null;
+    const name = (p) => c.riderMap[p.athlete_id]?.name || p.athlete_id;
     const round = (p) => Math.ceil(p.pickNo / Math.max(1, c.managers.length));
     const seed = hash(t.m.id);
     const parts = [pick(INTRO[t.grade[0]], seed)];
@@ -80,14 +80,14 @@ export function DraftReport({ c }) {
   const prevYear = +c.league.season_start.slice(0, 4) - 1;
   const data = useLoad(async () => {
     const lots = await all(() => sb.from('draft_lots').select('*').eq('league_id', L).order('lot_no'));
-    let pts = Object.fromEntries((await rpcAll(SPORT.pointsRpc, { p_gender: c.league.gender, p_year: prevYear }))
-      .map((r) => [r[SPORT.fk], Number(r.points)]));
+    let pts = Object.fromEntries((await rpcAll('athlete_points', { p_gender: c.league.gender, p_year: prevYear }))
+      .map((r) => [r.athlete_id, Number(r.points)]));
     let basis = `Punkte ${prevYear}`;
     // bestmögliche Punkte je Kader (Top x aus y je Spieltag im Vorjahr) – serverseitig zwischengespeichert
     const rows = await rpc('draft_projection', { p_league: L }).catch(() => []);
     let proj = rows.some((r) => Number(r.points) > 0) ? Object.fromEntries(rows.map((r) => [r.manager_id, Number(r.points)])) : null;
     // Ohne Vorjahresdaten: Ranglistenwert der Sportart als Maßstab (ranking_points)
-    if (!lots.some((l) => pts[l[SPORT.fk]])) {
+    if (!lots.some((l) => pts[l.athlete_id])) {
       pts = Object.fromEntries(c.people.map((r) => [pid(r), Number(r.ranking_points || 0)]));
       basis = SPORT.fallbackBasis;
       proj = null;
@@ -130,7 +130,7 @@ export function DraftReport({ c }) {
         ${auction && html`<th class="num">Preis</th>`}<th class="num">Pkt. ${data.data.basis === SPORT.fallbackBasis ? SPORT.fallbackShort : prevYear}</th></tr></thead>
       <tbody>${picks.map((p) => html`<tr key=${p.id} class=${p.manager_id === c.me?.id ? 'me' : ''}>
         <td class="num">${p.keeper ? 'K' : p.pickNo}</td>${!auction && html`<td class="num hide-sm">${Math.ceil(p.pickNo / n)}</td>`}
-        <td><${RiderCell} r=${name(p[SPORT.fk])} /></td>
+        <td><${RiderCell} r=${name(p.athlete_id)} /></td>
         <td class="small">${c.managerMap[p.manager_id]?.team_name}</td>
         ${auction && html`<td class="num">${p.price}</td>`}
         <td class="num"><strong>${fmtPts(p.value)}</strong></td></tr>`)}</tbody>
@@ -139,7 +139,7 @@ export function DraftReport({ c }) {
     ${view === 'teams' && html`<div class="cards">${teams.map((t) => html`<div class="card" key=${t.m.id}>
       <div class="row between"><h3>${t.m.team_name}</h3><span class=${`grade small ${gradeClass(t.grade)}`}>${t.grade}</span></div>
       <ul class="list compact">${t.picks.map((p) => html`<li key=${p.id}>
-        <span><span class="muted">${p.keeper ? 'K' : `#${p.pickNo}`}</span> ${name(p[SPORT.fk])?.name || p[SPORT.fk]}</span>
+        <span><span class="muted">${p.keeper ? 'K' : `#${p.pickNo}`}</span> ${name(p.athlete_id)?.name || p.athlete_id}</span>
         <span class="muted">${auction ? `${p.price} · ` : ''}${fmtPts(p.value)}</span></li>`)}</ul>
     </div>`)}</div>`}
   </div>`;

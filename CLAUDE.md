@@ -25,7 +25,7 @@
 
 - `web/app.js`, `web/views/*.js`, `web/views/admin/*.js`: **in Runner Fantasy und UCI Fantasy wortgleich**. Änderungen dort immer in
   beiden Apps vornehmen (Datei kopieren). Alles, worin sich die Sportarten unterscheiden, steht in `web/sport/`:
-  - `sport/index.js`: `SPORT` (Begriffe Athlet/Fahrer in allen Fällen, Spaltennamen wie `fk`/`pk`/`add`/`give`, Texte), `pid()`, `rank()`,
+  - `sport/index.js`: `SPORT` (Begriffe Athlet/Fahrer in allen Fällen, Texte; Datenbank-Namen sind in beiden Apps gleich), `pid()`, `rank()`,
     `selectable()`, `usePeopleFilter()`, `PersonLine`, `labelText()`
   - `sport/views.js` (Navigation, eigene Seiten, Laden der Personen), `sport/settings.js` (Liga-Einstellungen), `sport/lineup.js`
     (Aufstellung), `sport/matchdays.js` (Spieltag-Vorschläge), `sport/admin.js` (Zusatzbereiche im Admin) und die Sportart-Seiten

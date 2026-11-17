@@ -31,7 +31,7 @@ function Roster({ c, managerId, points }) {
   const entries = c.active.filter((r) => r.manager_id === managerId);
   const past = c.roster.filter((r) => r.manager_id === managerId && r.released_on);
   const started = c.matchdays.filter((md) => md.starts_on <= new Date().toISOString().slice(0, 10));
-  const p = (slug, md) => points.filter((x) => x.manager_id === managerId && x[SPORT.fk] === slug && (!md || x.matchday_id === md))
+  const p = (slug, md) => points.filter((x) => x.manager_id === managerId && x.athlete_id === slug && (!md || x.matchday_id === md))
     .reduce((s, x) => s + Number(x.points), 0);
   const total = points.filter((x) => x.manager_id === managerId).reduce((s, x) => s + Number(x.points), 0);
 
@@ -42,18 +42,18 @@ function Roster({ c, managerId, points }) {
         ${started.map((md) => html`<th class="num" title=${md.name}>${md.name}</th>`)}
         <th class="num">Gesamt</th></tr></thead>
       <tbody>
-        ${entries.sort((a, b) => p(b[SPORT.fk]) - p(a[SPORT.fk])).map((r) => html`<tr key=${r.id}>
-          <td><${RiderCell} r=${c.riderMap[r[SPORT.fk]]} />
+        ${entries.sort((a, b) => p(b.athlete_id) - p(a.athlete_id)).map((r) => html`<tr key=${r.id}>
+          <td><${RiderCell} r=${c.riderMap[r.athlete_id]} />
             ${r.source !== 'draft' && html`<span class="tag">${SOURCE_LABEL[r.source]} ab ${fmtDate(r.acquired_on)}</span>`}</td>
           <td class="num">${r.price}</td>
-          ${started.map((md) => html`<td class="num">${fmtPts(p(r[SPORT.fk], md.id))}</td>`)}
-          <td class="num"><strong>${fmtPts(p(r[SPORT.fk]))}</strong></td></tr>`)}
+          ${started.map((md) => html`<td class="num">${fmtPts(p(r.athlete_id, md.id))}</td>`)}
+          <td class="num"><strong>${fmtPts(p(r.athlete_id))}</strong></td></tr>`)}
       </tbody>
     </table></div>
     ${past.length > 0 && html`<details><summary>Abgegebene ${SPORT.many} (${past.length})</summary>
       <ul class="list compact">${past.map((r) => html`<li key=${r.id}>
-        <span>${c.riderMap[r[SPORT.fk]]?.name || r[SPORT.fk]}</span>
-        <span class="muted">${fmtDate(r.acquired_on)} – ${fmtDate(r.released_on)} · ${fmtPts(p(r[SPORT.fk]))} Pkt.</span></li>`)}</ul>
+        <span>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</span>
+        <span class="muted">${fmtDate(r.acquired_on)} – ${fmtDate(r.released_on)} · ${fmtPts(p(r.athlete_id))} Pkt.</span></li>`)}</ul>
     </details>`}
   </section>`;
 }
@@ -72,7 +72,7 @@ const TRADE_STATUS = { proposed: 'offen', accepted: 'angenommen – wird zum nä
 
 function Trades({ c }) {
   const trades = useLoad(() => q(sb.from('trades').select('*').eq('league_id', c.league.id).order('created_at', { ascending: false }).limit(50)), [c.league.id]);
-  const claims = useLoad(() => q(sb.from('waiver_claims').select(SPORT.drop).eq('manager_id', c.me.id).eq('status', 'pending')), [c.me.id]);
+  const claims = useLoad(() => q(sb.from('waiver_claims').select('drop_athlete').eq('manager_id', c.me.id).eq('status', 'pending')), [c.me.id]);
   const [partner, setPartner] = useState('');
   const [give, setGive] = useState([]);
   const [take, setTake] = useState([]);
@@ -86,7 +86,7 @@ function Trades({ c }) {
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
   const theirs = c.active.filter((r) => r.manager_id === partner);
   const openSlots = c.league.roster_size - mine.length;
-  const pendingDrops = new Set((claims.data || []).map((x) => x[SPORT.drop]).filter(Boolean));
+  const pendingDrops = new Set((claims.data || []).map((x) => x.drop_athlete).filter(Boolean));
   const flip = (list, set, slug) => set(list.includes(slug) ? list.filter((x) => x !== slug) : [...list, slug]);
   const act = (fn, args) => a.run(async () => { await rpc(fn, args); trades.reload(); c.reload(); });
   // Fahrer, die ich zusätzlich entlassen muss, wenn ich mehr bekomme als ich abgebe
@@ -95,9 +95,9 @@ function Trades({ c }) {
   const DropPicker = ({ exclude, need, sel, set }) => html`<div class="drop-pick">
     <h4>Zusätzlich entlassen (${sel.length}/${need})</h4>
     <p class="muted small">Du bekommst mehr ${SPORT.many} als du abgibst – damit der Kader nicht zu groß wird. ${SPORT.many} aus offenen Waiver-Anträgen sind ausgenommen.</p>
-    ${mine.filter((r) => !exclude.includes(r[SPORT.fk])).map((r) => html`<label class="check" key=${r.id}>
-      <input type="checkbox" disabled=${pendingDrops.has(r[SPORT.fk])} checked=${sel.includes(r[SPORT.fk])} onChange=${() => flip(sel, set, r[SPORT.fk])} />
-      ${name(r[SPORT.fk])}${pendingDrops.has(r[SPORT.fk]) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r[SPORT.fk]] || 0)}</span>`}</label>`)}
+    ${mine.filter((r) => !exclude.includes(r.athlete_id)).map((r) => html`<label class="check" key=${r.id}>
+      <input type="checkbox" disabled=${pendingDrops.has(r.athlete_id)} checked=${sel.includes(r.athlete_id)} onChange=${() => flip(sel, set, r.athlete_id)} />
+      ${name(r.athlete_id)}${pendingDrops.has(r.athlete_id) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r.athlete_id] || 0)}</span>`}</label>`)}
   </div>`;
 
   return html`<section class="card stack">
@@ -107,14 +107,14 @@ function Trades({ c }) {
     ${trades.data && trades.data.length > 0 && html`<ul class="list">${trades.data.map((t) => {
       const incoming = t.to_manager === c.me.id;
       const vetoOpen = t.status === 'accepted' && Date.now() < new Date(t.accepted_at).getTime() + 864e5;
-      const need = needDrop(t[SPORT.give].length, t[SPORT.take].length);
+      const need = needDrop(t.give_athletes.length, t.take_athletes.length);
       return html`<li key=${t.id} class="stack-sm">
-        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t[SPORT.give].map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t[SPORT.give]))})</span>
-          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t[SPORT.take].map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t[SPORT.take]))})</span>
+        <div><strong>${c.managerMap[t.from_manager]?.team_name}</strong> gibt ${t.give_athletes.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.give_athletes))})</span>
+          ↔ <strong>${c.managerMap[t.to_manager]?.team_name}</strong> gibt ${t.take_athletes.map(name).join(', ')} <span class="muted small">(${fmtPts(sumPts(t.take_athletes))})</span>
           ${(t.from_drop?.length || t.to_drop?.length) ? html`<div class="muted small">entlassen: ${[...(t.from_drop || []), ...(t.to_drop || [])].map(name).join(', ')}</div>` : ''}</div>
         <div class="row"><span class="tag">${TRADE_STATUS[t.status]}</span>
           ${incoming && t.status === 'proposed' && html`
-            <button class="small primary" onClick=${() => (need ? setAccept({ id: t.id, need, drop: [], exclude: t[SPORT.take] })
+            <button class="small primary" onClick=${() => (need ? setAccept({ id: t.id, need, drop: [], exclude: t.take_athletes })
               : act('respond_trade', { p_trade: t.id, p_accept: true }))}>Annehmen</button>
             <button class="small" onClick=${() => act('respond_trade', { p_trade: t.id, p_accept: false })}>Ablehnen</button>`}
           ${t.from_manager === c.me.id && ['proposed', 'accepted'].includes(t.status) && html`
@@ -137,9 +137,9 @@ function Trades({ c }) {
           </select></label>
         ${partner && html`<div class="grid2">
           <div><h4>Ich gebe</h4>${mine.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${give.includes(r[SPORT.fk])} onChange=${() => { flip(give, setGive, r[SPORT.fk]); setDrop(drop.filter((x) => x !== r[SPORT.fk])); }} /> ${withPts(r[SPORT.fk])}</label>`)}</div>
+            <input type="checkbox" checked=${give.includes(r.athlete_id)} onChange=${() => { flip(give, setGive, r.athlete_id); setDrop(drop.filter((x) => x !== r.athlete_id)); }} /> ${withPts(r.athlete_id)}</label>`)}</div>
           <div><h4>Ich bekomme</h4>${theirs.map((r) => html`<label class="check" key=${r.id}>
-            <input type="checkbox" checked=${take.includes(r[SPORT.fk])} onChange=${() => flip(take, setTake, r[SPORT.fk])} /> ${withPts(r[SPORT.fk])}</label>`)}</div>
+            <input type="checkbox" checked=${take.includes(r.athlete_id)} onChange=${() => flip(take, setTake, r.athlete_id)} /> ${withPts(r.athlete_id)}</label>`)}</div>
         </div>
         ${(give.length > 0 || take.length > 0) && html`<p class="small trade-sum">Punkte ${new Date().getFullYear()}: du gibst <strong>${fmtPts(sumPts(give))}</strong>, du bekommst <strong>${fmtPts(sumPts(take))}</strong></p>`}
         ${myNeed > 0 && html`<${DropPicker} exclude=${give} need=${myNeed} sel=${drop} set=${setDrop} />`}

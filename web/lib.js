@@ -38,8 +38,8 @@ export function useRiderPoints(gender) {
   const [map, setMap] = useState(pointsCache[key] || null);
   useEffect(() => {
     if (pointsCache[key]) return;
-    rpcAll(SPORT.pointsRpc, { p_gender: gender, p_year: year })
-      .then((rows) => { pointsCache[key] = Object.fromEntries(rows.map((r) => [r[SPORT.fk], Number(r.points)])); setMap(pointsCache[key]); })
+    rpcAll('athlete_points', { p_gender: gender, p_year: year })
+      .then((rows) => { pointsCache[key] = Object.fromEntries(rows.map((r) => [r.athlete_id, Number(r.points)])); setMap(pointsCache[key]); })
       .catch(() => setMap({}));
   }, [key]);
   return map || {};

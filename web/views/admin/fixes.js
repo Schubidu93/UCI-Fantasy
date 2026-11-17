@@ -20,7 +20,7 @@ function PointOverride({ c }) {
   const [points, setPoints] = useState('');
   const [reason, setReason] = useState('');
   const a = useAction();
-  const people = [...new Set(c.roster.filter((r) => r.manager_id === mgr).map((r) => r[SPORT.fk]))];
+  const people = [...new Set(c.roster.filter((r) => r.manager_id === mgr).map((r) => r.athlete_id))];
   const save = (val) => a.run(async () => {
     await rpc('admin_set_override', { p_league: c.league.id, p_matchday: md, p_manager: mgr, p_rider: rider,
       p_points: val === null ? null : +val, p_reason: reason });
@@ -41,10 +41,10 @@ function PointOverride({ c }) {
     <div class="row"><button class="primary" disabled=${a.busy || !md || !rider || points === '' || !reason.trim()} onClick=${() => save(points)}>Speichern</button></div>
     <${Msg} msg=${a.msg} />
     ${overrides.data?.length > 0 && html`<ul class="list compact">${overrides.data.map((o) => html`<li key=${o.id}>
-      <span>${c.matchdays.find((m) => m.id === o.matchday_id)?.name} · ${c.managerMap[o.manager_id]?.team_name} · ${c.riderMap[o[SPORT.fk]]?.name}: <strong>${o.points}</strong>
+      <span>${c.matchdays.find((m) => m.id === o.matchday_id)?.name} · ${c.managerMap[o.manager_id]?.team_name} · ${c.riderMap[o.athlete_id]?.name}: <strong>${o.points}</strong>
         <span class="muted"> – ${o.reason}</span></span>
       <button class="small ghost" onClick=${() => a.run(async () => {
-        await rpc('admin_set_override', { p_league: c.league.id, p_matchday: o.matchday_id, p_manager: o.manager_id, p_rider: o[SPORT.fk], p_points: null, p_reason: 'Korrektur aufgehoben' });
+        await rpc('admin_set_override', { p_league: c.league.id, p_matchday: o.matchday_id, p_manager: o.manager_id, p_rider: o.athlete_id, p_points: null, p_reason: 'Korrektur aufgehoben' });
         overrides.reload(); })}>Aufheben</button></li>`)}</ul>`}
   </section>`;
 }
@@ -66,7 +66,7 @@ function RosterFix({ c }) {
     <div class="grid2 compact">
       <label>Team<select value=${mgr} onChange=${(e) => { setMgr(e.target.value); setDrop(''); }}>${c.managers.map((m) => html`<option value=${m.id}>${m.team_name}</option>`)}</select></label>
       <label>Abgeben<select value=${drop} onChange=${(e) => setDrop(e.target.value)}><option value="">– niemand –</option>
-        ${mine.map((r) => html`<option value=${r[SPORT.fk]}>${c.riderMap[r[SPORT.fk]]?.name}</option>`)}</select></label>
+        ${mine.map((r) => html`<option value=${r.athlete_id}>${c.riderMap[r.athlete_id]?.name}</option>`)}</select></label>
       <label class="span2">Grund<input value=${reason} onInput=${(e) => setReason(e.target.value)} /></label>
     </div>
     ${drop && html`<button disabled=${a.busy} onClick=${() => run(null)}>Nur abgeben</button>`}
@@ -77,7 +77,7 @@ function RosterFix({ c }) {
 
 function Inactive({ c }) {
   const a = useAction();
-  const owned = c.active.map((r) => c.riderMap[r[SPORT.fk]]).filter(Boolean);
+  const owned = c.active.map((r) => c.riderMap[r.athlete_id]).filter(Boolean);
   return html`<section class="card stack">
     <h3>Karriereende / Sperre</h3>
     <p class="muted small">Als inaktiv markierte ${SPORT.many} kann ihr Manager außer der Reihe sofort per Waiver ersetzen.</p>

@@ -50,7 +50,7 @@ export function Waiver({ c }) {
     ${pending.length > 0 && html`<section class="card">
       <h3>Meine Anträge (Wunschreihenfolge)</h3>
       <ol class="list">${pending.map((p, i) => html`<li key=${p.id}>
-        <span><strong>+ ${name(p[SPORT.add])}</strong>${p[SPORT.drop] ? html` <span class="muted">für</span> − ${name(p[SPORT.drop])}` : html` <span class="muted">(freier Platz)</span>`}
+        <span><strong>+ ${name(p.add_athlete)}</strong>${p.drop_athlete ? html` <span class="muted">für</span> − ${name(p.drop_athlete)}` : html` <span class="muted">(freier Platz)</span>`}
           ${c.league.waiver_mode === 'faab' ? html` <span class="tag">${p.bid}</span>` : ''}</span>
         <span class="row">
           <button class="small ghost" disabled=${i === 0} onClick=${() => move(i, -1)} aria-label="nach oben">↑</button>
@@ -66,7 +66,7 @@ export function Waiver({ c }) {
     ${done.length > 0 && html`<section class="card">
       <h3>Abgewickelte Anträge</h3>
       <ul class="list compact">${done.slice(0, 40).map((p) => html`<li key=${p.id}>
-        <span>${c.managerMap[p.manager_id]?.team_name}: + ${name(p[SPORT.add])}${p[SPORT.drop] ? ` / − ${name(p[SPORT.drop])}` : ''}</span>
+        <span>${c.managerMap[p.manager_id]?.team_name}: + ${name(p.add_athlete)}${p.drop_athlete ? ` / − ${name(p.drop_athlete)}` : ''}</span>
         <span class=${p.status === 'won' ? 'tag ok' : 'tag'}>${STATUS[p.status]}${p.note ? ` – ${p.note}` : ''}</span></li>`)}</ul>
     </section>`}
   </div>`;
@@ -75,7 +75,7 @@ export function Waiver({ c }) {
 function FreeAgents({ c, onPick, free: freePhase }) {
   const [term, setTerm] = useState('');
   const lockedSince = c.league.last_waiver_run;
-  const locked = useMemo(() => new Set(freePhase ? [] : c.roster.filter((r) => r.released_at && lockedSince && r.released_at >= lockedSince).map((r) => r[SPORT.fk])), [c.roster, freePhase]);
+  const locked = useMemo(() => new Set(freePhase ? [] : c.roster.filter((r) => r.released_at && lockedSince && r.released_at >= lockedSince).map((r) => r.athlete_id)), [c.roster, freePhase]);
   const pts = useRiderPoints(c.league.gender);
   const free = c.people.filter((r) => !c.owner[pid(r)] && selectable(r))
     .sort((a, b) => (pts[pid(b)] || 0) - (pts[pid(a)] || 0) || (rank(a) ?? 1e9) - (rank(b) ?? 1e9));
@@ -106,9 +106,9 @@ function ClaimForm({ c, add, onDone, onCancel }) {
   const pts = useRiderPoints(c.league.gender);
   const mine = c.active.filter((r) => r.manager_id === c.me.id);
   const open = c.league.roster_size - mine.length;            // freie Kaderplätze (z. B. nach ungleichem Tausch)
-  const [drop, setDrop] = useState(open > 0 ? '' : mine[0]?.[SPORT.fk] || '');
+  const [drop, setDrop] = useState(open > 0 ? '' : mine[0]?.athlete_id || '');
   const dropOptions = html`${open > 0 && html`<option value="">– niemand (freier Kaderplatz) –</option>`}
-        ${mine.map((r) => html`<option value=${r[SPORT.fk]}>${c.riderMap[r[SPORT.fk]]?.name} · ${fmtPts(pts[r[SPORT.fk]] || 0)} Pkt.${c.riderMap[r[SPORT.fk]]?.inactive ? ' (inaktiv)' : ''}</option>`)}`;
+        ${mine.map((r) => html`<option value=${r.athlete_id}>${c.riderMap[r.athlete_id]?.name} · ${fmtPts(pts[r.athlete_id] || 0)} Pkt.${c.riderMap[r.athlete_id]?.inactive ? ' (inaktiv)' : ''}</option>`)}`;
   const [bid, setBid] = useState(0);
   const a = useAction();
   const dropRider = c.riderMap[drop];

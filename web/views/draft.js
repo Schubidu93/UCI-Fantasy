@@ -61,16 +61,16 @@ function Keepers({ c }) {
   const [sel, setSel] = useState(null);
   const a = useAction();
   if (!opts.data || !all.data) return null;
-  const chosen = sel || new Set(opts.data.filter((o) => o.chosen).map((o) => o[SPORT.fk]));
+  const chosen = sel || new Set(opts.data.filter((o) => o.chosen).map((o) => o.athlete_id));
   const flip = (slug) => { const s = new Set(chosen); s.has(slug) ? s.delete(slug) : s.add(slug); setSel(s); };
-  const sum = opts.data.filter((o) => chosen.has(o[SPORT.fk])).reduce((s, o) => s + o.price, 0);
+  const sum = opts.data.filter((o) => chosen.has(o.athlete_id)).reduce((s, o) => s + o.price, 0);
   return html`<div class="schedule">
     <strong>Keeper (bis zu ${c.league.keeper_count})</strong>
     <p class="muted small">Behalte ${SPORT.many} aus der Vorsaison – zum Vorjahrespreis + ${c.league.keeper_surcharge}. Sie stehen beim Draft-Start fest in deinem Kader.</p>
     ${opts.data.length === 0 ? html`<p class="muted small">Kein Vorjahreskader gefunden.</p>` : html`
-      <ul class="list compact">${opts.data.map((o) => html`<li key=${o[SPORT.fk]}>
-        <label class="check"><input type="checkbox" checked=${chosen.has(o[SPORT.fk])} onChange=${() => flip(o[SPORT.fk])} />
-          <${RiderCell} r=${c.riderMap[o[SPORT.fk]]} /></label>
+      <ul class="list compact">${opts.data.map((o) => html`<li key=${o.athlete_id}>
+        <label class="check"><input type="checkbox" checked=${chosen.has(o.athlete_id)} onChange=${() => flip(o.athlete_id)} />
+          <${RiderCell} r=${c.riderMap[o.athlete_id]} /></label>
         <span class="muted small">${o.prev_price} → <strong>${o.price}</strong></span></li>`)}</ul>
       <div class="row">
         <button class="primary" disabled=${a.busy || chosen.size > c.league.keeper_count}
@@ -79,7 +79,7 @@ function Keepers({ c }) {
       </div>`}
     <${Msg} msg=${a.msg} />
     ${all.data.length > 0 && html`<details><summary>Keeper aller Manager (${all.data.length})</summary>
-      <ul class="list compact">${all.data.map((k) => html`<li key=${k[SPORT.fk]}><span>${c.riderMap[k[SPORT.fk]]?.name || k[SPORT.fk]}</span>
+      <ul class="list compact">${all.data.map((k) => html`<li key=${k.athlete_id}><span>${c.riderMap[k.athlete_id]?.name || k.athlete_id}</span>
         <span class="muted small">${c.managerMap[k.manager_id]?.team_name} · ${k.price}</span></li>`)}</ul></details>`}
   </div>`;
 }
@@ -198,7 +198,7 @@ function DraftRoom({ c }) {
   }, [remaining === 0, d?.deadline]);
 
   // Du bist dran: Vibration, Tab-Titel und – wenn die App im Hintergrund ist – eine Benachrichtigung
-  const myTurnNow = !!(c.me && d?.status === 'running' && d.nominator === c.me.id && !d[SPORT.current]);
+  const myTurnNow = !!(c.me && d?.status === 'running' && d.nominator === c.me.id && !d.current_athlete);
   useEffect(() => {
     if (!myTurnNow) return;
     const title = document.title;
@@ -218,7 +218,7 @@ function DraftRoom({ c }) {
   const me = c.me;
   const open = (m) => c.league.roster_size - c.active.filter((r) => r.manager_id === m.id).length;
   const maxBid = (m) => (open(m) <= 0 ? 0 : m.budget_left - (open(m) - 1));
-  const rider = c.riderMap[d[SPORT.current]];
+  const rider = c.riderMap[d.current_athlete];
   const minNext = Math.max(1, d.current_bid + 1);
   const iAmHigh = me && d.current_bidder === me.id;
   const canBid = me && d.status === 'running' && rider && remaining > 0 && !iAmHigh && open(me) > 0 && maxBid(me) >= minNext;
@@ -226,7 +226,7 @@ function DraftRoom({ c }) {
   const nominatorName = c.managerMap[d.nominator]?.team_name;
   const myTurn = me && d.nominator === me.id;
   const asAdmin = (r, verb) => myTurn || adminConfirm(r, nominatorName, verb);
-  const drafted = new Set(lots.map((l) => l[SPORT.fk]));
+  const drafted = new Set(lots.map((l) => l.athlete_id));
   const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive);
 
   return html`<div class="draft">
@@ -296,10 +296,10 @@ function DraftRoom({ c }) {
 
     <section class="card">
       <h3>Letzte Zuschläge</h3>
-      ${blind && lots[0] && lastBids.length > 0 && html`<p class="muted small">Gebote für ${c.riderMap[lots[0][SPORT.fk]]?.name || lots[0][SPORT.fk]}:
+      ${blind && lots[0] && lastBids.length > 0 && html`<p class="muted small">Gebote für ${c.riderMap[lots[0].athlete_id]?.name || lots[0].athlete_id}:
         ${lastBids.map((b, i) => html`${i ? ' · ' : ''}${c.managerMap[b.manager_id]?.team_name} <strong>${b.amount}</strong>`)}</p>`}
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
-        <span>${c.riderMap[l[SPORT.fk]]?.name || l[SPORT.fk]}</span>
+        <span>${c.riderMap[l.athlete_id]?.name || l.athlete_id}</span>
         <span class="muted">${l.manager_id ? `${c.managerMap[l.manager_id]?.team_name} · ${l.price}` : 'übersprungen'}</span></li>`)}</ul>
     </section>
   </div>`;
@@ -418,7 +418,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
     <section class="card">
       <h3>Letzte Picks</h3>
       <ul class="list compact">${lots.slice(0, 15).map((l) => html`<li key=${l.id}>
-        <span>${l.lot_no}. ${c.riderMap[l[SPORT.fk]]?.name || l[SPORT.fk]}</span>
+        <span>${l.lot_no}. ${c.riderMap[l.athlete_id]?.name || l.athlete_id}</span>
         <span class="muted">${c.managerMap[l.manager_id]?.team_name}</span></li>`)}</ul>
     </section>
   </div>`;
@@ -428,7 +428,7 @@ function RosterMini({ c, managerId }) {
   const mine = c.active.filter((r) => r.manager_id === managerId);
   if (!mine.length) return html`<p class="muted">Noch leer.</p>`;
   return html`<ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-    <span>${c.riderMap[r[SPORT.fk]]?.name || r[SPORT.fk]}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
+    <span>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
 }
 
 function DraftSummary({ c }) {
