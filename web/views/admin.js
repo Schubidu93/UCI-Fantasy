@@ -130,7 +130,7 @@ function OfflineImport({ c }) {
   if (c.league.status !== 'setup') return html`<p class="card muted">Die Kader sind bereits fixiert.</p>`;
 
   const byName = {};
-  c.riders.forEach((r) => { byName[normName(r.name)] = r; });
+  c.people.forEach((r) => { byName[normName(r.name)] = r; });
   const taken = new Set(rows.map((r) => r.rider_slug));
 
   const parseCsv = (text) => {
@@ -169,7 +169,7 @@ function OfflineImport({ c }) {
       <select value=${mgr} onChange=${(e) => setMgr(e.target.value)}>${c.managers.map((m) => html`<option value=${m.id}>${m.team_name}</option>`)}</select>
       <input type="number" min="0" max="100" placeholder="Preis" value=${price} onInput=${(e) => setPrice(e.target.value)} />
     </div>
-    <${RiderPicker} riders=${c.riders.filter((r) => !taken.has(r.pcs_slug))} limit=${8} action="Hinzufügen"
+    <${RiderPicker} riders=${c.people.filter((r) => !taken.has(r.pcs_slug))} limit=${8} action="Hinzufügen"
       onPick=${(r) => { setRows([...rows, { manager_id: mgr, rider_slug: r.pcs_slug, price: price === '' ? null : +price }]); setErrors(null); }} />
 
     <div class="grid2">${c.managers.map((m) => {
@@ -400,7 +400,7 @@ function RosterFix({ c }) {
       <label class="span2">Grund<input value=${reason} onInput=${(e) => setReason(e.target.value)} /></label>
     </div>
     ${drop && html`<button disabled=${a.busy} onClick=${() => run(null)}>Nur abgeben</button>`}
-    <${RiderPicker} riders=${c.riders.filter((r) => !c.owner[r.pcs_slug])} limit=${8} action="Aufnehmen" onPick=${(r) => run(r.pcs_slug)} />
+    <${RiderPicker} riders=${c.people.filter((r) => !c.owner[r.pcs_slug])} limit=${8} action="Aufnehmen" onPick=${(r) => run(r.pcs_slug)} />
     <${Msg} msg=${a.msg} />
   </section>`;
 }

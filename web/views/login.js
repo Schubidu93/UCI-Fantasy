@@ -1,5 +1,6 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { sb, useAction, Msg } from '../lib.js';
+import { SPORT } from '../sport.js';
 
 export function Login() {
   const [mode, setMode] = useState('login');   // login | signup | magic
@@ -30,7 +31,7 @@ export function Login() {
   };
 
   return html`<main class="wrap narrow">
-    <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> UCI Fantasy</div>
+    <div class="brand"><img src="logo.svg" alt="" class="logo-img" /> ${SPORT.app}</div>
     <div class="card">
       <div class="seg" role="tablist">
         ${[['login', 'Anmelden'], ['signup', 'Registrieren'], ['magic', 'Magic Link']].map(([k, l]) =>

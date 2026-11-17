@@ -24,12 +24,12 @@ export function Riders({ c }) {
   const [limit, setLimit] = useState(100);
 
   const pmap = useMemo(() => Object.fromEntries((pts.data || []).map((p) => [p.rider_slug, p])), [pts.data]);
-  const teams = useMemo(() => [...new Set(c.riders.map((r) => r.team).filter(Boolean))].sort(), [c.riders]);
-  const nations = useMemo(() => [...new Set(c.riders.map((r) => r.nation).filter(Boolean))].sort(), [c.riders]);
+  const teams = useMemo(() => [...new Set(c.people.map((r) => r.team).filter(Boolean))].sort(), [c.people]);
+  const nations = useMemo(() => [...new Set(c.people.map((r) => r.nation).filter(Boolean))].sort(), [c.people]);
   if (!pts.data) return html`<${Loading} error=${pts.error} />`;
 
   const t = normName(term);
-  const list = c.riders
+  const list = c.people
     .filter((r) => recent ? pmap[r.pcs_slug] : r.uci_rank || pmap[r.pcs_slug] || c.owner[r.pcs_slug])   // 30 Tage: nur wer gepunktet hat
     .filter((r) => (!team || normName(team).split(' ').every((w) => normName(r.team || '').includes(w))) && (!nation || r.nation === nation))
     .filter((r) => !owner || (owner === 'free' ? !c.owner[r.pcs_slug] : owner === 'mine' ? c.owner[r.pcs_slug] === c.me?.id : c.owner[r.pcs_slug] === owner))

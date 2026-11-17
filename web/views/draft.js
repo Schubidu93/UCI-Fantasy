@@ -225,7 +225,7 @@ function DraftRoom({ c }) {
   const myTurn = me && d.nominator === me.id;
   const asAdmin = (r, verb) => myTurn || adminConfirm(r, nominatorName, verb);
   const drafted = new Set(lots.map((l) => l.rider_slug));
-  const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive);
+  const free = c.people.filter((r) => !c.owner[r.pcs_slug] && !r.inactive);
 
   return html`<div class="draft">
     <section class="card auction">
@@ -370,7 +370,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
   const round = Math.floor((d.lot_no - 1) / n) + 1;
   const myTurn = me && d.nominator === me.id;
   const picker = c.managerMap[d.nominator];
-  const free = c.riders.filter((r) => !c.owner[r.pcs_slug] && !r.inactive && r.uci_rank);
+  const free = c.people.filter((r) => !c.owner[r.pcs_slug] && !r.inactive && r.uci_rank);
   const next = [];
   for (let p = d.lot_no + 1; p <= Math.min(total, d.lot_no + 6); p++) next.push([p, snakeManager(order, p)]);
   const pick = (r) => (myTurn || adminConfirm(r, picker?.team_name, 'draften')) && a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: r.pcs_slug }); await load(); });

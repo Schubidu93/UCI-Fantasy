@@ -87,7 +87,7 @@ export function DraftReport({ c }) {
     let proj = rows.some((r) => Number(r.points) > 0) ? Object.fromEntries(rows.map((r) => [r.manager_id, Number(r.points)])) : null;
     // Ohne Vorjahresdaten: aktuelle UCI-Ranglistenpunkte (52 Wochen) als Maßstab
     if (!lots.some((l) => pts[l.rider_slug])) {
-      pts = Object.fromEntries(c.riders.map((r) => [r.pcs_slug, Number(r.ranking_points || 0)]));
+      pts = Object.fromEntries(c.people.map((r) => [r.pcs_slug, Number(r.ranking_points || 0)]));
       basis = 'UCI-Ranglistenpunkte';
       proj = null;
     }

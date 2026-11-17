@@ -78,7 +78,7 @@ function FreeAgents({ c, onPick, free: freePhase }) {
   const lockedSince = c.league.last_waiver_run;
   const locked = useMemo(() => new Set(freePhase ? [] : c.roster.filter((r) => r.released_at && lockedSince && r.released_at >= lockedSince).map((r) => r.rider_slug)), [c.roster, freePhase]);
   const pts = useRiderPoints(c.league.gender);
-  const free = c.riders.filter((r) => !c.owner[r.pcs_slug])
+  const free = c.people.filter((r) => !c.owner[r.pcs_slug])
     .sort((a, b) => (pts[b.pcs_slug] || 0) - (pts[a.pcs_slug] || 0) || (a.uci_rank ?? 1e9) - (b.uci_rank ?? 1e9));
   const teams = [...new Set(free.map((r) => r.team).filter(Boolean))].sort();
   const nations = [...new Set(free.map((r) => r.nation).filter(Boolean))].sort();

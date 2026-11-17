@@ -11,13 +11,13 @@ import { Results } from './views/results.js';
 import { Table } from './views/table.js';
 import { Admin } from './views/admin.js';
 import { RiderModal } from './views/rider.js';
-import { Riders } from './views/riders.js';
-import { Races } from './views/races.js';
 import { Rules } from './views/rules.js';
 import { More } from './views/more.js';
 import { Feedback } from './views/feedback.js';
 import { Overview } from './views/overview.js';
 import { registerServiceWorker } from './views/push.js';
+import { SPORT, pid } from './sport.js';
+import { loadPeople, SPORT_SECTIONS, SPORT_VIEWS, PEOPLE_ICON } from './sport-views.js';
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
@@ -44,22 +44,22 @@ async function loadLeague(id, userId) {
   rpc('process_due', { p_league: id }).catch(() => {});   // fällige Stichtage abarbeiten
   const league = (await q(sb.from('leagues').select('*').eq('id', id)))[0];
   if (!league) throw new Error('Liga nicht gefunden oder kein Zugriff.');
-  const [managers, roster, matchdays, riders, sync] = await Promise.all([
+  const [managers, roster, matchdays, people, sync] = await Promise.all([
     q(sb.from('managers').select('*').eq('league_id', id).order('draft_position', { nullsFirst: false }).order('joined_at')),
     all(() => sb.from('roster_entries').select('*').eq('league_id', id).order('id')),
     q(sb.from('matchdays').select('*').eq('league_id', id).order('starts_on')),
-    all(() => sb.from('riders').select('*').eq('gender', league.gender).order('uci_rank', { nullsFirst: false }).order('pcs_slug')),
+    loadPeople(league),
     q(sb.from('sync_status').select('*')),
   ]);
-  const riderMap = Object.fromEntries(riders.map((r) => [r.pcs_slug, r]));
+  const riderMap = Object.fromEntries(people.map((r) => [pid(r), r]));
   const active = roster.filter((r) => !r.released_on);
-  const owner = Object.fromEntries(active.map((r) => [r.rider_slug, r.manager_id]));
+  const owner = Object.fromEntries(active.map((r) => [r[SPORT.fk], r.manager_id]));
   const me = managers.find((m) => m.user_id === userId) || null;
   const managerMap = Object.fromEntries(managers.map((m) => [m.id, m]));
   const nextMatchday = matchdays.find((m) => new Date(m.deadline) > new Date()) || null;
   return {
     league, managers, managerMap, me, roster, active, owner, matchdays, nextMatchday,
-    riders, riderMap, sync: sync[0] || null,
+    people, riderMap, sync: sync[0] || null,
     isAdmin: league.admin_user === userId,
   };
 }
@@ -69,7 +69,7 @@ const ICONS = {
   liga: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   team: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   draft: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
-  riders: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  people: PEOPLE_ICON,
   races: '<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>',
   more: '<path d="M3 6h18M3 12h18M3 18h18"/>',
 };
@@ -84,21 +84,20 @@ function sections(c) {
     beforeDraft
       ? { key: 'draft', label: 'Draft', tabs: [['draft', 'Draft']] }
       : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['points', 'Punkte'], ['waiver', 'Waiver']] : [])] },
-    { key: 'riders', label: 'Fahrer', tabs: [['riders', 'Fahrer']] },
-    { key: 'races', label: 'Rennen', tabs: [['races', 'Rennen']] },
+    ...SPORT_SECTIONS,
     { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
       ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },
   ];
 }
 
-function LeagueShell({ id, tab, sub, sub2, session }) {
+function LeagueShell({ id, tab, sub, sub2, sub3, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
   if (!ctx.data) return html`<div class="scroll"><main class="wrap"><${Loading} error=${ctx.error} /></main></div>`;
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
   const defaultTab = c.league.status === 'drafting' ? 'draft' : 'home';
   const t = tab || defaultTab;
-  const View = { draft: Draft, team: Team, riders: Riders, races: Races, rules: Rules, waiver: Waiver, points: TeamPoints, results: Results,
-    table: Table, admin: Admin, more: More, feedback: Feedback, home: Overview }[t] || Overview;
+  const View = { draft: Draft, team: Team, rules: Rules, waiver: Waiver, points: TeamPoints, results: Results,
+    table: Table, admin: Admin, more: More, feedback: Feedback, home: Overview, ...SPORT_VIEWS }[t] || Overview;
   const secs = sections(c);
   const current = secs.find((x) => x.tabs.some(([k]) => k === t))
     || (t === 'feedback' && secs.find((x) => x.key === 'more')) || secs[0];
@@ -115,7 +114,7 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
         </div>
         <div class="muted small right">
           ${c.me ? html`<div><strong>${c.me.team_name}</strong></div>` : ''}
-          <div title="Letzter Abruf der Ergebnisse von UCI DataRide">
+          <div title=${`Letzter Abruf der Ergebnisse von ${SPORT.source}`}>
             Ergebnisse vom ${fmtDateTime(c.sync?.last_run)}${c.sync && c.sync.ok === false ? ' ⚠︎' : ''}
           </div>
         </div>
@@ -130,7 +129,7 @@ function LeagueShell({ id, tab, sub, sub2, session }) {
         ${current.tabs.map(([k, label]) => html`<a href=${href(k)} class=${k === t ? 'active' : ''}>${label}</a>`)}
       </nav>`}
     </header>
-    <div class="scroll" key=${t}><main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} /></main></div>`;
+    <div class="scroll" key=${t}><main class="wrap"><${View} c=${c} sub=${sub} sub2=${sub2} sub3=${sub3} /></main></div>`;
 }
 
 // Nur dieser Bereich scrollt – Kopf und Menüleiste stehen fest (kein Inhalt unter der iPhone-Statusleiste)
@@ -151,7 +150,7 @@ function App() {
     location.hash = `#/join/${pending}`;
   }
   if (parts[0] === 'join') return html`<${Scroll}><${Join} code=${parts[1]} session=${session} /><//>`;
-  if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} sub2=${parts[4]} session=${session} />`;
+  if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} sub2=${parts[4]} sub3=${parts[5]} session=${session} />`;
   return html`<${Scroll}><${Home} session=${session} /><//>`;
 }
 
