@@ -16,7 +16,7 @@ export function OfflineImport({ c }) {
 
   const byName = {};
   c.people.forEach((r) => { byName[normName(r.name)] = r; });
-  const taken = new Set(rows.map((r) => r[SPORT.fk]));
+  const taken = new Set(rows.map((r) => r.athlete_id));
 
   const parseCsv = (text) => {
     const out = [], miss = [];
@@ -27,7 +27,7 @@ export function OfflineImport({ c }) {
       const m = c.managers.find((x) => normName(x.team_name) === normName(mName));
       const r = c.riderMap[rName] || byName[normName(rName)];
       if (!m || !r) miss.push(`Zeile ${i + 1}: ${!m ? `Manager „${mName}“` : ''}${!m && !r ? ' und ' : ''}${!r ? `${SPORT.one} „${rName}“` : ''} nicht gefunden`);
-      else out.push({ manager_id: m.id, [SPORT.fk]: pid(r), price: p === undefined || p === '' ? null : +p });
+      else out.push({ manager_id: m.id, athlete_id: pid(r), price: p === undefined || p === '' ? null : +p });
     });
     setRows(out); setUnmatched(miss); setErrors(null);
   };
@@ -55,13 +55,13 @@ export function OfflineImport({ c }) {
       <input type="number" min="0" max="100" placeholder="Preis" value=${price} onInput=${(e) => setPrice(e.target.value)} />
     </div>
     <${RiderPicker} people=${c.people.filter((r) => !taken.has(pid(r)))} limit=${8} action="Hinzufügen"
-      onPick=${(r) => { setRows([...rows, { manager_id: mgr, [SPORT.fk]: pid(r), price: price === '' ? null : +price }]); setErrors(null); }} />
+      onPick=${(r) => { setRows([...rows, { manager_id: mgr, athlete_id: pid(r), price: price === '' ? null : +price }]); setErrors(null); }} />
 
     <div class="grid2">${c.managers.map((m) => {
       const mine = rows.filter((r) => r.manager_id === m.id);
       return html`<div key=${m.id}><h4>${m.team_name} <span class="muted small">${mine.length}/${c.league.roster_size} · ${mine.reduce((s, r) => s + (r.price || 0), 0)} Pkt.</span></h4>
         <ul class="list compact">${mine.map((r) => html`<li>
-          <span>${c.riderMap[r[SPORT.fk]]?.name}</span>
+          <span>${c.riderMap[r.athlete_id]?.name}</span>
           <span class="row"><span class="muted">${r.price ?? 0}</span>
             <button class="small ghost" onClick=${() => setRows(rows.filter((x) => x !== r))} aria-label="entfernen">✕</button></span></li>`)}</ul></div>`;
     })}</div>

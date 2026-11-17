@@ -1,21 +1,14 @@
 // Sportart Radsport: alles, worin sich UCI Fantasy von Runner Fantasy unterscheidet (Begriffe,
-// Spaltennamen, Texte). Der übrige App-Code ist in beiden Apps gleich und liest diese Werte hier.
+// Texte). Die Datenbank-Namen sind in beiden Apps gleich (athletes, athlete_id, competitions …).
+// Der übrige App-Code ist in beiden Apps gleich und liest diese Werte hier.
 // Reine Daten ohne Abhängigkeiten – auch von web/lib.js genutzt.
 
 export const SPORT = {
   app: 'UCI Fantasy', emoji: '🚴', source: 'UCI DataRide',
   // Begriffe in den gebrauchten Fällen: ein Fahrer, einen Fahrer, die Fahrer, den Fahrern (Dativ Plural), des Fahrers
   one: 'Fahrer', oneAcc: 'Fahrer', many: 'Fahrer', manyDat: 'Fahrern', oneGen: 'Fahrers',
-  // Spaltennamen in der Datenbank (historische Namen aus der Anfangszeit, siehe CLAUDE.md)
-  pk: 'id',             // Schlüssel der Personentabelle
-  fk: 'athlete_id',           // Verweis darauf (Kader, Aufstellung, Ergebnisse …)
-  add: 'add_athlete', drop: 'drop_athlete',              // Waiver-Anträge
-  give: 'give_athletes', take: 'take_athletes',          // Tausch
-  current: 'current_athlete',                          // Draft: aktuell versteigert
-  comp: 'competition_id', pts: 'points',              // Ergebnisse
   pointsWord: 'UCI-Punkten',                       // „Sortiert nach …“
   ptsFormat: { maximumFractionDigits: 1 },   // Anzeige der Punkte
-  pointsRpc: 'athlete_points',
   // Texte
   dataLine: 'Daten: UCI (DataRide, Wettkampfverzeichnis). Keine offizielle App der UCI.',
   matchdayExamples: 'Klassiker, Giro, Tour, Vuelta',   // Beispiele für Spieltage

@@ -17,7 +17,7 @@ export function TeamPoints({ c }) {
   if (!pts.data) return html`<${Loading} error=${pts.error} />`;
   const mine = pts.data.filter((x) => x.manager_id === mid);
   const isMe = mid === c.me?.id;
-  const inRoster = (a) => c.active.some((r) => r.manager_id === mid && r[SPORT.fk] === a);
+  const inRoster = (a) => c.active.some((r) => r.manager_id === mid && r.athlete_id === a);
 
   // Zeile: Name (antippen öffnet das Profil), darunter Kurzinfo; rechts Punkte, darunter Balken für den Anteil
   const Row = ({ a, points, share, sub }) => {
@@ -39,12 +39,12 @@ export function TeamPoints({ c }) {
     const total = sum(mine);
     const by = {};
     for (const x of mine) {
-      by[x[SPORT.fk]] ??= { pts: 0, mds: new Set() };
-      by[x[SPORT.fk]].pts += Number(x.points);
-      if (Number(x.points) > 0) by[x[SPORT.fk]].mds.add(x.matchday_id);
+      by[x.athlete_id] ??= { pts: 0, mds: new Set() };
+      by[x.athlete_id].pts += Number(x.points);
+      if (Number(x.points) > 0) by[x.athlete_id].mds.add(x.matchday_id);
     }
     // auch Kadermitglieder ohne Punkte zeigen (unten)
-    for (const r of c.active.filter((r) => r.manager_id === mid)) by[r[SPORT.fk]] ??= { pts: 0, mds: new Set() };
+    for (const r of c.active.filter((r) => r.manager_id === mid)) by[r.athlete_id] ??= { pts: 0, mds: new Set() };
     const list = Object.entries(by).sort((a, b) => b[1].pts - a[1].pts);
     body = html`<div class="row between"><span class="muted small">Saison bis heute · ${started.length} Spieltag${started.length === 1 ? '' : 'e'}</span>
         <span><span class="big">${fmtPts(total)}</span> <span class="muted small">Punkte</span></span></div>
@@ -61,8 +61,8 @@ export function TeamPoints({ c }) {
       <div class="row between"><span class="muted small">Platz ${place} von ${c.managers.length} an diesem Spieltag</span>
         <span><span class="big">${fmtPts(total)}</span> <span class="muted small">Punkte</span></span></div>
       ${rows.length === 0 ? html`<p class="muted">An diesem Spieltag noch keine Punkte.</p>` : html`<ul class="list pts-list">
-        ${rows.map((x) => html`<${Row} a=${x[SPORT.fk]} points=${x.points} share=${total ? (x.points / total) * 100 : 0}
-          sub=${[x.overridden && 'von Hand korrigiert', !inRoster(x[SPORT.fk]) && 'inzwischen abgegeben'].filter(Boolean).join(' · ')} />`)}</ul>`}
+        ${rows.map((x) => html`<${Row} a=${x.athlete_id} points=${x.points} share=${total ? (x.points / total) * 100 : 0}
+          sub=${[x.overridden && 'von Hand korrigiert', !inRoster(x.athlete_id) && 'inzwischen abgegeben'].filter(Boolean).join(' · ')} />`)}</ul>`}
       <p class="muted small">${SPORT.many} ohne Punkte an diesem Spieltag sind nicht aufgeführt.</p>`;
   }
 

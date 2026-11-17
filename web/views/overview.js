@@ -11,15 +11,15 @@ export function Overview({ c }) {
   const mine = c.me ? c.active.filter((r) => r.manager_id === c.me.id) : [];
   const data = useLoad(async () => {
     const since = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
-    const slugs = mine.map((r) => r[SPORT.fk]);
+    const slugs = mine.map((r) => r.athlete_id);
     const [table, pts, recent, trades] = await Promise.all([
       c.league.status === 'active' || c.league.status === 'finished' ? rpc('league_table', { p_league: L }) : [],
-      rpcAll(SPORT.pointsRpc, { p_gender: c.league.gender, p_year: year }),
-      slugs.length ? q(sb.from('results').select(`${SPORT.fk},${SPORT.comp},label,result_date,${SPORT.pts}`)
-        .in(SPORT.fk, slugs).gte('result_date', since).order('result_date', { ascending: false }).limit(12)) : [],
+      rpcAll('athlete_points', { p_gender: c.league.gender, p_year: year }),
+      slugs.length ? q(sb.from('results').select(`athlete_id,competition_id,label,result_date,points`)
+        .in('athlete_id', slugs).gte('result_date', since).order('result_date', { ascending: false }).limit(12)) : [],
       c.me ? q(sb.from('trades').select('id').eq('league_id', L).eq('to_manager', c.me.id).eq('status', 'proposed')) : [],
     ]);
-    return { table, pts: Object.fromEntries(pts.map((p) => [p[SPORT.fk], Number(p.points)])), recent, trades };
+    return { table, pts: Object.fromEntries(pts.map((p) => [p.athlete_id, Number(p.points)])), recent, trades };
   }, [L, c.me?.id, mine.length]);
   if (!data.data) return html`<${Loading} error=${data.error} />`;
   const { table, pts, recent, trades } = data.data;
@@ -46,17 +46,17 @@ export function Overview({ c }) {
 
     ${c.me && mine.length > 0 && html`<section class="card">
       <div class="row between"><h3>Mein Kader</h3><a class="small" href=${href('team')}>Kader →</a></div>
-      <ul class="list compact">${[...mine].sort((a, b) => (pts[b[SPORT.fk]] || 0) - (pts[a[SPORT.fk]] || 0)).map((r) => html`<li key=${r.id}>
-        <button class="linkish" onClick=${() => openRider(r[SPORT.fk])}>${name(r[SPORT.fk])}</button>
-        <span class="muted">${fmtPts(pts[r[SPORT.fk]] || 0)} Pkt. ${year}</span></li>`)}</ul>
+      <ul class="list compact">${[...mine].sort((a, b) => (pts[b.athlete_id] || 0) - (pts[a.athlete_id] || 0)).map((r) => html`<li key=${r.id}>
+        <button class="linkish" onClick=${() => openRider(r.athlete_id)}>${name(r.athlete_id)}</button>
+        <span class="muted">${fmtPts(pts[r.athlete_id] || 0)} Pkt. ${year}</span></li>`)}</ul>
     </section>`}
 
     ${c.me && mine.length > 0 && html`<section class="card">
       <h3>Neue Punkte meiner ${SPORT.many}</h3>
       ${recent.length === 0 ? html`<p class="muted small">In den letzten 14 Tagen keine Punkte – ${SPORT.resultsSchedule}</p>`
         : html`<ul class="list compact">${recent.map((r, i) => html`<li key=${i}>
-          <span><strong>${name(r[SPORT.fk])}</strong> <span class="muted small">${labelText(r.label)}</span></span>
-          <span class="muted">${fmtDate(r.result_date)} · <strong>+${fmtPts(r[SPORT.pts])}</strong></span></li>`)}</ul>`}
+          <span><strong>${name(r.athlete_id)}</strong> <span class="muted small">${labelText(r.label)}</span></span>
+          <span class="muted">${fmtDate(r.result_date)} · <strong>+${fmtPts(r.points)}</strong></span></li>`)}</ul>`}
     </section>`}
   </div>`;
 }

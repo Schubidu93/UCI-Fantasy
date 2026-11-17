@@ -53,7 +53,7 @@ async function loadLeague(id, userId) {
   ]);
   const riderMap = Object.fromEntries(people.map((r) => [pid(r), r]));
   const active = roster.filter((r) => !r.released_on);
-  const owner = Object.fromEntries(active.map((r) => [r[SPORT.fk], r.manager_id]));
+  const owner = Object.fromEntries(active.map((r) => [r.athlete_id, r.manager_id]));
   const me = managers.find((m) => m.user_id === userId) || null;
   const managerMap = Object.fromEntries(managers.map((m) => [m.id, m]));
   const nextMatchday = matchdays.find((m) => new Date(m.deadline) > new Date()) || null;
