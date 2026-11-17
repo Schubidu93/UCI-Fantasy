@@ -20,9 +20,10 @@ Datenquelle ist **UCI DataRide** (dataride.uci.ch), die offizielle Datenquelle d
 
 | Ordner | Inhalt |
 |---|---|
-| `web/` | Die App: `app.js` (Rahmen, Navigation), `lib.js` (Helfer), `views/` (Bereiche), `sw.js` (Push) |
+| `web/` | Die App, in beiden Apps gleich aufgebaut: `app.js` (Rahmen, Navigation), `lib.js` und `style.css` (gemeinsame Helfer und Gestaltung), `views/` (Bereiche, in beiden Apps wortgleich), `sport/` (alles Radsport-Spezifische: Begriffe, Fahrerliste, Rennen, Profil, Einstellungen, Regeln, Farben), `sw.js` (Push) |
 | `supabase/schema/NN_*.sql` | Datenbank nach Themen (Tabellen, Hilfsfunktionen, Liga, Draft, Spieltage, Punkte, Waiver, Tausch, Stichtage, Admin, Zeitplaner, Rechte), in Dateireihenfolge eingespielt, komplett und idempotent: Tabellen, Rechte und die gesamte Spiellogik (Draft, Waiver, freie Phase, Tausch, Wertung, Zeitplaner) |
-| `datasync/` | Python-Skripte für UCI DataRide (`dataride.py`), Fahrerliste, Rennergebnisse und Push-Versand |
+| `datasync/` | Python-Skripte für UCI DataRide (`dataride.py`), Fahrerliste, Rennergebnisse, Push-Versand und Feedback-Mails |
+| `tests/` | Spiellogik (`sql/`, gegen echtes PostgreSQL), Datenabruf (`datasync/`, ohne Netz nachgebildet), Oberflächentest (`ui/`) |
 | `.github/workflows/` | Automatische Abläufe (siehe unten) |
 
 Die Spielregeln werden in der Datenbank geprüft (Budget, Uhr, Kadergröße, Fristen,
@@ -67,8 +68,13 @@ einfrieren) erledigt die Datenbank selbst.
 
 ## Lokal testen
 
-`web/config.example.js` als `web/config.js` kopieren (nicht einchecken), URL und anon-Key eintragen,
-dann `python3 -m http.server -d web` und `http://localhost:8000` öffnen.
+- **Alles:** `npm install`, dann `npm test` (Spiellogik gegen echtes PostgreSQL 16, Python-Skripte, Oberflächentest in der
+  iPhone-Ansicht mit Playwright) und `npm run lint` (TypeScript). PostgreSQL: `TEST_DATABASE_URL`, Standard: lokale Instanz auf
+  Port 54329, Socket in `/tmp/fa-pg`.
+- **Oberfläche von Hand:** `npx tsx tests/ui/seed.ts` legt eine Testdatenbank mit Liga an, `npx tsx tests/ui/mock-api.ts` bildet die
+  Supabase-Schnittstelle darauf nach (RLS aktiv). `web/config.example.js` als `web/config.js` kopieren (URL `http://localhost:54321`,
+  nicht einchecken), `python3 -m http.server -d web` starten und im Browser in der iPhone-Ansicht öffnen.
+- **Gemeinsame Dateien:** stehen in `scripts/shared.mjs`; nach einer Änderung in beide Apps kopieren und `node scripts/shared.mjs update`.
 
 ## Hinweise
 
