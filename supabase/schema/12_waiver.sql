@@ -130,7 +130,7 @@ begin
   if exists (select 1 from roster_entries where league_id = p_league and athlete_id = p_add and released_on is null) then
     raise exception 'Dieser % ist schon vergeben.', _word('one');
   end if;
-  if not exists (select 1 from athletes r where r.id = p_add and _gender_ok(l.gender, r.gender) and not r.inactive and _selectable(r.pool_rank)) then
+  if not exists (select 1 from athletes r where r.id = p_add and _gender_ok(l.gender, r.gender) and not r.inactive and _eligible(l, r)) then
     raise exception '% nicht verfügbar.', _word('one');
   end if;
   if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;

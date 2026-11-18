@@ -24,4 +24,4 @@ export const pid = (r) => r?.id;
 /** Platz der Person in der Auswahl (UCI-Rang) – für Sortierungen */
 export const rank = (r) => r?.pool_rank;
 /** Darf geholt werden (Waiver, Draft): alle Fahrer der Liga */
-export const selectable = () => true;
+export const selectable = (_r, _league) => true;

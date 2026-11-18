@@ -1,7 +1,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { DraftReport } from './report.js';
 import { all, Msg, q, rpc, sb, useAction, useLoad } from '../lib.js';
-import { pid, rank, RiderCell, SPORT } from '../sport/index.js';
+import { pid, rank, RiderCell, selectable, SPORT } from '../sport/index.js';
 import { RiderPicker } from './picker.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
@@ -227,7 +227,7 @@ function DraftRoom({ c }) {
   const myTurn = me && d.nominator === me.id;
   const asAdmin = (r, verb) => myTurn || adminConfirm(r, nominatorName, verb);
   const drafted = new Set(lots.map((l) => l.athlete_id));
-  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive);
+  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive && selectable(r, c.league));
 
   return html`<div class="draft">
     <section class="card auction">
@@ -372,7 +372,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
   const round = Math.floor((d.lot_no - 1) / n) + 1;
   const myTurn = me && d.nominator === me.id;
   const picker = c.managerMap[d.nominator];
-  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive && rank(r));
+  const free = c.people.filter((r) => !c.owner[pid(r)] && !r.inactive && rank(r) && selectable(r, c.league));
   const next = [];
   for (let p = d.lot_no + 1; p <= Math.min(total, d.lot_no + 6); p++) next.push([p, snakeManager(order, p)]);
   const pick = (r) => (myTurn || adminConfirm(r, picker?.team_name, 'draften')) && a.run(async () => { await rpc('draft_snake_pick', { p_league: L, p_rider: pid(r) }); await load(); });

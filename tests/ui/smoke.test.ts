@@ -66,6 +66,12 @@ describe("Oberfläche (iPhone)", () => {
     expect(await open("/")).toContain("Meine Ligen");
     await page.click('button:has-text("Liga anlegen")');
     for (const mode of ["snake", "live", "blind", "offline"]) await page.selectOption('select:has(option[value="offline"])', mode);
+    // Sportart-Auswahlen (z. B. Disziplinen der Liga), falls vorhanden
+    const presets = page.locator('select:has(option[value="custom"])');
+    if (await presets.count()) for (const v of ["all", "run", "custom"]) await presets.first().selectOption(v);
+    // nichts ragt rechts über den Bildschirm hinaus
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (process.env.SMOKE_SHOT) await page.locator("form").last().screenshot({ path: process.env.SMOKE_SHOT });
     expect(errors).toEqual([]);
   });
 
