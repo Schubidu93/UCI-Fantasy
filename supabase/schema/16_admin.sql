@@ -27,10 +27,10 @@ returns void language plpgsql security definer set search_path = public as $$
 begin
   perform _require_admin(p_league);
   if p_drop is not null and not _release(p_league, p_manager, p_drop, current_date) then
-    raise exception 'Fahrer % ist nicht im Kader.', p_drop;
+    raise exception '% % ist nicht im Kader.', _word('one'), p_drop;
   end if;
   if p_add is not null then
-    if not _athlete_free(p_league, p_add, 'infinity') then raise exception 'Fahrer % ist nicht frei.', p_add; end if;
+    if not _athlete_free(p_league, p_add, 'infinity') then raise exception '% % ist nicht frei.', _word('one'), p_add; end if;
     if _open_slots(p_manager) <= 0 then raise exception 'Der Kader ist voll.'; end if;
     insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
     values (p_league, p_manager, p_add, coalesce(p_price, 0), 'admin', current_date);

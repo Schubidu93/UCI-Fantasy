@@ -11,11 +11,11 @@ begin
   select * into l from leagues where id = p_league;
   if l.status <> 'active' then raise exception 'Waiver sind erst nach dem Draft möglich.'; end if;
   if p_drop is null then
-    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen Fahrer zum Abgeben wählen.'; end if;
+    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen % zum Abgeben wählen.', _word('oneAcc'); end if;
   elsif not exists (select 1 from roster_entries where manager_id = v_me and athlete_id = p_drop and released_on is null) then
-    raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.';
+    raise exception 'Der abzugebende % ist nicht in deinem Kader.', _word('one');
   end if;
-  if not _athlete_free(p_league, p_add, 'infinity') then raise exception 'Dieser Fahrer ist nicht frei.'; end if;
+  if not _athlete_free(p_league, p_add, 'infinity') then raise exception 'Dieser % ist nicht frei.', _word('one'); end if;
   select budget_left into v_budget from managers where id = v_me;
   if l.waiver_mode = 'faab' and (p_bid < 0 or p_bid > v_budget) then
     raise exception 'Gebot muss zwischen 0 und deinem Restbudget (%) liegen.', v_budget;
@@ -24,12 +24,12 @@ begin
   if p_immediate then
     -- Ersatz außer der Reihe bei Karriereende/Sperre
     if p_drop is null or not (select inactive from athletes where id = p_drop) then
-      raise exception 'Sofort-Ersatz nur für Fahrer mit Karriereende oder Sperre.';
+      raise exception 'Sofort-Ersatz nur für % mit Karriereende oder Sperre.', _word('many');
     end if;
     if not _athlete_free(p_league, p_add, coalesce(l.last_waiver_run, '-infinity')) then
-      raise exception 'Dieser Fahrer ist bis zum nächsten Stichtag gesperrt.';
+      raise exception 'Dieser % ist bis zum nächsten Stichtag gesperrt.', _word('one');
     end if;
-    if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+    if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;
     perform _release(p_league, v_me, p_drop, current_date);
     insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
     values (p_league, v_me, p_add, 0, 'waiver', current_date);
@@ -69,10 +69,10 @@ begin
   if c.drop_athlete is null then
     if _open_roster_slots(c.manager_id) <= 0 then return 'Kader ist voll'; end if;
   elsif not exists (select 1 from roster_entries where manager_id = c.manager_id and athlete_id = c.drop_athlete and released_on is null) then
-    return 'Abzugebender Fahrer nicht mehr im Kader';
+    return 'Abzugebender ' || _word('one') || ' nicht mehr im Kader';
   end if;
-  if not _athlete_free(l.id, c.add_athlete, now()) then return 'Fahrer schon vergeben'; end if;
-  if not _team_limit_ok(c.manager_id, c.add_athlete, c.drop_athlete) then return 'Grenze pro Profiteam'; end if;
+  if not _athlete_free(l.id, c.add_athlete, now()) then return _word('one') || ' schon vergeben'; end if;
+  if not _team_limit_ok(c.manager_id, c.add_athlete, c.drop_athlete) then return 'Grenze pro ' || _word('team'); end if;
   if l.waiver_mode = 'faab' and c.bid > (select budget_left from managers where id = c.manager_id) then
     return 'Restbudget reicht nicht';
   end if;
@@ -88,13 +88,11 @@ begin
   if l.waiver_mode = 'faab' then
     update managers set budget_left = budget_left - c.bid where id = c.manager_id;
   end if;
-  -- steht der abgegebene Fahrer in einer Aufstellung ab diesem Spieltag, rückt der neue nach
-  update lineups x set athlete_id = c.add_athlete
-    from matchdays m where m.id = x.matchday_id and m.league_id = l.id and m.starts_on >= md.starts_on
-     and x.manager_id = c.manager_id and x.athlete_id = c.drop_athlete;
+  -- steht der abgegebene Sportler in einer Aufstellung ab diesem Spieltag, rückt der neue nach (wenn er passt)
+  perform _lineup_swap(l.id, c.manager_id, c.drop_athlete, c.add_athlete, md.starts_on);
   update waiver_claims set status = 'won', processed_at = now(), matchday_id = md.id where id = c.id;
   -- andere Anträge mit demselben abzugebenden Fahrer werden ungültig
-  update waiver_claims set status = 'lost', note = 'Abzugebender Fahrer schon getauscht', processed_at = now(), matchday_id = md.id
+  update waiver_claims set status = 'lost', note = 'Abzugebender ' || _word('one') || ' schon getauscht', processed_at = now(), matchday_id = md.id
    where manager_id = c.manager_id and status = 'pending' and c.drop_athlete is not null and drop_athlete = c.drop_athlete;
 end $$;
 
@@ -123,19 +121,19 @@ begin
   select * into md from matchdays where league_id = p_league and deadline > now() order by deadline limit 1;
   if not found or not md.waivers_done then raise exception 'Die freie Phase beginnt erst nach der Waiver-Runde.'; end if;
   if p_drop is null then
-    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen Fahrer zum Abgeben wählen.'; end if;
+    if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen % zum Abgeben wählen.', _word('oneAcc'); end if;
   else
     select * into e from roster_entries where manager_id = v_me and athlete_id = p_drop and released_on is null;
-    if not found then raise exception 'Der abzugebende Fahrer ist nicht in deinem Kader.'; end if;
+    if not found then raise exception 'Der abzugebende % ist nicht in deinem Kader.', _word('one'); end if;
   end if;
   -- frei = in keinem Kader für den nächsten Spieltag (abgegebene Fahrer sind sofort wieder frei)
   if exists (select 1 from roster_entries where league_id = p_league and athlete_id = p_add and released_on is null) then
-    raise exception 'Dieser Fahrer ist schon vergeben.';
+    raise exception 'Dieser % ist schon vergeben.', _word('one');
   end if;
-  if not exists (select 1 from athletes r where r.id = p_add and r.gender = l.gender and not r.inactive) then
-    raise exception 'Fahrer nicht verfügbar.';
+  if not exists (select 1 from athletes r where r.id = p_add and _gender_ok(l.gender, r.gender) and not r.inactive and _selectable(r.pool_rank)) then
+    raise exception '% nicht verfügbar.', _word('one');
   end if;
-  if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  if not _team_limit_ok(v_me, p_add, p_drop) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;
   -- abgeben: erst in dieser Phase geholt → Eintrag entfernen, sonst endet er mit dem Spieltagstart
   if e.id is null then null;
   elsif e.acquired_on >= md.starts_on then
@@ -151,8 +149,7 @@ begin
     insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
     values (p_league, v_me, p_add, 0, 'free', md.starts_on);
   end if;
-  update lineups set athlete_id = p_add
-   where matchday_id = md.id and manager_id = v_me and athlete_id = p_drop;
+  perform _lineup_swap(p_league, v_me, p_drop, p_add, md.starts_on);
   insert into waiver_claims (league_id, manager_id, add_athlete, drop_athlete, status, note, processed_at, matchday_id)
   values (p_league, v_me, p_add, p_drop, 'won', 'Freie Phase', now(), md.id);
 end $$;

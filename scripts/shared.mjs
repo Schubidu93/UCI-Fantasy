@@ -7,12 +7,18 @@ import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/vendor', 'datasync/db.py', 'datasync/send_push.py',
-  'datasync/send_feedback.py', 'tests/datasync/helpers.py', 'tests/datasync/test_common.py', 'tests/datasync.test.ts', 'tsconfig.json',
-  '.github/workflows/ci.yml', '.claude', 'web/views', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql/_tap.sql',
-  'tests/sql.test.ts', 'tests/shared.test.ts', 'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'scripts/shared.mjs'];
+// Gemeinsam ist alles in diesen Dateien und Ordnern …
+const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/vendor', 'web/views', 'datasync/db.py', 'datasync/send_push.py',
+  'datasync/send_feedback.py', 'supabase/schema', 'tests/sql', 'tests/datasync/helpers.py', 'tests/datasync/test_common.py',
+  'tests/datasync.test.ts', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql.test.ts', 'tests/shared.test.ts',
+  'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'tsconfig.json', '.github/workflows/ci.yml', '.claude',
+  'scripts/shared.mjs'];
+// … außer dem, worin sich die Sportarten unterscheiden (Datenbank: Tabellen, Sportart, Liga-Einstellungen, Aufstellung,
+// Wertung, Zeitplaner, Rechte, Einspielen; Tests: Aufstellung und Beispieldaten). Neue Dateien sind damit erst einmal gemeinsam.
+const SPORT_FILES = /^supabase\/schema\/(01|02|04|09|10|11|15|17|18|99)_|^tests\/sql\/(06_deadlines|fixtures)\.sql$/;
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
-export const sharedFiles = () => GLOBS.flatMap((g) => walk(join(ROOT, g))).map((f) => relative(ROOT, f)).sort();
+export const sharedFiles = () => GLOBS.flatMap((g) => walk(join(ROOT, g))).map((f) => relative(ROOT, f))
+  .filter((f) => !SPORT_FILES.test(f)).sort();
 export const hashes = () => Object.fromEntries(sharedFiles().map((f) => [f, createHash('sha256').update(readFileSync(join(ROOT, f))).digest('hex').slice(0, 16)]));
 
 const FILE = join(ROOT, 'shared-files.json');

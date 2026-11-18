@@ -43,8 +43,8 @@ end $$;
 
 -- Täglich nach dem Ergebnisabruf (nur Service-Key): Spieltage abschließen und
 -- 7 Tage nach Abschluss einfrieren.
--- Push „Neue Punkte“: neue Punkte von Fahrern im eigenen Kader, die für einen Spieltag zählen
--- (bei Aufstellung nur Aufgestellte), höchstens 14 Tage alt; eine Nachricht je Manager und Abruf
+-- Push „Neue Punkte“: neue Punkte von Sportlern im eigenen Kader, die für einen Spieltag zählen
+-- (bei Aufstellungs-Ligen nur Aufgestellte), höchstens 14 Tage alt; eine Nachricht je Manager und Lauf
 create or replace function notify_new_points() returns int
 language plpgsql security definer set search_path = public as $$
 declare r record; n int := 0;
@@ -59,11 +59,11 @@ begin
      and not exists (select 1 from point_pushes p where p.manager_id = x.manager_id and p.athlete_id = x.athlete_id
                        and p.competition_id = x.competition_id and p.label = x.label);
   for r in
-    with per as (   -- je Fahrer und Rennen zusammenfassen (z. B. Etappe + Gesamtwertung)
+    with per as (   -- je Sportler und Wettkampf zusammenfassen (z. B. Vorlauf + Finale, Etappe + Gesamtwertung)
       select league_id, league_name, manager_id, athlete_id, competition_id, sum(points) pts
         from _np group by 1, 2, 3, 4, 5)
     select per.league_id, per.league_name, per.manager_id,
-           string_agg(_rname(per.athlete_id) || ' +' || round(per.pts)::text
+           string_agg(_rname(per.athlete_id) || ' +' || _fmt_pts(per.pts)
                       || coalesce(' (' || c.name || ')', ''), ' · ' order by per.pts desc) txt
       from per left join competitions c on c.id = per.competition_id
      group by 1, 2, 3
@@ -90,8 +90,8 @@ begin
   for md in update matchdays set status = 'closed', closed_at = now() where status = 'running' and ends_on < current_date
              returning * loop
     perform _notify(t.manager_id, '🏁 ' || md.name || ' abgeschlossen',
-        coalesce((select round(sum(p.points))::text from _league_points(md.league_id) p
-                   where p.matchday_id = md.id and p.manager_id = t.manager_id), '0')
+        coalesce((select _fmt_pts(sum(p.points)) from _league_points(md.league_id) p
+                   where p.matchday_id = md.id and p.manager_id = t.manager_id), _fmt_pts(0))
         || ' Punkte · Gesamt Platz ' || t."position", '#/league/' || md.league_id || '/table')
        from _league_table(md.league_id) t;
   end loop;

@@ -45,3 +45,16 @@ begin
   delete from lineups where matchday_id = p_matchday and manager_id = v_me;
   insert into lineups (matchday_id, manager_id, athlete_id) select p_matchday, v_me, unnest(p_riders);
 end $$;
+
+-- Abgegebener Fahrer stand in Aufstellungen ab p_from: der neue rückt nach (sofern er nicht schon aufgestellt ist)
+create or replace function _lineup_swap(p_league uuid, p_manager uuid, p_drop text, p_add text, p_from date) returns void
+language sql security definer set search_path = public as $$
+  update lineups x set athlete_id = p_add
+    from matchdays m
+   where m.id = x.matchday_id and m.league_id = p_league and m.starts_on >= p_from
+     and x.manager_id = p_manager and x.athlete_id = p_drop and p_add is not null
+     and not exists (select 1 from lineups y where y.matchday_id = x.matchday_id and y.manager_id = x.manager_id and y.athlete_id = p_add);
+  delete from lineups x using matchdays m
+   where m.id = x.matchday_id and m.league_id = p_league and m.starts_on >= p_from
+     and x.manager_id = p_manager and x.athlete_id = p_drop;
+$$;

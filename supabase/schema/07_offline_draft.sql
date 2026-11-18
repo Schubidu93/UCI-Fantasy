@@ -21,16 +21,16 @@ begin
   for r in select i.manager_id from _imp i where not exists (select 1 from managers m where m.id = i.manager_id and m.league_id = p_league) group by 1 loop
     errs := errs || format('Unbekannter Manager %s', r.manager_id);
   end loop;
-  for r in select i.athlete_id from _imp i where not exists (select 1 from athletes x where x.id = i.athlete_id and x.gender = l.gender) loop
-    errs := errs || format('Fahrer %s nicht im UCI-Ranking gefunden', r.athlete_id);
+  for r in select i.athlete_id from _imp i where not exists (select 1 from athletes x where x.id = i.athlete_id and _gender_ok(l.gender, x.gender)) loop
+    errs := errs || format('%s %s nicht %s gefunden', _word('one'), r.athlete_id, _word('pool'));
   end loop;
   for r in select athlete_id from _imp group by 1 having count(*) > 1 loop
-    errs := errs || format('Fahrer %s ist mehrfach vergeben', r.athlete_id);
+    errs := errs || format('%s %s ist mehrfach vergeben', _word('one'), r.athlete_id);
   end loop;
   for r in select m.team_name, count(i.athlete_id) n, coalesce(sum(i.price), 0) s
              from managers m left join _imp i on i.manager_id = m.id
             where m.league_id = p_league group by m.id, m.team_name loop
-    if r.n <> l.roster_size then errs := errs || format('%s: %s statt %s Fahrer', r.team_name, r.n, l.roster_size); end if;
+    if r.n <> l.roster_size then errs := errs || format('%s: %s statt %s %s', r.team_name, r.n, l.roster_size, _word('many')); end if;
     if r.s > l.budget then errs := errs || format('%s: Summe %s über Budget %s', r.team_name, r.s, l.budget); end if;
   end loop;
   for r in select * from _imp where price < 0 loop
@@ -40,7 +40,7 @@ begin
     for r in select m.team_name, x.team, count(*) n from _imp i join athletes x on x.id = i.athlete_id
                join managers m on m.id = i.manager_id where x.team is not null
               group by m.team_name, x.team having count(*) > l.max_per_team loop
-      errs := errs || format('%s: %s Fahrer von %s (max. %s)', r.team_name, r.n, r.team, l.max_per_team);
+      errs := errs || format('%s: %s %s von %s (max. %s)', r.team_name, r.n, _word('many'), r.team, l.max_per_team);
     end loop;
   end if;
 

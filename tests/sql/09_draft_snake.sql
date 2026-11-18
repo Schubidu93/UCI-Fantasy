@@ -1,7 +1,7 @@
 begin;
 set local search_path = public, extensions, test_support;
 \ir ../support/fixtures.sql
--- Snake-Draft: Reihenfolge, falscher Manager, vergebene Fahrer, automatische Wahl bei Zeitablauf, Draft-Ende
+-- Snake-Draft: Reihenfolge, falscher Manager, vergebene Sportler, automatische Wahl bei Zeitablauf, Draft-Ende
 delete from roster_entries where league_id = league();
 update leagues set status = 'setup', draft_mode = 'snake', roster_size = 5 where id = league();
 select login(1);
@@ -14,12 +14,12 @@ create temp table turn as select nominator m1, (select user_id from managers whe
 select set_config('request.jwt.claim.sub', (select u2::text from turn), true);
 select throws_ok($$select draft_snake_pick(league(), rider(5))$$, 'P0001', 'Du bist nicht an der Reihe.', 'Wer nicht dran ist, kann nicht wählen');
 select set_config('request.jwt.claim.sub', (select u1::text from turn), true);
-select lives_ok($$select draft_snake_pick(league(), rider(5))$$, 'Wer dran ist, wählt einen Fahrer');
-select ok(exists (select 1 from roster_entries where manager_id = (select m1 from turn) and athlete_id = rider(5)), 'Gewählter Fahrer steht im Kader');
+select lives_ok($$select draft_snake_pick(league(), rider(5))$$, 'Wer dran ist, wählt einen Sportler');
+select ok(exists (select 1 from roster_entries where manager_id = (select m1 from turn) and athlete_id = rider(5)), 'Gewählter Sportler steht im Kader');
 select ok((select nominator from draft_state where league_id = league()) <> (select m1 from turn), 'Danach ist der andere Manager dran');
 select set_config('request.jwt.claim.sub', (select u2::text from turn), true);
-select throws_ok($$select draft_snake_pick(league(), rider(5))$$, 'P0001', 'Dieser Fahrer ist nicht verfügbar.', 'Vergebener Fahrer kann nicht erneut gewählt werden');
--- restliche Wahlen per Zeitablauf (automatisch der beste freie Fahrer)
+select throws_ok($$select draft_snake_pick(league(), rider(5))$$, 'P0001', 'Dieser ' || _word('one') || ' ist nicht verfügbar.', 'Vergebener Sportler kann nicht erneut gewählt werden');
+-- restliche Wahlen per Zeitablauf (automatisch der beste freie Sportler)
 select login(1);
 do $$ begin
   for i in 1..20 loop
@@ -30,7 +30,7 @@ do $$ begin
 end $$;
 select is((select count(*)::int from roster_entries where league_id = league()), 10, 'Beide Kader sind voll (je 5)');
 select is((select array_agg(athlete_id order by athlete_id) from roster_entries where league_id = league()),
-  (select array_agg(rider(n) order by rider(n)) from unnest(array[1,2,3,4,5,6,7,8,9,10]) n), 'Automatische Wahl nimmt die bestplatzierten freien Fahrer');
+  (select array_agg(rider(n) order by rider(n)) from unnest(array[1,2,3,4,5,6,7,8,9,10]) n), 'Automatische Wahl nimmt die bestplatzierten freien Sportler');
 select is((select manager_id from draft_lots where league_id = league() and lot_no = 2), (select manager_id from draft_lots where league_id = league() and lot_no = 3),
   'Snake: wer als Zweiter wählt, wählt auch als Dritter');
 select is((select status from draft_state where league_id = league()), 'done', 'Draft ist beendet');

@@ -30,7 +30,10 @@
   - `sport/views.js` (Navigation, eigene Seiten, Laden der Personen), `sport/settings.js` (Liga-Einstellungen), `sport/lineup.js`
     (Aufstellung), `sport/matchdays.js` (Spieltag-Vorschläge), `sport/admin.js` (Zusatzbereiche im Admin) und die Sportart-Seiten
     (Personenliste, Wettkämpfe/Rennen, Profil, ggf. Kalender/Toplisten).
-- Datenbank: `supabase/schema/NN_*.sql` mit gleichen Nummern und Namen in beiden Apps.
+- Datenbank: `supabase/schema/NN_*.sql` mit gleichen Nummern und Namen in beiden Apps. Sportart-Schicht `02_sportart.sql`:
+  `_word()` (Begriffe in Meldungen wie `SPORT`), `_fmt_pts()`, `_selectable()` (ggf. Positionen, Gruppen). Wortgleich in beiden Apps:
+  03, 05–08, 12–14, 16 und alle `tests/sql/*` außer `06_deadlines`/`fixtures` (Liste in `scripts/shared.mjs`) – Meldungen dort nur
+  mit `_word('one'|'oneAcc'|'many'|'manyDat'|'team'|'teamGen'|…)`, nie „Athlet“/„Fahrer“ fest.
 - Gemeinsame Dateien sind in `scripts/shared.mjs` aufgezählt, ihre Prüfsummen stehen in `shared-files.json` (in beiden Apps gleich).
   `tests/shared.test.ts` scheitert, wenn eine davon nur in einer App geändert wurde: Änderung in die andere App kopieren und in beiden
   `node scripts/shared.mjs update` ausführen. `web/lib.js` und `web/style.css` sind gemeinsam; Leichtathletik-Helfer stehen in `web/sport/lib.js`, Farben und
@@ -93,7 +96,7 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 - `notify_new_points()` (aus `run_maintenance` nach dem Ergebnisabruf): neue Zeilen aus `_score_rows` (zählen für einen Spieltag,
   bei Aufstellung nur Aufgestellte, höchstens 14 Tage alt) → eine Nachricht je Manager; je Manager/Fahrer/Rennen/Wertung einmal
   (`point_pushes`). Beim Einführen wurden alle bisherigen Punkte als gemeldet eingetragen (`schema_changes`).
-- Fahrer → „🔥 Heiße freie Fahrer“: `rider_points_recent(p_gender, p_days)`; 🔥 = die 10 freien mit den meisten Punkten der letzten 30 Tage.
+- Fahrer → „🔥 Heiße freie Fahrer“: `athlete_points_recent(p_gender, p_days)`; 🔥 = die 10 freien mit den meisten Punkten der letzten 30 Tage.
 
 ## Feedback
 
@@ -106,6 +109,6 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 - GitHub-Secret `GH_DISPATCH_TOKEN` muss vom Repo-Besitzer eingetragen werden (Fine-grained Token, nur dieses Repo,
   „Actions: Read and write“, danach „Datenbank einrichten“ einmal starten). Ohne es starten Zeitplaner-Abläufe
   (Ergebnisse 20 Uhr, Fahrerliste 6 Uhr, Push, Wochen-Zusammenfassung) nicht automatisch. Ablauf des Tokens nach ~1 Jahr.
-- Künftige Rennen sind vorläufig (`races.provisional`, aus dem Wettkampfverzeichnis; Geschlecht ohne Angabe per Name/Klasse
+- Künftige Rennen sind vorläufig (`competitions.provisional`, aus dem Wettkampfverzeichnis; Geschlecht ohne Angabe per Name/Klasse
   geschätzt), werden bei jedem Abruf neu gesetzt und durch DataRide ersetzt (gleiche Klasse, ±3 Tage).
 - Ideen für später: Startlisten (UCI liefert keine), Verletzungen/Pausen markieren, mehrere Admins pro Liga.

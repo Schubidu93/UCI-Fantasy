@@ -16,6 +16,10 @@ $$;
 create or replace function test_support.rider(n int) returns text language sql immutable as $$
   select 'test-rider-' || n;
 $$;
+-- Sportler aufstellen (Runner Fantasy: auf eine Wildcard-Position, UCI Fantasy: ohne Positionen)
+create or replace function test_support.lineup(p_md uuid, p_manager uuid, p_athlete text) returns void language sql as $$
+  insert into public.lineups (matchday_id, manager_id, athlete_id) values (p_md, p_manager, p_athlete);
+$$;
 create or replace function test_support.login(n int) returns void language plpgsql as $$ begin
   perform set_config('request.jwt.claim.sub', test_support.user_id(n)::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);

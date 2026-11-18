@@ -172,7 +172,7 @@ begin
         from week group by 1)
     insert into notifications (user_id, title, body, url)
     select m.user_id,
-           '📊 Deine Woche: +' || round(coalesce(p.total, 0))::text || ' Punkte',
+           '📊 Deine Woche: +' || _fmt_pts(p.total) || ' Punkte',
            lg.name || ': Platz ' || t."position" || ' von ' || (select count(*) from managers where league_id = lg.id)
              || coalesce(' · bester Fahrer ' || _rname(p.best_rider) || ' (+' || round(p.best_pts)::text || ')', ' · diese Woche keine Punkte'),
            '#/league/' || lg.id || '/home'

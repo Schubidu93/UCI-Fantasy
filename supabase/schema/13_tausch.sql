@@ -15,17 +15,17 @@ create or replace function _check_trade_drops(p_manager uuid, p_drop text[], p_t
 language plpgsql stable security definer set search_path = public as $$
 begin
   if coalesce(array_length(p_drop, 1), 0) <> p_needed then
-    raise exception 'Bitte genau % Fahrer zum Entlassen auswählen, damit der Kader nicht zu groß wird.', p_needed;
+    raise exception 'Bitte genau % % zum Entlassen auswählen, damit der Kader nicht zu groß wird.', p_needed, _word('many');
   end if;
   if p_needed = 0 then return; end if;
   if (select count(distinct x) from unnest(p_drop) x) <> p_needed or p_drop && p_trade_riders then
-    raise exception 'Zu entlassende Fahrer dürfen nicht Teil des Tauschs sein.';
+    raise exception 'Zu entlassende % dürfen nicht Teil des Tauschs sein.', _word('many');
   end if;
   if (select count(*) from roster_entries where manager_id = p_manager and released_on is null and athlete_id = any (p_drop)) <> p_needed then
-    raise exception 'Zu entlassende Fahrer müssen im eigenen Kader stehen.';
+    raise exception 'Zu entlassende % müssen im eigenen Kader stehen.', _word('many');
   end if;
   if exists (select 1 from waiver_claims where manager_id = p_manager and status = 'pending' and drop_athlete = any (p_drop)) then
-    raise exception 'Ein Fahrer ist schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen.';
+    raise exception 'Ein % ist schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen.', _word('one');
   end if;
 end $$;
 
@@ -39,10 +39,10 @@ begin
   if p_to = v_me or not exists (select 1 from managers where id = p_to and league_id = p_league) then
     raise exception 'Ungültiger Tauschpartner.';
   end if;
-  if n_give = 0 or n_take = 0 then raise exception 'Beide Seiten müssen mindestens einen Fahrer abgeben.'; end if;
+  if n_give = 0 or n_take = 0 then raise exception 'Beide Seiten müssen mindestens einen % abgeben.', _word('oneAcc'); end if;
   if (select count(*) from roster_entries where manager_id = v_me and released_on is null and athlete_id = any (p_give)) <> n_give
      or (select count(*) from roster_entries where manager_id = p_to and released_on is null and athlete_id = any (p_take)) <> n_take then
-    raise exception 'Die Fahrer müssen in den jeweiligen Kadern stehen.';
+    raise exception 'Die % müssen in den jeweiligen Kadern stehen.', _word('many');
   end if;
   -- bekomme ich mehr Fahrer als ich abgebe, entlasse ich die Differenz
   perform _check_trade_drops(v_me, coalesce(p_drop, '{}'), p_give, greatest(n_take - n_give - _open_roster_slots(v_me), 0));
@@ -124,10 +124,10 @@ begin
           and athlete_id = any (t.give_athletes || t.from_drop)) <> coalesce(array_length(t.give_athletes || t.from_drop, 1), 0)
        or (select count(*) from roster_entries where manager_id = t.to_manager and released_on is null
           and athlete_id = any (t.take_athletes || t.to_drop)) <> coalesce(array_length(t.take_athletes || t.to_drop, 1), 0) then
-      update trades set status = 'failed', note = 'Fahrer nicht mehr im Kader', done_at = now() where id = t.id;
+      update trades set status = 'failed', note = _word('one') || ' nicht mehr im Kader', done_at = now() where id = t.id;
       perform _notify(m.id, '⚠️ Tausch geplatzt', 'Der Tausch zwischen '
           || (select team_name from managers where id = t.from_manager) || ' und '
-          || (select team_name from managers where id = t.to_manager) || ' wurde nicht ausgeführt: Fahrer nicht mehr im Kader.',
+          || (select team_name from managers where id = t.to_manager) || ' wurde nicht ausgeführt: ' || _word('one') || ' nicht mehr im Kader.',
           '#/league/' || md.league_id || '/team')
         from managers m where m.id in (t.from_manager, t.to_manager);
       continue;

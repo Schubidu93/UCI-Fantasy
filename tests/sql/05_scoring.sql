@@ -22,13 +22,13 @@ select is((select count(*)::int from _score_rows(league()) where athlete_id = ri
 select is((select "position" from _league_table(league()) where manager_id = manager(2)), 1,
   'Bei gleichem Punktestand entscheidet zuletzt das geringere ausgegebene Budget');
 update matchdays set scoring_mode = 'lineup', lineup_size = 1 where id = matchday();
-insert into lineups values (matchday(),manager(1),rider(2));
+select lineup(matchday(), manager(1), rider(2));
 select is((select sum(points) from _league_points(league()) where manager_id = manager(1)), 5::numeric,
-  'Aufstellungsmodus zählt nur aufgestellte Fahrer');
+  'Aufstellungsmodus zählt nur aufgestellte Sportler');
 select login(1);
 select admin_set_override(league(),matchday(),manager(1),rider(2),7,'Testkorrektur');
 select is((select sum(points) from _league_points(league()) where manager_id = manager(1)), 7::numeric,
-  'Admin-Korrektur ersetzt Fahrerpunktzahl statt sie zu addieren');
+  'Admin-Korrektur ersetzt Punktzahl des Sportlers statt sie zu addieren');
 delete from point_overrides;
 update matchdays set scoring_mode = 'full' where id = matchday();
 select run_maintenance();

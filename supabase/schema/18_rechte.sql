@@ -69,15 +69,15 @@ create policy own_read on notifications for select to authenticated using (user_
 do $$
 declare f text;
 begin
-  foreach f in array array[
-    '_require_member(uuid)', '_require_admin(uuid)', '_log(uuid,text,jsonb)', '_open_slots(uuid)',
-    '_max_bid(uuid)', '_team_limit_ok(uuid,text,text)', '_athlete_free(uuid,text,timestamptz)',
-    '_release(uuid,uuid,text,date)', '_draft_next(uuid)', '_draft_award(uuid,uuid,int)', '_blind_resolve(uuid)', '_start_draft(uuid)', 'relink_event_riders()',
-    'dispatch_workflow(text,jsonb)', 'results_from_events()', 'ranking_mismatch(int)', 'refresh_season_stats(int)', 'weekly_summary()', 'scheduler_tick()', '_notify(uuid,text,text,text)', '_push_soon()', '_notify_turn(uuid,uuid,uuid,text,timestamptz)', '_check_trade_drops(uuid,text[],text[],int)', '_open_roster_slots(uuid)', '_reset_default_deadlines(uuid,text)', '_snake_pick(uuid,text)', '_score_rows(uuid)',
-    '_claim_valid(waiver_claims,leagues)', '_execute_claim(waiver_claims,leagues,matchdays)',
-    '_process_waivers(uuid)', '_process_trades(uuid)', '_league_points(uuid)', '_league_table(uuid)',
-    '_waiver_order(uuid)', 'run_maintenance()', 'notify_new_points()',
-    '_default_deadline(uuid,date)', '_default_waiver_deadline(uuid,date,uuid)', '_is_service()', '_rname(text)'] loop
+  -- Interne Funktionen (Name beginnt mit _) und Abläufe, die nur der Service-Key bzw. der Zeitplaner aufruft
+  for f in
+    select p.oid::regprocedure::text from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and (p.proname like '\_%' or p.proname in (
+            'dispatch_workflow', 'scheduler_tick', 'run_maintenance', 'notify_new_points', 'weekly_summary',
+            'refresh_season_stats', 'refresh_pool', 'rebuild_results', 'fit_scoring_coefficients', 'apply_records',
+            'relink_event_riders', 'results_from_events', 'ranking_mismatch'))
+  loop
     execute format('revoke execute on function %s from public', f);
     begin
       execute format('revoke execute on function %s from anon, authenticated', f);

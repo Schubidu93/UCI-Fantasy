@@ -7,9 +7,9 @@ insert into roster_entries (league_id, manager_id, athlete_id, price, source, ac
 select league(), manager(1), rider(n), 0, 'admin', current_date - 30 from unnest(array[5, 6, 7]) n;   -- Manager A: voller Kader (5)
 select login(1);
 select throws_ok($$select propose_trade(league(), manager(2), array[rider(1)], array[rider(3), rider(4)])$$, 'P0001',
-  'Bitte genau 1 Fahrer zum Entlassen auswählen, damit der Kader nicht zu groß wird.', 'Ungleicher Tausch bei vollem Kader verlangt eine Entlassung');
+  'Bitte genau 1 ' || _word('many') || ' zum Entlassen auswählen, damit der Kader nicht zu groß wird.', 'Ungleicher Tausch bei vollem Kader verlangt eine Entlassung');
 select throws_ok($$select propose_trade(league(), manager(2), array[rider(1)], array[rider(3), rider(4)], array[rider(1)])$$, 'P0001',
-  'Zu entlassende Fahrer dürfen nicht Teil des Tauschs sein.', 'Entlassener Fahrer darf nicht Teil des Tauschs sein');
+  'Zu entlassende ' || _word('many') || ' dürfen nicht Teil des Tauschs sein.', 'Entlassener Sportler darf nicht Teil des Tauschs sein');
 create temp table tr (n int, id uuid);
 insert into tr select 1, propose_trade(league(), manager(2), array[rider(1)], array[rider(3), rider(4)], array[rider(5)]);
 select ok((select from_drop = array[rider(5)] from trades where id = (select id from tr where n = 1)), 'Entlassung wird mit dem Angebot gespeichert');
@@ -25,11 +25,11 @@ select is((select count(*)::int from notifications where title = '🚫 Tausch ge
 insert into tr select 2, propose_trade(league(), manager(2), array[rider(2)], array[rider(3)]);
 update trades set status = 'accepted', accepted_at = now() - interval '25 hours' where id = (select id from tr where n = 2);
 select throws_ok($$select veto_trade((select id from tr where n = 2))$$, 'P0001', 'Veto nur innerhalb von 24 Stunden nach Zustimmung.', 'Veto nach 24 Stunden ist nicht mehr möglich');
--- geplatzter Tausch: Fahrer vor dem Stichtag nicht mehr im Kader
+-- geplatzter Tausch: Sportler vor dem Stichtag nicht mehr im Kader
 select _release(league(), manager(2), rider(3), current_date);
 insert into matchdays (id, league_id, name, starts_on, ends_on, deadline) values (matchday(), league(), 'T', current_date + 3, current_date + 9, now() + interval '2 days');
 select _process_trades(matchday());
-select is((select status from trades where id = (select id from tr where n = 2)), 'failed', 'Tausch platzt, wenn ein Fahrer fehlt');
+select is((select status from trades where id = (select id from tr where n = 2)), 'failed', 'Tausch platzt, wenn ein Sportler fehlt');
 select is((select count(*)::int from notifications where title = '⚠️ Tausch geplatzt'), 2, 'Beide Seiten bekommen Push „Tausch geplatzt“');
 -- Zurückziehen durch den Anbieter
 insert into tr select 3, propose_trade(league(), manager(2), array[rider(2)], array[rider(4)]);
