@@ -7,7 +7,7 @@
 - Sprache der App und der Antworten: Deutsch. Die Nutzer sind keine Entwickler – kurz, verständlich, ohne Fachjargon antworten.
 - **Architektur:** stabil, nachhaltig, gut gegliedert, nach aktuellem Stand – nicht nur „läuft“. Jede Regel an genau einer Stelle,
   keine doppelte Logik, Änderungen mit Tests absichern, beide Apps gleich aufgebaut (ausdrücklicher Wunsch des Nutzers).
-- **Beide Apps mitdenken:** Bei jeder Änderung prüfen, ob sie auch für Runner Fantasy (github.com/Schubidu93/FantasyAthletics) sinnvoll ist,
+- **Beide Apps mitdenken:** Bei jeder Änderung prüfen, ob sie auch für Athletics Fantasy (github.com/Schubidu93/FantasyAthletics) sinnvoll ist,
   und dem Nutzer dann kurz vorschlagen, sie dort zu übernehmen (ausdrücklicher Wunsch des Nutzers).
 - **Regeln mitziehen:** Bei jeder Änderung an Spielregeln, Wertung, Draft, Waiver, Tausch, Spieltagen,
   Datenabruf (Zeiten, Quellen, Umfang) oder Liga-Einstellungen immer auch `web/sport/rules.js`
@@ -23,7 +23,7 @@
 
 ## Aufbau der App (in beiden Apps gleich)
 
-- `web/app.js`, `web/views/*.js`, `web/views/admin/*.js`: **in Runner Fantasy und UCI Fantasy wortgleich**. Änderungen dort immer in
+- `web/app.js`, `web/views/*.js`, `web/views/admin/*.js`: **in Athletics Fantasy und UCI Fantasy wortgleich**. Änderungen dort immer in
   beiden Apps vornehmen (Datei kopieren). Alles, worin sich die Sportarten unterscheiden, steht in `web/sport/`:
   - `sport/index.js`: `SPORT` (Begriffe Athlet/Fahrer in allen Fällen, Texte; Datenbank-Namen sind in beiden Apps gleich), `pid()`, `rank()`,
     `selectable()`, `usePeopleFilter()`, `PersonLine`, `labelText()`
@@ -74,7 +74,7 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 - Oberfläche: `npx tsx tests/ui/seed.ts` (Beispieldaten: Fahrer, Rennen mit Ergebnislisten, laufende Liga; gibt die Nutzer-ID von
   „alice“ aus) + `DATABASE_URL=… npx tsx tests/ui/mock-api.ts` (Supabase-Schnittstelle auf lokalem Postgres, RLS aktiv),
   `web/config.js` mit `http://localhost:54321`, `python3 -m http.server -d web`, Playwright in iPhone-Ansicht
-  (Sitzung als `sb-localhost-auth-token` in localStorage). Wie in Runner Fantasy.
+  (Sitzung als `sb-localhost-auth-token` in localStorage). Wie in Athletics Fantasy.
 - Achtung: Die echte API liefert max. **1000 Zeilen** pro Abfrage – große Abfragen seitenweise (`all()` / `rpcAll()` in `web/lib.js`).
 - Achtung: Bei Einbettungen (`leagues(...)`) den Fremdschlüssel nennen, sobald es mehrere Wege gibt
   (z. B. `leagues!managers_league_id_fkey(...)`).
@@ -87,7 +87,7 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 - `datasync/race_results.py`: Kalender, Ergebnislisten und Punkte (täglich 20 Uhr; WorldTour/ProSeries/WM vollständig).
   Punkte der Wertung stehen in `results`, die Ergebnislisten in `race_events`/`event_results`.
 - `datasync/import_riders.py`: Fahrerliste (täglich 6 Uhr).
-- Namen wie in Runner Fantasy: Fahrer in `athletes` (`id` = `uci-<DataRide-ID>`, Fremdschlüssel überall `athlete_id`, Weltranglistenplatz
+- Namen wie in Athletics Fantasy: Fahrer in `athletes` (`id` = `uci-<DataRide-ID>`, Fremdschlüssel überall `athlete_id`, Weltranglistenplatz
   `pool_rank`), Rennen in `competitions` (`id` z. B. `tour-de-france/2026`, Klasse `category`), UCI-Punkte `results.points` bzw.
   `event_results.points`. Bis November 2026 hießen sie `riders`/`pcs_slug`/`rider_slug`/`races`/`race_slug`/`uci_*` – die
   Umbenennung steht oben in `supabase/schema/01_tabellen.sql` (in beiden Apps gleich).

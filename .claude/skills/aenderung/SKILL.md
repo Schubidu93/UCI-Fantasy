@@ -1,9 +1,9 @@
 ---
 name: aenderung
-description: Ablauf für jede Änderung an Runner Fantasy oder UCI Fantasy (Code, Datenbank, Regeln, Tests, Workflows) – von der Prüfung des Wunsches bis zum Merge und der Rückmeldung an den Nutzer. Immer verwenden, bevor etwas geändert wird.
+description: Ablauf für jede Änderung an Athletics Fantasy oder UCI Fantasy (Code, Datenbank, Regeln, Tests, Workflows) – von der Prüfung des Wunsches bis zum Merge und der Rückmeldung an den Nutzer. Immer verwenden, bevor etwas geändert wird.
 ---
 
-# Änderung an Runner Fantasy / UCI Fantasy
+# Änderung an Athletics Fantasy / UCI Fantasy
 
 Diese Anleitung ist in beiden Apps wortgleich. Die Regeln selbst stehen in `CLAUDE.md`; hier steht die Reihenfolge.
 Antworten an den Nutzer: Deutsch, kurz, ohne Fachjargon.
@@ -48,6 +48,6 @@ Antworten an den Nutzer: Deutsch, kurz, ohne Fachjargon.
   Danach in beiden Apps den Ablauf „Gesundheitscheck“ starten (muss grün sein); gezielt mit „Datenbank abfragen (nur lesen)“ nachsehen.
   Neue Prüfungen, die sich bewähren, in `_health_check()` aufnehmen.
 - `CLAUDE.md`/`README.md` aktualisieren, wenn sich Aufbau oder Abläufe ändern.
-- Plan des Nutzers („Runner Fantasy – mein Plan“, siehe `CLAUDE.md`) aktualisieren: Erledigtes abhaken bzw. verschieben, Neues eintragen, kurz halten.
+- Plan-Dokument des Nutzers (siehe `CLAUDE.md` von Athletics Fantasy) aktualisieren: Erledigtes abhaken bzw. verschieben, Neues eintragen, kurz halten.
 - Nutzer kurz informieren: was sich ändert, ob er die App neu laden muss (installierte App ganz schließen und neu öffnen),
   was er selbst tun muss. Keine Dankes- oder Höflichkeitskommentare auf GitHub.

@@ -52,7 +52,7 @@ export const fmtDate = (d) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : 
   .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '–');
 export const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
-// Punkte im Format der Sportart (Runner Fantasy: zwei Nachkommastellen, UCI Fantasy: höchstens eine)
+// Punkte im Format der Sportart (Athletics Fantasy: zwei Nachkommastellen, UCI Fantasy: höchstens eine)
 export const fmtPts = (n) => (Number(n) || 0).toLocaleString('de-DE', SPORT.ptsFormat);
 // Fristende anzeigen: 0:00 Uhr heißt „bis Ende des Vortags“ → nur das Datum des Vortags; sonst Datum mit Uhrzeit
 export function fmtUntil(ts, { weekday = false } = {}) {

@@ -1,4 +1,4 @@
-// Gemeinsame Dateien (Runner Fantasy und UCI Fantasy wortgleich): Prüfsummen in shared-files.json.
+// Gemeinsame Dateien (Athletics Fantasy und UCI Fantasy wortgleich): Prüfsummen in shared-files.json.
 // Schlägt fehl, wenn eine gemeinsame Datei nur in einer App geändert wurde – dann die Änderung in die andere App
 // übernehmen und in beiden `node scripts/shared.mjs update` ausführen (shared-files.json ist in beiden Apps gleich).
 import { readFileSync } from "node:fs";
