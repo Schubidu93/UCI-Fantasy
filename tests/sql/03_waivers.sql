@@ -6,16 +6,16 @@ select plan(11);
 update leagues set waiver_mode = 'faab' where id = league();
 insert into matchdays (id,league_id,name,starts_on,ends_on,deadline)
 values (matchday(),league(),'Waiver-Test',current_date + 10,current_date + 20,now() + interval '1 day');
-insert into lineups (matchday_id,manager_id,athlete_id) values (matchday(),manager(2),rider(3));
+select lineup(matchday(), manager(2), rider(3));
 insert into waiver_claims (league_id,manager_id,add_athlete,drop_athlete,bid)
 values (league(),manager(1),rider(5),rider(1),10),
        (league(),manager(2),rider(5),rider(3),20),
        (league(),manager(2),rider(7),rider(3),1);
 select lives_ok($$select _process_waivers(matchday())$$, 'FAAB-Runde wird ausgeführt');
-select ok(exists (select 1 from roster_entries where manager_id = manager(2) and athlete_id = rider(5) and released_on is null), 'Höchstes Gebot erhält den Fahrer');
+select ok(exists (select 1 from roster_entries where manager_id = manager(2) and athlete_id = rider(5) and released_on is null), 'Höchstes Gebot erhält den Sportler');
 select is((select budget_left from managers where id = manager(2)), 60, 'FAAB-Gebot wird einmal vom Budget abgezogen');
 select is((select released_on from roster_entries where manager_id = manager(2) and athlete_id = rider(3)), current_date + 10, 'Abgabe gilt ab dem nächsten Spieltag');
-select is((select athlete_id from lineups where matchday_id = matchday() and manager_id = manager(2)), rider(5), 'Neuer Fahrer ersetzt die Abgabe in der Aufstellung');
+select is((select athlete_id from lineups where matchday_id = matchday() and manager_id = manager(2)), rider(5), 'Neuer Sportler ersetzt die Abgabe in der Aufstellung');
 select is((select status from waiver_claims where manager_id = manager(1) and add_athlete = rider(5)), 'lost', 'Unterlegenes Gebot verliert');
 select is((select status from waiver_claims where manager_id = manager(2) and add_athlete = rider(7)), 'lost', 'Alternative mit derselben Abgabe wird ungültig');
 

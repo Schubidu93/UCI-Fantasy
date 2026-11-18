@@ -2,6 +2,12 @@
 -- Hilfsfunktionen
 -- =====================================================================
 
+-- Passt das Geschlecht des Sportlers zur Wertung der Liga (men, women, mixed)?
+create or replace function _gender_ok(p_league_gender text, p_rider_gender text) returns boolean
+language sql immutable as $$
+  select p_league_gender = 'mixed' or p_league_gender = p_rider_gender;
+$$;
+
 create or replace function is_member(p_league uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from managers where league_id = p_league and user_id = auth.uid());
@@ -137,7 +143,7 @@ $$;
 create or replace function _athlete_free(p_league uuid, p_rider text, p_locked_since timestamptz) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from athletes r join leagues l on l.id = p_league
-                 where r.id = p_rider and r.gender = l.gender)
+                 where r.id = p_rider and _gender_ok(l.gender, r.gender) and _selectable(r.pool_rank))
      and not exists (select 1 from roster_entries
                      where league_id = p_league and athlete_id = p_rider
                        and (released_on is null or released_at >= p_locked_since));

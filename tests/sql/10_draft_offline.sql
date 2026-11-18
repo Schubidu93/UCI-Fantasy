@@ -12,7 +12,7 @@ select is(array_length(import_offline_draft(league(), (select jsonb_agg(e) from 
 select is(coalesce(array_length(import_offline_draft(league(), (select j from rows_ok), false), 1), 0), 0, 'Vollständige Kader sind ohne Fehler');
 select is((select count(*)::int from roster_entries where league_id = league()), 0, 'Prüfung ohne Übernahme speichert nichts');
 select is(coalesce(array_length(import_offline_draft(league(), (select j from rows_ok), true), 1), 0), 0, 'Übernahme läuft ohne Fehler');
-select is((select count(*)::int from roster_entries where league_id = league() and source = 'offline'), 10, 'Alle Fahrer sind in den Kadern');
+select is((select count(*)::int from roster_entries where league_id = league() and source = 'offline'), 10, 'Alle Sportler sind in den Kadern');
 select is((select budget_left from managers where id = manager(1)), 50, 'Restbudget = Budget minus Kaufpreise');
 select is((select status from leagues where id = league()), 'active', 'Liga ist danach aktiv');
 select is(import_offline_draft(league(), (select j from rows_ok), true), array['Die Kader sind bereits fixiert.'], 'Zweite Übernahme wird abgelehnt');

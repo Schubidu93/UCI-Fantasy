@@ -24,6 +24,7 @@ Antworten an den Nutzer: Deutsch, kurz, ohne Fachjargon.
 - Sportart-spezifisch: `web/sport/**` (Begriffe über `SPORT`, nie „Athlet“/„Fahrer“ fest in gemeinsame Dateien schreiben),
   Datenabruf (`importer/` bzw. `datasync/`).
 - Datenbank: nur `supabase/schema/NN_*.sql`, idempotent, gleiche Dateinummern in beiden Apps. Spielregeln in der Datenbank erzwingen.
+  Sportart-Unterschiede nur in `02_sportart.sql` (z. B. `_word()` für Begriffe in Meldungen); gemeinsame Dateien in beide Apps kopieren.
 - Spielregeln, Wertung, Draft, Waiver, Tausch, Spieltage, Datenabruf oder Liga-Einstellungen geändert → Regeln-Seite (`web/sport/rules.js`) mitziehen.
 - Jede Regel an genau einer Stelle; keine doppelte Logik; nichts rechts abgeschnitten (iPhone).
 

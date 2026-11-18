@@ -12,7 +12,7 @@ select delete_push_subscription('geraet-1');
 select is((select count(*)::int from push_subscriptions), 0, 'Gerät abmelden');
 select set_config('request.jwt.claim.sub', '', true);
 select throws_ok($$select save_push_subscription('x', 'k', 'a')$$, 'P0001', 'Bitte zuerst anmelden.', 'Ohne Anmeldung keine Push-Anmeldung');
--- Neue Punkte: laufender Spieltag, Fahrer 1 (Manager A) punktet
+-- Neue Punkte: laufender Spieltag, Sportler 1 (Manager A) punktet
 insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('e1', user_id(1), 'k', 'a'), ('e2', user_id(2), 'k', 'a');
 insert into matchdays (id, league_id, name, starts_on, ends_on, deadline, status, waivers_done, locked)
 values (matchday(), league(), 'Läuft', current_date - 2, current_date + 5, now() - interval '3 days', 'running', true, true);
@@ -27,7 +27,7 @@ select is(notify_new_points(), 0, 'Alte Ergebnisse (außerhalb des Spieltags) l�
 -- Wochen-Zusammenfassung
 delete from notifications;
 select is(weekly_summary(), 2, 'Wochen-Zusammenfassung an beide Manager');
-select ok(exists (select 1 from notifications where user_id = user_id(1) and title = '📊 Deine Woche: +30 Punkte'), 'Wochenpunkte stimmen (25 + 5)');
+select ok(exists (select 1 from notifications where user_id = user_id(1) and title = '📊 Deine Woche: +' || _fmt_pts(30) || ' Punkte'), 'Wochenpunkte stimmen (25 + 5)');
 select ok(exists (select 1 from notifications where user_id = user_id(2) and body like '%Platz 2 von 2%'), 'Tabellenplatz steht in der Nachricht');
 select * from finish();
 rollback;

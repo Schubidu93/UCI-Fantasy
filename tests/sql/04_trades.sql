@@ -5,7 +5,7 @@ select plan(12);
 
 select login(1);
 select throws_ok($$select propose_trade(league(),manager(2),array[rider(4)],array[rider(3)])$$,
-  'P0001', 'Die Fahrer müssen in den jeweiligen Kadern stehen.', 'Fremder Fahrer kann nicht angeboten werden');
+  'P0001', 'Die ' || _word('many') || ' müssen in den jeweiligen Kadern stehen.', 'Fremder Sportler kann nicht angeboten werden');
 create temp table trade_fixture (id uuid);
 select lives_ok($$insert into trade_fixture select propose_trade(league(),manager(2),array[rider(1)],array[rider(3)])$$,
   'Gültiges Angebot wird angelegt');
@@ -23,7 +23,7 @@ update matchdays set deadline = now() + interval '25 hours' where id = matchday(
 select _process_trades(matchday());
 select is((select status from trades where id = (select id from trade_fixture)), 'done', 'Tausch nach der Vetofrist wird ausgeführt');
 select ok(exists (select 1 from roster_entries where manager_id = manager(2) and athlete_id = rider(1) and released_on is null)
-      and exists (select 1 from roster_entries where manager_id = manager(1) and athlete_id = rider(3) and released_on is null), 'Beide Fahrer wechseln den Besitzer');
+      and exists (select 1 from roster_entries where manager_id = manager(1) and athlete_id = rider(3) and released_on is null), 'Beide Sportler wechseln den Besitzer');
 select is((select released_on from roster_entries where manager_id = manager(1) and athlete_id = rider(1)), current_date + 3, 'Alte Zugehörigkeit endet am Spieltagstart');
 select _process_trades(matchday());
 select is((select count(*)::int from roster_entries where league_id = league()), 6, 'Erneute Verarbeitung legt keine doppelten Kaderzeilen an');

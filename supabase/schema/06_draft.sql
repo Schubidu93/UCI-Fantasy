@@ -45,7 +45,7 @@ begin
 
   if d.phase = 'auction' and l.draft_order = 'ranking' then
     select r.id into v_rider from athletes r
-     where r.gender = l.gender and r.pool_rank is not null and not r.inactive
+     where _gender_ok(l.gender, r.gender) and r.pool_rank is not null and not r.inactive
        and not exists (select 1 from draft_lots x where x.league_id = p_league and x.athlete_id = r.id)
      order by r.pool_rank, r.id limit 1;
     if v_rider is not null then
@@ -67,8 +67,8 @@ begin
                          nominator = v_next, updated_at = now()
    where league_id = p_league;
   perform _notify_turn(p_league, v_next, d.nominator,
-    case when d.phase = 'fill' or (d.phase = 'auction' and l.draft_order = 'ranking') then 'Wähle einen Fahrer zum Auffüllen.'
-         else 'Du nominierst den nächsten Fahrer.' end, null);
+    case when d.phase = 'fill' or (d.phase = 'auction' and l.draft_order = 'ranking') then 'Wähle einen ' || _word('oneAcc') || ' zum Auffüllen.'
+         else 'Du nominierst den nächsten ' || _word('oneAcc') || '.' end, null);
 end $$;
 
 create or replace function start_draft(p_league uuid) returns void
@@ -112,8 +112,8 @@ begin
   if l.status <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
   if l.draft_mode = 'offline' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
   if (select count(*) from managers where league_id = p_league) < 2 then raise exception 'Mindestens 2 Manager nötig.'; end if;
-  if not exists (select 1 from athletes where gender = l.gender and pool_rank is not null) then
-    raise exception 'Noch keine Fahrer importiert (Workflow "Fahrerliste importieren").';
+  if not exists (select 1 from athletes where _gender_ok(l.gender, gender) and pool_rank is not null) then
+    raise exception 'Noch keine % importiert (%).', _word('many'), _word('importHint');
   end if;
 
   update managers m set draft_position = s.rn, budget_left = l.budget
@@ -133,7 +133,7 @@ begin
    where league_id = p_league;
   update leagues set status = 'drafting' where id = p_league;
   perform _draft_next(p_league);
-  perform _notify(m.id, '🚴 Der Draft startet jetzt!', l.name || ': Ab in den Draft-Raum.', '#/league/' || p_league || '/draft')
+  perform _notify(m.id, _word('emoji') || ' Der Draft startet jetzt!', l.name || ': Ab in den Draft-Raum.', '#/league/' || p_league || '/draft')
      from managers m where m.league_id = p_league;
 end $$;
 
@@ -164,7 +164,7 @@ begin
   select * into l from leagues where id = p_league;
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' then raise exception 'Der Draft läuft gerade nicht.'; end if;
-  if d.current_athlete is null or d.deadline is null or now() >= d.deadline then raise exception 'Gerade wird kein Fahrer versteigert.'; end if;
+  if d.current_athlete is null or d.deadline is null or now() >= d.deadline then raise exception 'Gerade wird kein % versteigert.', _word('one'); end if;
   if l.draft_mode = 'blind' then
     if d.phase <> 'tiebreak' then raise exception 'In der Blind-Auktion wird verdeckt geboten.'; end if;
     if not (v_me = any (d.tie_bidders)) then raise exception 'Nur die Manager mit Gleichstand bieten im Stechen.'; end if;
@@ -177,7 +177,7 @@ begin
   end if;
   v_max := _max_bid(v_me);
   if p_amount > v_max then raise exception 'Dein Höchstgebot ist %.', v_max; end if;
-  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
+  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an % dieses %.', _word('manyDat'), _word('teamGen'); end if;
 
   update draft_state set current_bid = p_amount, current_bidder = v_me,
          deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
@@ -256,7 +256,7 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if l.draft_mode <> 'blind' then raise exception 'Diese Liga nutzt keine Blind-Auktion.'; end if;
   if d.status <> 'running' or d.phase <> 'auction' or d.current_athlete is null or d.deadline is null or now() >= d.deadline then
-    raise exception 'Gerade wird kein Fahrer versteigert.';
+    raise exception 'Gerade wird kein % versteigert.', _word('one');
   end if;
   if coalesce(p_amount, 0) <= 0 then
     delete from draft_sealed where league_id = p_league and manager_id = v_me;
@@ -266,7 +266,7 @@ begin
   if _open_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll.'; end if;
   v_max := _max_bid(v_me);
   if p_amount > v_max then raise exception 'Dein Höchstgebot ist %.', v_max; end if;
-  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an Fahrern dieses Profiteams.'; end if;
+  if not _team_limit_ok(v_me, d.current_athlete) then raise exception 'Du hast schon die Höchstzahl an % dieses %.', _word('manyDat'), _word('teamGen'); end if;
   insert into draft_sealed (league_id, lot_no, manager_id, amount) values (p_league, d.lot_no, v_me, p_amount)
   on conflict (league_id, manager_id) do update set amount = excluded.amount, lot_no = excluded.lot_no, created_at = now();
   update draft_state set sealed_done = array_append(array_remove(sealed_done, v_me), v_me), updated_at = now()
@@ -323,10 +323,10 @@ begin
   select * into d from draft_state where league_id = p_league;
   if v_rider is null then
     select r.id into v_rider from athletes r
-     where r.gender = l.gender and r.pool_rank is not null and not r.inactive
+     where _gender_ok(l.gender, r.gender) and r.pool_rank is not null and not r.inactive
        and _athlete_free(p_league, r.id, 'infinity') and _team_limit_ok(d.nominator, r.id)
      order by r.pool_rank, r.id limit 1;
-    if v_rider is null then raise exception 'Kein freier Fahrer mehr verfügbar.'; end if;
+    if v_rider is null then raise exception 'Kein freier % mehr verfügbar.', _word('one'); end if;
   end if;
   insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
   values (p_league, d.nominator, v_rider, 0, 'draft', l.season_start);
@@ -344,8 +344,8 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' or d.phase <> 'snake' then raise exception 'Der Snake-Draft läuft gerade nicht.'; end if;
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
-  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
-  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser % ist nicht verfügbar.', _word('one'); end if;
+  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;
   perform _snake_pick(p_league, p_rider);
 end $$;
 
@@ -363,9 +363,9 @@ begin
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
   if exists (select 1 from draft_lots where league_id = p_league and athlete_id = p_rider)
      or not _athlete_free(p_league, p_rider, 'infinity') then
-    raise exception 'Dieser Fahrer ist nicht verfügbar.';
+    raise exception 'Dieser % ist nicht verfügbar.', _word('one');
   end if;
-  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;
   if l.draft_mode = 'blind' then
     update draft_state set lot_no = lot_no + 1, current_athlete = p_rider, current_bid = 0, current_bidder = null,
            deadline = now() + make_interval(secs => l.bid_seconds), updated_at = now()
@@ -388,8 +388,8 @@ begin
   select * into d from draft_state where league_id = p_league for update;
   if d.status <> 'running' or d.phase <> 'fill' or d.nominator is null then raise exception 'Die Auffüllphase läuft nicht.'; end if;
   if d.nominator is distinct from v_me and not is_admin(p_league) then raise exception 'Du bist nicht an der Reihe.'; end if;
-  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser Fahrer ist nicht verfügbar.'; end if;
-  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro Profiteam erreicht.'; end if;
+  if not _athlete_free(p_league, p_rider, 'infinity') then raise exception 'Dieser % ist nicht verfügbar.', _word('one'); end if;
+  if not _team_limit_ok(d.nominator, p_rider) then raise exception 'Grenze pro % erreicht.', _word('team'); end if;
   insert into roster_entries (league_id, manager_id, athlete_id, price, source, acquired_on)
   values (p_league, d.nominator, p_rider, 1, 'draft', l.season_start);
   update managers set budget_left = budget_left - 1 where id = d.nominator;
