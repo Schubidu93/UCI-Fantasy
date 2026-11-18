@@ -1,4 +1,4 @@
-// Sportart Radsport: alles, worin sich UCI Fantasy von Runner Fantasy unterscheidet (Begriffe,
+// Sportart Radsport: alles, worin sich UCI Fantasy von Athletics Fantasy unterscheidet (Begriffe,
 // Texte). Die Datenbank-Namen sind in beiden Apps gleich (athletes, athlete_id, competitions …).
 // Der übrige App-Code ist in beiden Apps gleich und liest diese Werte hier.
 // Reine Daten ohne Abhängigkeiten – auch von web/lib.js genutzt.

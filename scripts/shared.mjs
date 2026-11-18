@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Gemeinsame Dateien von Runner Fantasy und UCI Fantasy: Prüfsummen in shared-files.json (in beiden Apps gleich).
+// Gemeinsame Dateien von Athletics Fantasy und UCI Fantasy: Prüfsummen in shared-files.json (in beiden Apps gleich).
 //   node scripts/shared.mjs          → prüfen (auch Teil von npm test)
 //   node scripts/shared.mjs update   → nach einer bewusst in BEIDE Apps übernommenen Änderung neu berechnen
 import { createHash } from 'node:crypto';

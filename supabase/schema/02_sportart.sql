@@ -1,5 +1,5 @@
 -- =====================================================================
--- Sportart Radsport: alles, worin sich die Datenbank von Runner Fantasy unterscheidet
+-- Sportart Radsport: alles, worin sich die Datenbank von Athletics Fantasy unterscheidet
 -- (Begriffe in Meldungen, Punkteformat, Pool). Die übrigen Dateien sind in beiden Apps
 -- gleich und nutzen nur diese Funktionen.
 -- =====================================================================
