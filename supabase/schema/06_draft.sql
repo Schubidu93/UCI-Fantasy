@@ -45,7 +45,7 @@ begin
 
   if d.phase = 'auction' and l.draft_order = 'ranking' then
     select r.id into v_rider from athletes r
-     where _gender_ok(l.gender, r.gender) and r.pool_rank is not null and not r.inactive
+     where _gender_ok(l.gender, r.gender) and _eligible(l, r) and not r.inactive
        and not exists (select 1 from draft_lots x where x.league_id = p_league and x.athlete_id = r.id)
      order by r.pool_rank, r.id limit 1;
     if v_rider is not null then
@@ -112,7 +112,7 @@ begin
   if l.status <> 'setup' then raise exception 'Der Draft wurde schon gestartet.'; end if;
   if l.draft_mode = 'offline' then raise exception 'Diese Liga nutzt den Offline-Import.'; end if;
   if (select count(*) from managers where league_id = p_league) < 2 then raise exception 'Mindestens 2 Manager nötig.'; end if;
-  if not exists (select 1 from athletes where _gender_ok(l.gender, gender) and pool_rank is not null) then
+  if not exists (select 1 from athletes r where _gender_ok(l.gender, r.gender) and _eligible(l, r)) then
     raise exception 'Noch keine % importiert (%).', _word('many'), _word('importHint');
   end if;
 
@@ -323,7 +323,7 @@ begin
   select * into d from draft_state where league_id = p_league;
   if v_rider is null then
     select r.id into v_rider from athletes r
-     where _gender_ok(l.gender, r.gender) and r.pool_rank is not null and not r.inactive
+     where _gender_ok(l.gender, r.gender) and _eligible(l, r) and not r.inactive
        and _athlete_free(p_league, r.id, 'infinity') and _team_limit_ok(d.nominator, r.id)
      order by r.pool_rank, r.id limit 1;
     if v_rider is null then raise exception 'Kein freier % mehr verfügbar.', _word('one'); end if;

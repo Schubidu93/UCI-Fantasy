@@ -17,9 +17,11 @@ $$;
 create or replace function _fmt_pts(p numeric) returns text
 language sql immutable as $$ select round(coalesce(p, 0))::text $$;
 
--- Darf geholt werden (Draft, Waiver, freie Phase)? Alle Fahrer der Wertung, auch ohne aktuellen Ranglistenplatz
-create or replace function _selectable(p_pool_rank int) returns boolean
-language sql immutable as $$ select true $$;
+-- Darf der Fahrer in dieser Liga geholt werden (Draft, Waiver, freie Phase)? Alle Fahrer der Wertung,
+-- auch ohne aktuellen Ranglistenplatz
+drop function if exists _selectable(int);
+create or replace function _eligible(l leagues, a athletes) returns boolean
+language sql stable as $$ select true $$;
 
 -- App: GitHub-Repository (Zeitplaner startet dort die Abläufe), Kurzname (Zeitplan, Kennung), längste Pause des Datenabrufs in Stunden
 create or replace function _app(p_key text) returns text

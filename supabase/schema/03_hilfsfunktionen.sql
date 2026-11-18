@@ -143,7 +143,7 @@ $$;
 create or replace function _athlete_free(p_league uuid, p_rider text, p_locked_since timestamptz) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from athletes r join leagues l on l.id = p_league
-                 where r.id = p_rider and _gender_ok(l.gender, r.gender) and _selectable(r.pool_rank))
+                 where r.id = p_rider and _gender_ok(l.gender, r.gender) and _eligible(l, r))
      and not exists (select 1 from roster_entries
                      where league_id = p_league and athlete_id = p_rider
                        and (released_on is null or released_at >= p_locked_since));
