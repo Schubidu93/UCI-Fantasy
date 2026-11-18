@@ -41,7 +41,7 @@ async function loadRider(slug) {
   const slugs = [...new Set(Object.values(events).map((e) => e.competition_id))];
   const races = {};
   for (let i = 0; i < slugs.length; i += 100) {
-    for (const r of await q(sb.from('competitions').select('id,name,category,start_date,season').in('id', slugs.slice(i, i + 100)))) races[r.id] = r;
+    for (const r of await q(sb.from('competitions').select('id,name,category,country,start_date,season').in('id', slugs.slice(i, i + 100)))) races[r.id] = r;
   }
   // Saisonplätze aller Jahre direkt mitladen (fest gespeichert, keine Berechnung nötig)
   const season = Object.fromEntries((await q(sb.from('athlete_season_stats').select('year,season_rank,points,athletes').eq('athlete_id', slug)))
@@ -100,7 +100,7 @@ export function RiderModal() {
   const row = (x, withRace) => html`<div key=${x.event_id} class=${`res-row ${L ? 'clickable' : ''} ${isInterim(x) ? 'interim' : ''}`} onClick=${() => go(x)} title=${L ? 'Ganzes Ergebnis anzeigen' : ''}>
     <span class="res-date">${shortDate(x.ev.event_date)}</span>
     <span class="res-what">${withRace
-      ? html`<b>${x.race?.name || x.ev.competition_id}</b><small>${label(x)}${x.result ? ` · ${x.result}` : ''}</small>`
+      ? html`<b>${x.race?.country ? flag(x.race.country) + ' ' : ''}${x.race?.name || x.ev.competition_id}</b><small>${label(x)}${x.result ? ` · ${x.result}` : ''}</small>`
       : html`${label(x)}${x.result ? html`<small>${x.result}</small>` : ''}`}</span>
     <span class="res-place">${placeLabel(x)}</span>
     <span class="res-pts">${Number(x.points) ? fmtPts(x.points) : ''}</span>
@@ -145,7 +145,7 @@ export function RiderModal() {
           ${byPoints
             ? html`<div class="res-table">${best.map((x) => row(x, true))}</div>`
             : groups.map((g) => html`<div class="detail-rider" key=${g.slug}>
-              <div class="row between"><strong>${g.race?.name || g.slug}${g.race?.category ? html` <span class="tag">${g.race.category}</span>` : ''}</strong>
+              <div class="row between"><strong>${g.race?.country ? flag(g.race.country) + ' ' : ''}${g.race?.name || g.slug}${g.race?.category ? html` <span class="tag">${g.race.category}</span>` : ''}</strong>
                 <span>${g.sum ? fmtPts(g.sum) : ''}</span></div>
               <div class="res-table">${g.rows.map((x) => row(x, false))}</div>
             </div>`)}
