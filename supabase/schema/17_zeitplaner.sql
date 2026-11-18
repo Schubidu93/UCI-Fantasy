@@ -19,10 +19,10 @@ begin
     return null;
   end if;
   select net.http_post(
-    url := 'https://api.github.com/repos/Schubidu93/UCI-Fantasy/actions/workflows/' || p_file || '/dispatches',
+    url := 'https://api.github.com/repos/' || _app('repo') || '/actions/workflows/' || p_file || '/dispatches',
     body := jsonb_build_object('ref', 'main', 'inputs', coalesce(p_inputs, '{}'::jsonb)),
     headers := jsonb_build_object('Authorization', 'Bearer ' || v_token, 'Accept', 'application/vnd.github+json',
-                                  'X-GitHub-Api-Version', '2022-11-28', 'User-Agent', 'uci-fantasy-scheduler',
+                                  'X-GitHub-Api-Version', '2022-11-28', 'User-Agent', _app('slug') || '-scheduler',
                                   'Content-Type', 'application/json')) into v_id;
   return v_id;
 end $$;
@@ -136,27 +136,12 @@ begin
       select rp.manager_id, rp.name, sum(rp.p) p from (
         select rp.*, row_number() over (partition by rp.manager_id, rp.name order by rp.p desc) rn from rp) rp
        where rn <= v_x group by 1, 2)
-    select p_league, mg.id, coalesce(sum(b.p), 0), coalesce(jsonb_object_agg(b.name, round(b.p, 1)) filter (where b.name is not null), '{}'), v_sig
+    select p_league, mg.id, coalesce(sum(b.p), 0), coalesce(jsonb_object_agg(b.name, round(b.p, _pts_digits())) filter (where b.name is not null), '{}'), v_sig
       from managers mg left join best b on b.manager_id = mg.id
      where mg.league_id = p_league group by mg.id;
   end if;
   return query select d.manager_id, d.points, d.per_md from draft_projection d where d.league_id = p_league;
 end $$;
-
--- Fahrer, deren Punkte in der Weltrangliste nicht zu unseren Rennpunkten der letzten 52 Wochen passen
--- (z. B. Punkte aus Mannschaftswertungen wie der Mixed-Staffel, die in keiner Einzel-Ergebnisliste stehen)
-create or replace function ranking_mismatch(p_limit int default 300)
-returns table (athlete_id text, gender text, ranking_points numeric, ours numeric)
-language sql stable security definer set search_path = public as $$
-  select x.id, x.gender, x.ranking_points, coalesce(sum(r.points), 0)
-    from athletes x
-    left join results r on r.athlete_id = x.id and r.result_date > current_date - 366
-   where x.ranking_points > 0
-   group by x.id, x.gender, x.ranking_points
-  having abs(x.ranking_points - coalesce(sum(r.points), 0)) > 0.5
-   order by x.ranking_points desc
-   limit p_limit;
-$$;
 
 create or replace function weekly_summary() returns int
 language plpgsql security definer set search_path = public as $$
@@ -174,7 +159,7 @@ begin
     select m.user_id,
            '📊 Deine Woche: +' || _fmt_pts(p.total) || ' Punkte',
            lg.name || ': Platz ' || t."position" || ' von ' || (select count(*) from managers where league_id = lg.id)
-             || coalesce(' · bester Fahrer ' || _rname(p.best_rider) || ' (+' || round(p.best_pts)::text || ')', ' · diese Woche keine Punkte'),
+             || coalesce(' · bester ' || _word('one') || ' ' || _rname(p.best_rider) || ' (+' || _fmt_pts(p.best_pts) || ')', ' · diese Woche keine Punkte'),
            '#/league/' || lg.id || '/home'
       from managers m
       join _league_table(lg.id) t on t.manager_id = m.id
@@ -200,8 +185,7 @@ begin
   exception when others then raise warning 'process_due: %', sqlerrm;
   end;
   if m < 15 then
-    if h = 6 then perform dispatch_workflow('import-athletes.yml'); end if;    -- Fahrer: Rang, Team, Geburtsdatum
-    if h = 20 then perform dispatch_workflow('race-results.yml'); end if;    -- Rennergebnisse, Kalender, Punkte
+    perform _sport_tick(h);                        -- Datenabruf der Sportart (02_sportart.sql)
     if h = 9 and extract(isodow from t) = 1 then perform weekly_summary(); end if;   -- Wochen-Zusammenfassung (Mo)
   end if;
   if exists (select 1 from notifications where sent_at is null) then
@@ -214,6 +198,6 @@ begin
 end $$;
 
 do $$ begin
-  perform cron.schedule('uci-fantasy-tick', '*/15 * * * *', 'select public.scheduler_tick()');
+  perform cron.schedule(_app('slug') || '-tick', '*/15 * * * *', 'select public.scheduler_tick()');
 exception when others then raise notice 'Zeitplan nicht angelegt: %', sqlerrm;
 end $$;
