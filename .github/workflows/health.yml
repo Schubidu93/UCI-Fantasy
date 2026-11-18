@@ -1,0 +1,28 @@
+name: Gesundheitscheck
+
+# Prüft jeden Morgen (nach den Abrufen um 6 Uhr) die echte Datenbank nur lesend mit _health_check()
+# (supabase/schema/17_zeitplaner.sql): Zeitplaner, GitHub-Schlüssel, Datenabruf, Personenliste, Push, Feedback und die
+# Liga-Berechnungen. Findet er etwas, schlägt der Ablauf fehl – GitHub schickt dann eine Mail. In beiden Apps gleich.
+on:
+  schedule:
+    - cron: "30 6 * * *"   # 7:30 Uhr (Winter) bzw. 8:30 Uhr (Sommer) deutscher Zeit
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: sudo apt-get install -y -qq postgresql-client
+      - name: Gesundheitscheck
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          printf 'begin transaction read only;\nselect * from _health_check();\nrollback;\n' > q.sql
+          psql "$SUPABASE_DB_URL" -At -v ON_ERROR_STOP=1 -f q.sql > ausgabe.txt   # Fehler der Abfrage selbst lassen den Ablauf scheitern
+          grep -vE '^(BEGIN|ROLLBACK)$' ausgabe.txt > probleme.txt || true
+          if [ -s probleme.txt ]; then
+            while read -r p; do echo "::error::$p"; done < probleme.txt
+            exit 1
+          fi
+          echo "Alles in Ordnung."

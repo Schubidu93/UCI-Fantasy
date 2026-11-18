@@ -175,6 +175,48 @@ begin
   return n;
 end $$;
 
+-- ---- Gesundheitscheck ---------------------------------------------------------------------
+-- Läuft täglich im Ablauf „Gesundheitscheck“ (health.yml, nur lesend) gegen die echte Datenbank und liefert je Problem
+-- eine Zeile; keine Zeile = alles in Ordnung. Sportart-Werte (Abrufrhythmus) kommen aus 02_sportart.sql (_app).
+create or replace function _health_check() returns setof text
+language plpgsql stable security definer set search_path = public as $$
+declare l record; n int; h int := coalesce(_app('sync_hours')::int, 26);
+begin
+  begin
+    execute 'select count(*) from cron.job where jobname = $1' into n using _app('slug') || '-tick';
+    if n <> 1 then return next format('Zeitplaner: %s statt 1 Eintrag „%s-tick“', n, _app('slug')); end if;
+  exception when others then return next 'Zeitplaner nicht erreichbar: ' || sqlerrm;
+  end;
+  begin
+    execute 'select count(*) from vault.decrypted_secrets where name = $1' into n using 'github_dispatch_token';
+    if n = 0 then return next 'GitHub-Schlüssel fehlt im Vault – der Zeitplaner kann keine Abläufe starten'; end if;
+  exception when others then return next 'Vault nicht erreichbar: ' || sqlerrm;
+  end;
+  if not exists (select 1 from sync_status where ok and last_run > now() - make_interval(hours => h)) then
+    return next format('Datenabruf: kein erfolgreicher Lauf in den letzten %s Stunden (zuletzt %s)', h,
+      (select coalesce(to_char(last_run at time zone 'Europe/Berlin', 'DD.MM. HH24:MI'), 'nie') || coalesce(' – ' || message, '')
+         from sync_status where id = 1));
+  end if;
+  if not exists (select 1 from athletes where updated_at > now() - interval '26 hours') then
+    return next 'Personenliste: seit über 26 Stunden nicht aktualisiert';
+  end if;
+  if exists (select 1 from notifications where sent_at is null and created_at < now() - interval '2 hours'
+              and (expires_at is null or expires_at > now())) then
+    return next 'Push: Nachrichten seit über 2 Stunden nicht verschickt';
+  end if;
+  if exists (select 1 from feedback where sent_at is null and attempts >= 3) then
+    return next 'Feedback: Nachrichten konnten nicht per Mail verschickt werden';
+  end if;
+  for l in select id, name from leagues where status in ('drafting', 'active') loop
+    begin
+      perform count(*) from _league_table(l.id);
+      perform count(*) from _score_rows(l.id);
+      perform count(*) from _waiver_order(l.id);
+    exception when others then return next format('Liga „%s“: %s', l.name, sqlerrm);
+    end;
+  end loop;
+end $$;
+
 create or replace function scheduler_tick() returns void
 language plpgsql security definer set search_path = public as $$
 declare t timestamp := now() at time zone 'Europe/Berlin';
