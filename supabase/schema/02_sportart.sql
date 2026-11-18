@@ -20,3 +20,20 @@ language sql immutable as $$ select round(coalesce(p, 0))::text $$;
 -- Darf geholt werden (Draft, Waiver, freie Phase)? Alle Fahrer der Wertung, auch ohne aktuellen Ranglistenplatz
 create or replace function _selectable(p_pool_rank int) returns boolean
 language sql immutable as $$ select true $$;
+
+-- App: GitHub-Repository (Zeitplaner startet dort die Abläufe), Kurzname (Zeitplan, Kennung)
+create or replace function _app(p_key text) returns text
+language sql immutable as $$
+  select case p_key when 'repo' then 'Schubidu93/UCI-Fantasy' when 'slug' then 'uci-fantasy' end;
+$$;
+
+-- Nachkommastellen der Punkte (Anzeige, Draft-Prognose)
+create or replace function _pts_digits() returns int language sql immutable as $$ select 1 $$;
+
+-- Datenabruf zur vollen Stunde (deutsche Zeit), aufgerufen vom Zeitplaner
+create or replace function _sport_tick(h int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if h = 6 then perform dispatch_workflow('import-riders.yml'); end if;      -- Fahrer: Rang, Team, Geburtsdatum
+  if h = 20 then perform dispatch_workflow('race-results.yml'); end if;      -- Rennergebnisse, Kalender, Punkte
+end $$;

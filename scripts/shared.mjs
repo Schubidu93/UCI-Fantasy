@@ -10,12 +10,12 @@ const ROOT = join(import.meta.dirname, '..');
 // Gemeinsam ist alles in diesen Dateien und Ordnern …
 const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/vendor', 'web/views', 'datasync/db.py', 'datasync/send_push.py',
   'datasync/send_feedback.py', 'supabase/schema', 'tests/sql', 'tests/datasync/helpers.py', 'tests/datasync/test_common.py',
-  'tests/datasync.test.ts', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql.test.ts', 'tests/shared.test.ts',
+  'tests/datasync.test.ts', 'tests/workflows.test.ts', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql.test.ts', 'tests/shared.test.ts',
   'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'tsconfig.json', '.github/workflows/ci.yml', '.claude',
   'scripts/shared.mjs'];
 // … außer dem, worin sich die Sportarten unterscheiden (Datenbank: Tabellen, Sportart, Liga-Einstellungen, Aufstellung,
-// Wertung, Zeitplaner, Rechte, Einspielen; Tests: Aufstellung und Beispieldaten). Neue Dateien sind damit erst einmal gemeinsam.
-const SPORT_FILES = /^supabase\/schema\/(01|02|04|09|10|11|15|17|18|99)_|^tests\/sql\/(06_deadlines|fixtures)\.sql$/;
+// Wertung, Rechte, Einspielen; Tests: Aufstellung und Beispieldaten). Neue Dateien sind damit erst einmal gemeinsam.
+const SPORT_FILES = /^supabase\/schema\/(01|02|04|09|10|11|15|18|99)_|^tests\/sql\/(06_deadlines|fixtures)\.sql$/;
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 export const sharedFiles = () => GLOBS.flatMap((g) => walk(join(ROOT, g))).map((f) => relative(ROOT, f))
   .filter((f) => !SPORT_FILES.test(f)).sort();

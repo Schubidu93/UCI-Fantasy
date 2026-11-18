@@ -254,3 +254,18 @@ begin
    where p_matchday is null or s.matchday_id = p_matchday
    order by s.result_date desc, s.points desc;
 end $$;
+
+-- Fahrer, deren Punkte in der Weltrangliste nicht zu unseren Rennpunkten der letzten 52 Wochen passen
+-- (z. B. Punkte aus Mannschaftswertungen wie der Mixed-Staffel, die in keiner Einzel-Ergebnisliste stehen)
+create or replace function ranking_mismatch(p_limit int default 300)
+returns table (athlete_id text, gender text, ranking_points numeric, ours numeric)
+language sql stable security definer set search_path = public as $$
+  select x.id, x.gender, x.ranking_points, coalesce(sum(r.points), 0)
+    from athletes x
+    left join results r on r.athlete_id = x.id and r.result_date > current_date - 366
+   where x.ranking_points > 0
+   group by x.id, x.gender, x.ranking_points
+  having abs(x.ranking_points - coalesce(sum(r.points), 0)) > 0.5
+   order by x.ranking_points desc
+   limit p_limit;
+$$;

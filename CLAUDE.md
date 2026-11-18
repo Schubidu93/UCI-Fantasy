@@ -31,8 +31,8 @@
     (Aufstellung), `sport/matchdays.js` (Spieltag-Vorschläge), `sport/admin.js` (Zusatzbereiche im Admin) und die Sportart-Seiten
     (Personenliste, Wettkämpfe/Rennen, Profil, ggf. Kalender/Toplisten).
 - Datenbank: `supabase/schema/NN_*.sql` mit gleichen Nummern und Namen in beiden Apps. Sportart-Schicht `02_sportart.sql`:
-  `_word()` (Begriffe in Meldungen wie `SPORT`), `_fmt_pts()`, `_selectable()` (ggf. Positionen, Gruppen). Wortgleich in beiden Apps:
-  03, 05–08, 12–14, 16 und alle `tests/sql/*` außer `06_deadlines`/`fixtures` (Liste in `scripts/shared.mjs`) – Meldungen dort nur
+  `_word()` (Begriffe in Meldungen wie `SPORT`), `_fmt_pts()`, `_pts_digits()`, `_selectable()`, `_app()` (Repository, Kurzname),
+  `_sport_tick()` (Datenabruf-Zeiten), ggf. Positionen/Gruppen. Wortgleich in beiden Apps: 03, 05–08, 12–14, 16, 17 und alle `tests/sql/*` außer `06_deadlines`/`fixtures` (Liste in `scripts/shared.mjs`) – Meldungen dort nur
   mit `_word('one'|'oneAcc'|'many'|'manyDat'|'team'|'teamGen'|…)`, nie „Athlet“/„Fahrer“ fest.
 - Gemeinsame Dateien sind in `scripts/shared.mjs` aufgezählt, ihre Prüfsummen stehen in `shared-files.json` (in beiden Apps gleich).
   `tests/shared.test.ts` scheitert, wenn eine davon nur in einer App geändert wurde: Änderung in die andere App kopieren und in beiden
@@ -40,7 +40,8 @@
   sportartspezifische Gestaltung in `web/sport/style.css`.
   Gemeinsam sind auch `datasync/db.py`, `send_push.py`, `send_feedback.py` (App-Name aus `datasync/app_info.py`), `web/vendor/`,
   `tsconfig.json` und der Testablauf `ci.yml`; ihre Tests stehen in `tests/datasync/test_common.py`.
-- Tests: `tests/sql/NN_*.sql` (Spiellogik, in beiden Apps gleich), `tests/*.test.ts`, Oberflächentest `tests/ui/smoke.test.ts`
+- Tests: `tests/sql/NN_*.sql` (Spiellogik, in beiden Apps gleich), `tests/*.test.ts` (u. a. `workflows.test.ts`: jeder von der
+  Datenbank gestartete Ablauf existiert), Oberflächentest `tests/ui/smoke.test.ts`
   (öffnet alle Seiten in der iPhone-Ansicht und scheitert bei jedem Fehler; beide Apps gleich).
 
 ## Ablauf einer Änderung
