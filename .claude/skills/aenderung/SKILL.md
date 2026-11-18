@@ -45,7 +45,8 @@ Antworten an den Nutzer: Deutsch, kurz, ohne Fachjargon.
   - Keine Geheimnisse, keine persönlichen Daten, keine Modellnamen in Commits.
 - Push, Pull Request auf `main` (je App einer), CI abwarten, bei Rot Ursache beheben (nie Tests abschalten).
 - Grün → Squash-Merge, Zweig auf `origin/main` zurücksetzen. Bei SQL-Änderungen prüfen, dass „Datenbank einrichten“ grün ist;
-  Live-Daten bei Bedarf mit „Datenbank abfragen (nur lesen)“ kontrollieren.
+  Danach in beiden Apps den Ablauf „Gesundheitscheck“ starten (muss grün sein); gezielt mit „Datenbank abfragen (nur lesen)“ nachsehen.
+  Neue Prüfungen, die sich bewähren, in `_health_check()` aufnehmen.
 - `CLAUDE.md`/`README.md` aktualisieren, wenn sich Aufbau oder Abläufe ändern.
 - Plan des Nutzers („Runner Fantasy – mein Plan“, siehe `CLAUDE.md`) aktualisieren: Erledigtes abhaken bzw. verschieben, Neues eintragen, kurz halten.
 - Nutzer kurz informieren: was sich ändert, ob er die App neu laden muss (installierte App ganz schließen und neu öffnen),

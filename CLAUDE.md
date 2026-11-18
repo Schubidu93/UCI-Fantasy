@@ -52,7 +52,8 @@ richtet `.claude/hooks/session-start.sh` Pakete und das Test-PostgreSQL ein.
 1. Auf einem Arbeitszweig ändern, lokal prüfen (siehe unten).
 2. Pull Request auf `main` erstellen und mergen (Squash). Danach laufen automatisch:
    „App veröffentlichen“ (GitHub Pages, wenige Minuten) und bei Änderungen in `supabase/schema/` „Datenbank einrichten“.
-3. Live-Daten prüfen: Workflow „Datenbank abfragen (nur lesen)“ (`db-query.yml`) mit einer SQL-Abfrage starten,
+3. Live-Daten prüfen: täglich automatisch „Gesundheitscheck“ (`health.yml`, `_health_check()` in `17_zeitplaner.sql`; schlägt bei
+   Problemen fehl, GitHub mailt) – nach einer Änderung von Hand starten. Gezielt: „Datenbank abfragen (nur lesen)“ (`db-query.yml`) mit einer SQL-Abfrage starten,
    Ergebnis steht im Job-Log. Für einen Überblick: „Datenstand prüfen“ (`db-status.yml`).
 4. Dem Nutzer sagen, dass er die App neu laden soll (installierte App: ganz schließen und neu öffnen).
 
