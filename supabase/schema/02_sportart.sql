@@ -33,6 +33,10 @@ $$;
 -- Nachkommastellen der Punkte (Anzeige, Draft-Prognose)
 create or replace function _pts_digits() returns int language sql immutable as $$ select 1 $$;
 
+-- Prognose im Draft-Report: alle Punkte eines Ergebnisses
+create or replace function _projection_points(r results) returns numeric
+language sql immutable as $$ select r.points $$;
+
 -- Datenabruf zur vollen Stunde (deutsche Zeit), aufgerufen vom Zeitplaner
 create or replace function _sport_tick(h int) returns void
 language plpgsql security definer set search_path = public as $$
