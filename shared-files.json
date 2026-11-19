@@ -17,7 +17,7 @@
   "supabase/schema/13_tausch.sql": "b987643b5bff6fa8",
   "supabase/schema/14_stichtage.sql": "97ebd3068a6240e2",
   "supabase/schema/16_admin.sql": "502118677dc24191",
-  "supabase/schema/17_zeitplaner.sql": "8121866bb1148aa1",
+  "supabase/schema/17_zeitplaner.sql": "786bbdcadb325a5e",
   "tests/datasync.test.ts": "f9086e61984ba012",
   "tests/datasync/helpers.py": "d79d02b2bc5a8543",
   "tests/datasync/test_common.py": "4bfb087465852c1f",

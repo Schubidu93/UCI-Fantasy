@@ -243,3 +243,13 @@ do $$ begin
   perform cron.schedule(_app('slug') || '-tick', '*/15 * * * *', 'select public.scheduler_tick()');
 exception when others then raise notice 'Zeitplan nicht angelegt: %', sqlerrm;
 end $$;
+
+-- Datenabruf über die Supabase-Schnittstelle (Rolle service_role): bis zu 5 Minuten je Abfrage statt der üblichen 8 Sekunden,
+-- damit die Neuberechnung aller Punkte auch bei vielen Ergebnissen durchläuft. App-Nutzer (authenticated) bleiben bei 8 Sekunden.
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    alter role service_role set statement_timeout = '5min';
+    notify pgrst, 'reload config';
+  end if;
+exception when others then raise notice 'Zeitgrenze für service_role nicht gesetzt: %', sqlerrm;
+end $$;
