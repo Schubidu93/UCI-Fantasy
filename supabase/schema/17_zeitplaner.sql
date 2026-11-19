@@ -89,7 +89,7 @@ end $$;
 
 -- läuft alle 15 Minuten
 -- Wochen-Zusammenfassung (montags): Punkte der letzten 7 Tage, Tabellenplatz, bester Fahrer – je Manager mit Push
--- Draft-Report: bestmögliche Punkte jedes Kaders im Vorjahr – je Spieltag (Zeitraum ein Jahr früher) die besten
+-- Draft-Report: bestmögliche Punkte jedes Kaders im Vorjahr (ohne Einmal-Boni, siehe _projection_points) – je Spieltag (Zeitraum ein Jahr früher) die besten
 -- x der y gedrafteten Fahrer (x = wertende Fahrer laut Einstellung, y = Kadergröße). Ergebnis wird zwischengespeichert.
 create table if not exists draft_projection (
   league_id  uuid not null references leagues (id) on delete cascade,
@@ -113,7 +113,7 @@ begin
   if not is_member(p_league) then raise exception 'Keine Berechtigung.'; end if;
   select * into l from leagues where id = p_league;
   v_x := case when l.scoring_mode = 'lineup' then coalesce(l.lineup_size, l.roster_size) else l.roster_size end;
-  v_sig := v_x || '|' || coalesce((select string_agg(starts_on || '-' || ends_on, ',' order by starts_on)
+  v_sig := 'v2|' || v_x || '|' || coalesce((select string_agg(starts_on || '-' || ends_on, ',' order by starts_on)
                                    from matchdays where league_id = p_league), 'jahr')
            || '|' || (select count(*) from draft_lots dl where dl.league_id = p_league and dl.manager_id is not null);
   if not exists (select 1 from draft_projection d where d.league_id = p_league and d.signature = v_sig) then
@@ -128,7 +128,7 @@ begin
       select 'Vorjahr', make_date(extract(year from l.season_start)::int - 1, 1, 1), make_date(extract(year from l.season_start)::int - 1, 12, 31)
        where not exists (select 1 from matchdays where league_id = p_league)),
     rp as (
-      select t.manager_id, md.name, t.athlete_id, sum(r.points) p
+      select t.manager_id, md.name, t.athlete_id, sum(_projection_points(r)) p
         from team t cross join mds md
         join results r on r.athlete_id = t.athlete_id and r.result_date between md.s and md.e
        group by 1, 2, 3),
@@ -142,6 +142,18 @@ begin
   end if;
   return query select d.manager_id, d.points, d.per_md from draft_projection d where d.league_id = p_league;
 end $$;
+
+-- Draft-Report: Punkte je Athlet im Vorjahr wie in der Prognose (_projection_points, Sportart-Schicht)
+create or replace function athlete_projection_points(p_gender text, p_year int)
+returns table (athlete_id text, points numeric)
+language sql stable security definer set search_path = public as $$
+  select r.athlete_id, sum(_projection_points(r))
+    from results r join athletes x on x.id = r.athlete_id
+   where _gender_ok(p_gender, x.gender)
+     and r.result_date >= make_date(p_year, 1, 1) and r.result_date <= make_date(p_year, 12, 31)
+   group by r.athlete_id
+   order by r.athlete_id;
+$$;
 
 create or replace function weekly_summary() returns int
 language plpgsql security definer set search_path = public as $$

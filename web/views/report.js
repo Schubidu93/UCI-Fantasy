@@ -80,7 +80,7 @@ export function DraftReport({ c }) {
   const prevYear = +c.league.season_start.slice(0, 4) - 1;
   const data = useLoad(async () => {
     const lots = await all(() => sb.from('draft_lots').select('*').eq('league_id', L).order('lot_no'));
-    let pts = Object.fromEntries((await rpcAll('athlete_points', { p_gender: c.league.gender, p_year: prevYear }))
+    let pts = Object.fromEntries((await rpcAll('athlete_projection_points', { p_gender: c.league.gender, p_year: prevYear }))
       .map((r) => [r.athlete_id, Number(r.points)]));
     let basis = `Punkte ${prevYear}`;
     // bestmögliche Punkte je Kader (Top x aus y je Spieltag im Vorjahr) – serverseitig zwischengespeichert
