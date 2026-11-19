@@ -2,7 +2,7 @@
   ".claude/hooks/session-start.sh": "496e6ec604efb422",
   ".claude/settings.json": "ef056e55192969b7",
   ".claude/skills/aenderung/SKILL.md": "cf96d6eaa8b34890",
-  ".github/workflows/ci.yml": "001eb17907a4d887",
+  ".github/workflows/ci.yml": "43312524c7062f88",
   ".github/workflows/health.yml": "d8c7029a04bc2eba",
   "datasync/db.py": "b2811a3e223b23d7",
   "datasync/send_feedback.py": "5c0c5a0ab9b2dca9",

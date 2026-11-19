@@ -30,7 +30,8 @@ jobs:
       - name: Python-Pakete für die Tests der Skripte (Push, Feedback, Datenabruf)
         run: pip install -q requests
       - name: Browser für den Oberflächentest
-        run: npx playwright install --with-deps chromium
+        # Zusatzpakete kommen von Ubuntu; ist deren Server gestört, reicht der Browser allein (Grundpakete hat der Runner)
+        run: npx playwright install --with-deps chromium || npx playwright install chromium
       - name: TypeScript prüfen
         run: npm run lint
       - name: App-Dateien prüfen
