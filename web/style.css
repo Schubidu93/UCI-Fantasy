@@ -156,6 +156,9 @@ ol.list { counter-reset: n; }
 .picker .list { max-height: 360px; overflow-y: auto; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .filters > * { flex: 1 1 150px; }
+/* Zeitraum von–bis: zwei gleich breite, kompakte Datumsfelder nebeneinander */
+.date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.date-range input { width: 100%; font-size: .9rem; padding: 6px 8px; min-height: 2.2rem; text-align: left; -webkit-appearance: none; appearance: none; }
 
 .scroll-x { overflow-x: auto; }
 .tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
