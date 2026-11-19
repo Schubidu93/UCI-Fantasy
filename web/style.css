@@ -140,6 +140,10 @@ button.small { padding: 4px 10px; font-size: .85rem; }
 .list { list-style: none; margin: 0; padding: 0; }
 .list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .list li:last-child { border-bottom: 0; }
+/* Punkte immer rechts: Text links bricht um, die letzte Spalte bleibt stehen (z. B. Top-Leistungen) */
+.list li.pts-right { flex-wrap: nowrap; align-items: flex-start; }
+.list li.pts-right > :first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.list li.pts-right > :last-child { flex: none; }
 .list.compact li { padding: 4px 0; font-size: .9rem; }
 ol.list { counter-reset: n; }
 .rider { display: inline-flex; flex-direction: column; min-width: 0; max-width: 100%; gap: 1px; }
