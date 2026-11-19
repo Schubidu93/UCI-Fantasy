@@ -180,6 +180,29 @@ language sql stable security definer set search_path = public as $$
    order by r.athlete_id;
 $$;
 
+-- Rennen → Top-Ergebnisse: einzelne Ergebnisse mit den meisten Punkten in einem Zeitraum;
+-- mit p_manager nur Ergebnisse, die diesem Team in der Liga Punkte gebracht haben (Spieltag, ggf. aufgestellt – _score_rows)
+create or replace function top_results(p_gender text, p_from date, p_to date, p_limit int default 100,
+                                       p_league uuid default null, p_manager uuid default null)
+returns table (athlete_id text, result_date date, competition_id text, competition text, category text, label text,
+               rank int, points numeric)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_manager is not null and not (is_member(p_league) or _is_service()) then raise exception 'Keine Berechtigung.'; end if;
+  return query
+  with team as materialized (
+    select distinct s.athlete_id, s.competition_id, s.label from _score_rows(p_league) s
+     where p_manager is not null and s.manager_id = p_manager)
+  select r.athlete_id, r.result_date, r.competition_id, c.name, c.category, r.label, r.rank, r.points
+    from results r join athletes x on x.id = r.athlete_id
+         left join competitions c on c.id = r.competition_id
+   where _gender_ok(p_gender, x.gender) and r.result_date between p_from and p_to and r.points > 0
+     and (p_manager is null or exists (select 1 from team t where t.athlete_id = r.athlete_id
+                                         and t.competition_id = r.competition_id and t.label = r.label))
+   order by r.points desc, r.result_date desc, r.id
+   limit least(coalesce(p_limit, 100), 300);
+end $$;
+
 -- ---- Vorläufige Kalendereinträge -----------------------------------------------------------
 -- Künftige Rennen, die DataRide noch nicht kennt, kommen aus dem UCI-Wettkampfverzeichnis
 -- (datasync/uci_calendar.py, täglich) und werden ersetzt, sobald DataRide das Rennen liefert.
