@@ -12,7 +12,7 @@ jobs:
   query:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install -y -qq postgresql-client
+      - run: command -v psql >/dev/null || sudo apt-get install -y -qq postgresql-client   # psql hat der Runner meist schon
       - name: Abfrage
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

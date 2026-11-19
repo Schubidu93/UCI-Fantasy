@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - run: sudo apt-get install -y -qq postgresql-client
+      - run: command -v psql >/dev/null || sudo apt-get install -y -qq postgresql-client   # psql hat der Runner meist schon
       - name: Gesundheitscheck
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
