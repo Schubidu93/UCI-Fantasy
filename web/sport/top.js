@@ -45,7 +45,7 @@ export function TopResults({ c }) {
     ${!list.data ? html`<${Loading} error=${list.error} />` : rows.length === 0 ? html`<p class="muted">Keine Ergebnisse mit Punkten in diesem Zeitraum.</p>` : html`
       <ul class="list compact">${rows.map((r, i) => {
         const owner = c.managerMap[c.owner[r.athlete_id]];
-        return html`<li key=${`${r.athlete_id}|${r.competition_id}|${r.label}`} class=${owner && owner.id === c.me?.id ? 'me' : ''}>
+        return html`<li key=${`${r.athlete_id}|${r.competition_id}|${r.label}`} class=${`pts-right${owner && owner.id === c.me?.id ? ' me' : ''}`}>
           <span><span class="res-place">${i + 1}.</span>${' '}
             <button type="button" class="linkish" onClick=${() => openRider(r.athlete_id)}>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</button>
             <small class="muted"><br />${r.competition || r.competition_id}${r.category ? ` (${r.category})` : ''} · ${labelText(r.label)}${r.rank ? ` · Platz ${r.rank}` : ''}
