@@ -356,6 +356,13 @@ label.sort-select select { width: auto; padding: 4px 8px; font-size: .9rem; }
 .rule-sec > summary::after { content: "›"; font-size: 1.4rem; color: var(--muted); transition: transform .15s; }
 .rule-sec[open] > summary::after { transform: rotate(90deg); }
 .rule-sec[open] > summary { margin-bottom: 8px; }
+/* Regeln: Formel-Kasten, Zwischenüberschriften, kleine Tabellen */
+.rule-formula { background: var(--accent-soft); border-radius: 8px; padding: .6rem .75rem; display: flex; flex-direction: column; gap: .2rem; font-size: .92rem; }
+.rule-sub { margin: .9rem 0 .3rem; font-size: .95rem; }
+.rule-tbl td { vertical-align: top; font-size: .9rem; overflow-wrap: anywhere; }
+.rule-tbl td:first-child { width: 34%; font-weight: 600; padding-right: .6rem; overflow-wrap: normal; hyphens: auto; }
+.rule-tbl td.num:first-child { width: 1%; white-space: nowrap; }
+.rule-steps { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .35rem; }
 .admin-tag { background: var(--accent-soft); color: var(--accent); }
 .home h2 { margin: 0; }
 .home .brand { margin-bottom: 0; }
