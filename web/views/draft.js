@@ -43,6 +43,7 @@ function DraftLobby({ c }) {
     <h3>Manager (${c.managers.length}/${c.league.max_managers})</h3>
     <ul class="list">${c.managers.map((m) => html`<li key=${m.id}>${m.team_name}
       ${m.user_id ? '' : html`<span class="tag">Platzhalter</span>`}</li>`)}</ul>
+    ${c.me && html`<h3>Dein Kader</h3><${DraftRoster} c=${c} managerId=${c.me.id} />`}
     ${c.isAdmin && !offline && html`<div class="row">
       <button class="primary" disabled=${a.busy || c.managers.length < 2}
         onClick=${() => a.run(async () => { await rpc('start_draft', { p_league: c.league.id }); c.reload(); })}>Draft starten</button>
