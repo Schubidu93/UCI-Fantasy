@@ -2,6 +2,7 @@ import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { DraftReport } from './report.js';
 import { all, Msg, q, rpc, sb, useAction, useLoad } from '../lib.js';
 import { pid, rank, RiderCell, selectable, SPORT } from '../sport/index.js';
+import { DraftRoster } from '../sport/lineup.js';
 import { RiderPicker } from './picker.js';
 
 // Abstand zwischen Server- und Geräteuhr, damit der Countdown überall gleich läuft
@@ -291,7 +292,7 @@ function DraftRoom({ c }) {
 
     ${me && html`<section class="card">
       <h3>Mein Kader</h3>
-      <${RosterMini} c=${c} managerId=${me.id} />
+      <${DraftRoster} c=${c} managerId=${me.id} />
     </section>`}
 
     <section class="card">
@@ -412,7 +413,7 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
 
     ${me && html`<section class="card">
       <h3>Mein Kader (${c.active.filter((r) => r.manager_id === me.id).length}/${c.league.roster_size})</h3>
-      <${RosterMini} c=${c} managerId=${me.id} />
+      <${DraftRoster} c=${c} managerId=${me.id} />
     </section>`}
 
     <section class="card">
@@ -424,12 +425,6 @@ function SnakeRoom({ c, d, lots, remaining, load }) {
   </div>`;
 }
 
-function RosterMini({ c, managerId }) {
-  const mine = c.active.filter((r) => r.manager_id === managerId);
-  if (!mine.length) return html`<p class="muted">Noch leer.</p>`;
-  return html`<ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-    <span>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
-}
 
 function DraftSummary({ c }) {
   return html`<${DraftReport} c=${c} />`;

@@ -34,3 +34,11 @@ export function Lineup({ c }) {
     <${Msg} msg=${a.msg} />
   </section>`;
 }
+
+/** Kader im Draft: Fahrer in Pick-Reihenfolge mit Preis */
+export function DraftRoster({ c, managerId }) {
+  const mine = c.active.filter((r) => r.manager_id === managerId);
+  if (!mine.length) return html`<p class="muted">Noch leer.</p>`;
+  return html`<ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
+    <span>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
+}
