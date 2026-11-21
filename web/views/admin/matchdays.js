@@ -29,6 +29,17 @@ export function Matchdays({ c }) {
     setGen(null); c.reload();
   }, 'Spieltage angelegt.');
 
+  // Formular: neuer Spieltag unten, Bearbeiten direkt unter dem gewählten Spieltag
+  const form = html`<form class=${`grid2 compact${f.id ? ' md-edit' : ''}`} onSubmit=${save}>
+      <label>Name<input required value=${f.name} onInput=${(e) => setF({ ...f, name: e.target.value })} placeholder=${NAME_PLACEHOLDER} /></label>
+      <label>Start<input type="date" required value=${f.starts_on} onInput=${(e) => setF({ ...f, starts_on: e.target.value })} /></label>
+      <label>Ende<input type="date" required value=${f.ends_on} onInput=${(e) => setF({ ...f, ends_on: e.target.value })} /></label>
+      ${two && html`<label>Waiver-Auswertung (optional)<input type="datetime-local" value=${f.waiver_deadline} onInput=${(e) => setF({ ...f, waiver_deadline: e.target.value })} /></label>`}
+      <label>Stichtag – Kader und Aufstellung fest (optional)<input type="datetime-local" value=${f.deadline} onInput=${(e) => setF({ ...f, deadline: e.target.value })} /></label>
+      <div class="row"><button class="primary" disabled=${a.busy}>${f.id ? 'Änderung speichern' : 'Spieltag anlegen'}</button>
+        ${f.id && html`<button type="button" class="ghost" onClick=${() => setF(empty)}>Abbrechen</button>`}</div>
+    </form>`;
+
   return html`<section class="card stack">
     <h3>Spieltage</h3>
     <ul class="small muted md-help">
@@ -49,17 +60,10 @@ export function Matchdays({ c }) {
         ${!locked(m) && html`
           <button class="small ghost" onClick=${() => setF({ ...m, deadline: toLocal(m.deadline), waiver_deadline: m.waiver_deadline ? toLocal(m.waiver_deadline) : '' })}>Bearbeiten</button>
           <button class="small danger" onClick=${() => confirm(`${m.name} löschen?`) && a.run(async () => { await rpc('delete_matchday', { p_id: m.id }); c.reload(); })}>Löschen</button>`}
-      </span></li>`)}</ul>` : html`<p class="muted">${EMPTY_HINT}</p>`}
+      </span>
+      ${f.id === m.id && form}</li>`)}</ul>` : html`<p class="muted">${EMPTY_HINT}</p>`}
 
-    <form class="grid2 compact" onSubmit=${save}>
-      <label>Name<input required value=${f.name} onInput=${(e) => setF({ ...f, name: e.target.value })} placeholder=${NAME_PLACEHOLDER} /></label>
-      <label>Start<input type="date" required value=${f.starts_on} onInput=${(e) => setF({ ...f, starts_on: e.target.value })} /></label>
-      <label>Ende<input type="date" required value=${f.ends_on} onInput=${(e) => setF({ ...f, ends_on: e.target.value })} /></label>
-      ${two && html`<label>Waiver-Auswertung (optional)<input type="datetime-local" value=${f.waiver_deadline} onInput=${(e) => setF({ ...f, waiver_deadline: e.target.value })} /></label>`}
-      <label>Stichtag – Kader und Aufstellung fest (optional)<input type="datetime-local" value=${f.deadline} onInput=${(e) => setF({ ...f, deadline: e.target.value })} /></label>
-      <div class="row"><button class="primary" disabled=${a.busy}>${f.id ? 'Änderung speichern' : 'Spieltag anlegen'}</button>
-        ${f.id && html`<button type="button" class="ghost" onClick=${() => setF(empty)}>Abbrechen</button>`}</div>
-    </form>
+    ${!f.id && form}
 
     <details><summary>Spieltage automatisch vorschlagen</summary>
       <${MatchdayProposals} c=${c} setGen=${setGen} a=${a} />
