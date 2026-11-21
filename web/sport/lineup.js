@@ -1,7 +1,7 @@
 // Aufstellung für den nächsten Spieltag (Team → Kader): Radsport mit fester Zahl wertender Fahrer
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { fmtDeadline } from '../views/deadline.js';
-import { Msg, rpc, useAction } from '../lib.js';
+import { Msg, rpc, SlotTiles, useAction } from '../lib.js';
 import { RiderCell } from './index.js';
 
 export function Lineup({ c }) {
@@ -35,10 +35,10 @@ export function Lineup({ c }) {
   </section>`;
 }
 
-/** Kader im Draft: Fahrer in Pick-Reihenfolge mit Preis */
+/** Kader im Draft: Plätze als Kacheln, Fahrer in Pick-Reihenfolge (bei Auktion mit Preis) */
 export function DraftRoster({ c, managerId }) {
   const mine = c.active.filter((r) => r.manager_id === managerId);
-  if (!mine.length) return html`<p class="muted">Noch leer – ${c.league.roster_size} Plätze.</p>`;
-  return html`<ul class="list compact">${mine.map((r) => html`<li key=${r.id}>
-    <span>${c.riderMap[r.athlete_id]?.name || r.athlete_id}</span><span class="muted">${r.price}</span></li>`)}</ul>`;
+  const rows = Array.from({ length: Math.max(c.league.roster_size, mine.length) }, (_, i) => ({ key: i, label: `Platz ${i + 1}`,
+    name: mine[i] && (c.riderMap[mine[i].athlete_id]?.name || mine[i].athlete_id), extra: mine[i]?.price || '' }));
+  return html`<${SlotTiles} rows=${rows} />`;
 }
