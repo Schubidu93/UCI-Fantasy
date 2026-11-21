@@ -394,3 +394,5 @@ details.help li.chosen { background: var(--accent-soft); border-radius: 6px; pad
 .draft-roster .slot-name { font-weight: 600; }
 .draft-roster li.slot-open { background: var(--warn-soft); border-color: transparent; }
 .draft-roster li.slot-open > span:last-child { color: var(--warn); }
+.md-admin li:has(> .md-edit) { flex-wrap: wrap; }
+.md-admin li > .md-edit { flex-basis: 100%; margin-top: .5rem; }
