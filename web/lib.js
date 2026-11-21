@@ -175,3 +175,11 @@ export function SearchSelect({ value, onChange, options, placeholder, label = (x
       onMouseDown=${(e) => { e.preventDefault(); onChange(label(o)); setOpen(false); }}>${label(o)}</li>`)}</ul>`}
   </div>`;
 }
+
+/** Kaderplätze als Kacheln (Draft): rows = [{ key, label, name, extra }]; offene Plätze (ohne name) hervorgehoben */
+export function SlotTiles({ rows }) {
+  const open = rows.filter((x) => !x.name).length;
+  return html`<p class="muted small">${open > 0 ? `Noch ${open} von ${rows.length} Plätzen offen.` : 'Kader komplett.'}</p>
+    <ul class="list draft-roster">${rows.map((x) => html`<li key=${x.key} class=${x.name ? '' : 'slot-open'}>
+      <span class="slot-name">${x.label}</span><span>${x.name || 'offen'}${x.extra ? html` <span class="muted">${x.extra}</span>` : ''}</span></li>`)}</ul>`;
+}

@@ -386,3 +386,11 @@ details.help li.chosen { background: var(--accent-soft); border-radius: 6px; pad
 .pts-val { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; min-width: 4.5em; }
 .pts-bar { display: block; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
 .pts-bar > span { display: block; height: 100%; background: var(--accent); }
+
+/* Kaderplätze als Kacheln (Draft, SlotTiles in lib.js) */
+.draft-roster { display: grid; gap: 6px; }
+.draft-roster li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.draft-roster li:last-child { border-bottom: 1px solid var(--border); }
+.draft-roster .slot-name { font-weight: 600; }
+.draft-roster li.slot-open { background: var(--warn-soft); border-color: transparent; }
+.draft-roster li.slot-open > span:last-child { color: var(--warn); }
