@@ -15,12 +15,11 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# zwei Schritte wie in GitHubs Vorlage: erst bauen und hochladen, dann veröffentlichen
+# (in einem einzigen Schritt fand „deploy-pages“ das gerade hochgeladene Paket zeitweise nicht)
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Supabase-Zugang eintragen
@@ -46,5 +45,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
