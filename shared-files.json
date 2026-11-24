@@ -42,7 +42,7 @@
   "tests/sql/18_health.sql": "2379422262a1620f",
   "tests/sql/_tap.sql": "bf82c6e041cf0545",
   "tests/supabase-stub.sql": "fd01d58c3044bcb4",
-  "tests/ui/mock-api.ts": "21ca9e9f23c917f1",
+  "tests/ui/mock-api.ts": "db245d1d3863fd64",
   "tests/ui/smoke.test.ts": "bea51802b583006c",
   "tests/upgrade.test.ts": "137f73fb975b1fa7",
   "tests/workflows.test.ts": "ddb6de0966fc3c57",
