@@ -2,7 +2,7 @@
 import { html } from '../vendor/preact-htm.js';
 import { NextDeadline } from './deadline.js';
 import { fmtDate, fmtPts, Loading, openRider, q, rpc, rpcAll, sb, useLoad } from '../lib.js';
-import { labelText, SPORT } from '../sport/index.js';
+import { labelText, RosterNote, SPORT } from '../sport/index.js';
 
 export function Overview({ c }) {
   const L = c.league.id;
@@ -48,7 +48,7 @@ export function Overview({ c }) {
       <div class="row between"><h3>Mein Kader</h3><a class="small" href=${href('team')}>Kader →</a></div>
       <ul class="list compact">${[...mine].sort((a, b) => (pts[b.athlete_id] || 0) - (pts[a.athlete_id] || 0)).map((r) => html`<li key=${r.id}>
         <button class="linkish" onClick=${() => openRider(r.athlete_id)}>${name(r.athlete_id)}</button>
-        <span class="muted">${fmtPts(pts[r.athlete_id] || 0)} Pkt. ${year}</span></li>`)}</ul>
+        <${RosterNote} r=${c.riderMap[r.athlete_id]} pts=${pts[r.athlete_id]} year=${year} /></li>`)}</ul>
     </section>`}
 
     ${c.me && mine.length > 0 && html`<section class="card">

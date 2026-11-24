@@ -43,7 +43,7 @@ function Roster({ c, managerId, points }) {
         <th class="num">Gesamt</th></tr></thead>
       <tbody>
         ${entries.sort((a, b) => p(b.athlete_id) - p(a.athlete_id)).map((r) => html`<tr key=${r.id}>
-          <td><${RiderCell} r=${c.riderMap[r.athlete_id]} />
+          <td><${RiderCell} r=${c.riderMap[r.athlete_id]} noRank />
             ${r.source !== 'draft' && html`<span class="tag">${SOURCE_LABEL[r.source]} ab ${fmtDate(r.acquired_on)}</span>`}</td>
           <td class="num">${r.price}</td>
           ${started.map((md) => html`<td class="num">${fmtPts(p(r.athlete_id, md.id))}</td>`)}

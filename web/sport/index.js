@@ -3,7 +3,7 @@
 import { html, useState } from '../vendor/preact-htm.js';
 export * from './config.js';
 import { SPORT, pid } from './config.js';
-import { normName, openRider, SearchSelect, teamName, withFlag } from '../lib.js';
+import { fmtPts, normName, openRider, SearchSelect, teamName, withFlag } from '../lib.js';
 
 
 /** Zeile unter dem Namen in Listen (Teampunkte): Sportart-Info und Zusatztext */
@@ -40,6 +40,9 @@ export const labelText = (l) => {
 };
 
 /** Name mit Kurzinfo (Gruppe/Jahrgang bzw. Nation/Team), antippen öffnet das Profil */
+/** Zusatz zu einem Kader-Fahrer in der Liga-Übersicht: Punkte im laufenden Jahr */
+export const RosterNote = ({ pts, year }) => html`<span class="muted">${fmtPts(pts || 0)} Pkt. ${year}</span>`;
+
 export function RiderCell({ r }) {
   if (!r) return html`<span class="muted">unbekannt</span>`;
   const meta = [r.nation && withFlag(r.nation), r.birth_date && r.birth_date.slice(0, 4)].filter(Boolean).join(' · ');
