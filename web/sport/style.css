@@ -4,3 +4,7 @@
   :root:not([data-theme="light"]) { --accent: #5b9bff; --accent-text: #0b1220; --accent-soft: #1d2a40; }
 }
 :root[data-theme="dark"] { --accent: #5b9bff; --accent-text: #0b1220; --accent-soft: #1d2a40; }
+
+/* Mein Kader (Übersicht): Punkte rechts, Jahr klein darunter */
+.roster-pts { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.roster-pts small { color: var(--muted); font-size: .72rem; }
