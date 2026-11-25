@@ -8,7 +8,7 @@ import { join, relative } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
 // Gemeinsam ist alles in diesen Dateien und Ordnern …
-const GLOBS = ['web/app.js', 'web/lib.js', 'web/style.css', 'web/vendor', 'web/views', 'datasync/db.py', 'datasync/send_push.py',
+const GLOBS = ['web/app.js', 'web/lib.js', 'web/i18n.js', 'web/style.css', 'web/vendor', 'web/views', 'datasync/db.py', 'datasync/send_push.py',
   'datasync/send_feedback.py', 'supabase/schema', 'tests/sql', 'tests/datasync/helpers.py', 'tests/datasync/test_common.py',
   'tests/datasync.test.ts', 'tests/workflows.test.ts', 'tests/ui/mock-api.ts', 'tests/ui/smoke.test.ts', 'tests/sql.test.ts', 'tests/shared.test.ts',
   'tests/upgrade.test.ts', 'tests/supabase-stub.sql', 'vitest.config.ts', 'tsconfig.json', '.github/workflows/ci.yml', '.github/workflows/health.yml', '.claude',
