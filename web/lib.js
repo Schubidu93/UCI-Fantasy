@@ -30,6 +30,18 @@ export async function all(makeQuery) {
 // Funktion mit vielen Ergebniszeilen seitenweise abrufen (die API liefert max. 1000 Zeilen pro Abfrage)
 export const rpcAll = (fn, args = {}) => all(() => sb.rpc(fn, args));
 
+// Daten, die sich nur mit dem Ergebnisabruf ändern, beim Wechsel zwischen den Seiten kurz behalten (gleicher Schlüssel =
+// gleiche Anfrage, auch wenn sie noch läuft; Fehler werden nicht behalten)
+const CACHE = new Map();
+export function cached(key, load, minutes = 5) {
+  const hit = CACHE.get(key);
+  if (hit && Date.now() - hit.at < minutes * 60e3) return hit.promise;
+  const promise = load();
+  CACHE.set(key, { at: Date.now(), promise });
+  promise.catch(() => CACHE.delete(key));
+  return promise;
+}
+
 // Punkte aller Personen (Athleten bzw. Fahrer) im laufenden Jahr (einmal pro Wertung geladen und zwischengespeichert)
 const pointsCache = {};
 export function useRiderPoints(gender) {
