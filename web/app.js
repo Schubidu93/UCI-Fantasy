@@ -152,6 +152,7 @@ function App() {
   }
   if (parts[0] === 'join') return html`<${Scroll}><${Join} code=${parts[1]} session=${session} /><//>`;
   if (parts[0] === 'league') return html`<${LeagueShell} key=${parts[1]} id=${parts[1]} tab=${parts[2]} sub=${parts[3]} sub2=${parts[4]} sub3=${parts[5]} session=${session} />`;
+  setLang('de');   // außerhalb einer Liga (Ligenliste) immer Deutsch
   return html`<${Scroll}><${Home} session=${session} /><//>`;
 }
 

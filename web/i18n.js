@@ -4,7 +4,7 @@
 // zwischen zwei Tags, also ganze Sätze samt eingesetzter Werte), dazu placeholder/title/aria-label/label. Schlüssel im Wörterbuch:
 // der deutsche Text mit {} für eingesetzte Werte; in der Übersetzung stehen sie als {0}, {1} … (selbst wieder übersetzt).
 // Ohne Wörterbuch bleibt alles deutsch (UCI Fantasy).
-const DICT = {};   // Sprache → { entries: [[Schlüssel, Übersetzung]], exact: Map, templates: [{ re, chunk, out, size }], patterns: [[RegExp, Ersatz]] }
+const DICT = {};   // Sprache → { entries: [[Schlüssel, Übersetzung]], exact: Map, templates: [{ re, chunk, out, size }], patterns: [[RegExp, Ersatz]], cache: Map }
 let LANG = 'de';
 let observer = null;
 const squash = (s) => s.replace(/\s+/g, ' ').trim();
@@ -29,6 +29,7 @@ export function registerTexts(language, texts = {}, patterns = []) {
   }
   d.templates.sort((a, b) => b.size - a.size);   // genauere Vorlagen zuerst
   d.patterns.push(...patterns);
+  d.cache = new Map();
 }
 
 /** Übersetzung aus dem Wörterbuch (genau, Vorlage oder Muster), sonst null */
@@ -54,6 +55,16 @@ function lookup(d, key, language) {
 export function translate(s, language, split = true) {
   const d = DICT[language];
   if (!d || !s) return s;
+  // dieselben Texte kommen in Listen hundertfach vor: Ergebnis merken
+  const ck = (split ? '1' : '0') + s;
+  let hit = d.cache.get(ck);
+  if (hit === undefined) {
+    if (d.cache.size > 20000) d.cache.clear();
+    d.cache.set(ck, hit = translateUncached(s, language, split, d));
+  }
+  return hit;
+}
+function translateUncached(s, language, split, d) {
   const key = squash(s);
   if (!key) return s;
   let out = lookup(d, key, language);
@@ -100,6 +111,12 @@ export const tr = (s, split = true) => translate(s, LANG, split);
 const ATTRS = ['placeholder', 'title', 'aria-label', 'label'];
 const ORIG = new WeakMap();   // Textknoten → deutscher Text
 const MINE = new WeakMap();   // Textknoten → zuletzt von hier geschriebener Text
+const ATTR_ORIG = new WeakMap();   // Element → { Attribut: deutscher Wert }
+const TOUCHED = new Set();   // geänderte Textknoten und Elemente (zum Zurücksetzen auf Deutsch)
+const touch = (n) => {
+  if (TOUCHED.size > 20000) for (const x of TOUCHED) if (!x.isConnected) TOUCHED.delete(x);   // entfernte Knoten vergessen
+  TOUCHED.add(n);
+};
 function translateRun(first) {
   const run = [];
   for (let x = first; x && x.nodeType === 3; x = x.nextSibling) run.push(x);
@@ -107,11 +124,19 @@ function translateRun(first) {
   const de = run.map((x) => ORIG.get(x)).join('');
   const whole = tr(de, false);   // ganzer Satz nur aus dem Wörterbuch, sonst Stück für Stück
   const parts = whole !== de ? run.map((_, i) => (i === 0 ? whole : '')) : run.map((x) => tr(ORIG.get(x)));
-  run.forEach((x, i) => { if (x.data !== parts[i]) x.data = parts[i]; MINE.set(x, parts[i]); });
+  run.forEach((x, i) => { if (x.data !== parts[i]) { x.data = parts[i]; touch(x); } MINE.set(x, parts[i]); });
   return run[run.length - 1];
 }
 function translateAttrs(el) {
-  for (const a of ATTRS) if (el.hasAttribute(a)) { const v = el.getAttribute(a); const t = tr(v); if (t !== v) el.setAttribute(a, t); }
+  for (const a of ATTRS) {
+    if (!el.hasAttribute(a)) continue;
+    const v = el.getAttribute(a), t = tr(v);
+    if (t === v) continue;
+    const o = ATTR_ORIG.get(el) || {};
+    if (!(a in o)) { o[a] = v; ATTR_ORIG.set(el, o); }
+    el.setAttribute(a, t);
+    touch(el);
+  }
 }
 /** Kinder eines Elements übersetzen (Textläufe) und in Unterelemente absteigen */
 function translateTree(el) {
@@ -124,13 +149,25 @@ function translateTree(el) {
 }
 /** Textlauf um einen Textknoten neu übersetzen */
 const retranslate = (n) => { let a = n; while (a.previousSibling?.nodeType === 3) a = a.previousSibling; translateRun(a); };
-/** Sprache wechseln. Zurück zu Deutsch lädt die Seite neu (übersetzte Texte stehen schon im Dokument). */
+/** Alle übersetzten Texte und Attribute wieder auf Deutsch setzen */
+function restoreGerman() {
+  for (const n of TOUCHED) {
+    if (!n.isConnected) continue;
+    if (n.nodeType === 3) { if (ORIG.has(n)) n.data = ORIG.get(n); }
+    else for (const [a, v] of Object.entries(ATTR_ORIG.get(n) || {})) n.setAttribute(a, v);
+  }
+  TOUCHED.clear();
+}
+/** Sprache wechseln (z. B. beim Öffnen einer Liga). Zurück zu Deutsch: übersetzte Texte zurücksetzen, ohne neu zu laden. */
 export function setLang(language) {
   const next = language && DICT[language] ? language : 'de';
   if (next === LANG) return;
-  if (next === 'de') { LANG = 'de'; observer?.disconnect(); observer = null; location.reload(); return; }
+  observer?.disconnect();
+  observer = null;
+  if (LANG !== 'de') restoreGerman();
   LANG = next;
   document.documentElement.lang = next;
+  if (next === 'de') return;
   translateTree(document.body);
   observer = new MutationObserver((list) => {
     for (const m of list) {
