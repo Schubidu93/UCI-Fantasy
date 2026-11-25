@@ -16,7 +16,7 @@ import { Feedback } from './views/feedback.js';
 import { Overview } from './views/overview.js';
 import { registerServiceWorker } from './views/push.js';
 import { loadPeople, SPORT_SECTIONS, SPORT_VIEWS, PEOPLE_ICON } from './sport/views.js';
-import { all, fmtDateTime, Loading, q, rpc, sb, useLoad } from './lib.js';
+import { all, fmtDateTime, Loading, q, rpc, sb, setLang, useLoad } from './lib.js';
 import { pid, SPORT } from './sport/index.js';
 
 function useHash() {
@@ -94,6 +94,7 @@ function LeagueShell({ id, tab, sub, sub2, sub3, session }) {
   const ctx = useLoad(() => loadLeague(id, session.user.id), [id, session.user.id]);
   if (!ctx.data) return html`<div class="scroll"><main class="wrap"><${Loading} error=${ctx.error} /></main></div>`;
   const c = { ...ctx.data, reload: ctx.reload, user: session.user };
+  setLang(SPORT.uiLang?.(c.league) || 'de');   // Sprache der Liga (Sportart-Schicht); wechselt nur bei Bedarf
   const defaultTab = c.league.status === 'drafting' ? 'draft' : 'home';
   const t = tab || defaultTab;
   const View = { draft: Draft, team: Team, rules: Rules, waiver: Waiver, points: TeamPoints, results: Results,

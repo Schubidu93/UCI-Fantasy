@@ -183,3 +183,60 @@ export function SlotTiles({ rows }) {
     <ul class="list draft-roster">${rows.map((x) => html`<li key=${x.key} class=${x.name ? '' : 'slot-open'}>
       <span class="slot-name">${x.label}</span><span>${x.name || 'offen'}${x.extra ? html` <span class="muted">${x.extra}</span>` : ''}</span></li>`)}</ul>`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Übersetzung der Oberfläche: Die App ist auf Deutsch geschrieben. Für eine andere Sprache (z. B. Niederländisch in
+// niederländischen Ligen) meldet die Sportart-Schicht ein Wörterbuch an (registerTexts); setLang schaltet um. Übersetzt wird
+// die fertige Seite: jedes Textstück (Text zwischen Platzhaltern), dazu placeholder/title/aria-label. Ohne Wörterbuch bleibt
+// alles deutsch (UCI Fantasy).
+const TEXTS = {};      // Sprache → { 'deutsches Textstück': 'Übersetzung' }
+const PATTERNS = {};   // Sprache → [[RegExp, Ersatz]] für Stücke mit Zahlen o. Ä.
+let LANG = 'de';
+let observer = null;
+export const lang = () => LANG;
+export function registerTexts(language, texts = {}, patterns = []) {
+  TEXTS[language] = { ...(TEXTS[language] || {}), ...texts };
+  PATTERNS[language] = [...(PATTERNS[language] || []), ...patterns];
+}
+/** Ein Textstück übersetzen (Leerraum am Rand bleibt); unbekannte Stücke bleiben deutsch */
+export function tr(s) {
+  if (LANG === 'de' || !s) return s;
+  const key = s.trim();
+  if (!key) return s;
+  let out = TEXTS[LANG]?.[key];
+  if (out == null) {
+    for (const [re, rep] of PATTERNS[LANG] || []) if (re.test(key)) { out = key.replace(re, rep); break; }
+  }
+  return out == null ? s : s.replace(key, out);
+}
+const ATTRS = ['placeholder', 'title', 'aria-label'];
+function translateNode(n) {
+  if (n.nodeType === 3) {
+    const t = tr(n.data);
+    if (t !== n.data) n.data = t;
+  } else if (n.nodeType === 1) {
+    for (const a of ATTRS) if (n.hasAttribute(a)) { const v = n.getAttribute(a); const t = tr(v); if (t !== v) n.setAttribute(a, t); }
+    const w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let x = w.nextNode(); x; x = w.nextNode()) {
+      if (x.nodeType === 3) { const t = tr(x.data); if (t !== x.data) x.data = t; }
+      else for (const a of ATTRS) if (x.hasAttribute(a)) { const v = x.getAttribute(a); const t = tr(v); if (t !== v) x.setAttribute(a, t); }
+    }
+  }
+}
+/** Sprache wechseln. Zurück zu Deutsch lädt die Seite neu (übersetzte Texte stehen schon im Dokument). */
+export function setLang(language) {
+  const next = language && TEXTS[language] ? language : 'de';
+  if (next === LANG) return;
+  if (next === 'de') { LANG = 'de'; observer?.disconnect(); observer = null; location.reload(); return; }
+  LANG = next;
+  document.documentElement.lang = next;
+  translateNode(document.body);
+  observer = new MutationObserver((list) => {
+    for (const m of list) {
+      if (m.type === 'characterData') translateNode(m.target);
+      else if (m.type === 'attributes') translateNode(m.target);
+      else m.addedNodes.forEach(translateNode);
+    }
+  });
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+}
