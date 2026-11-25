@@ -1,7 +1,7 @@
 // Liga-Übersicht (Startseite einer Liga): Fristen, Tabelle kurz, mein Kader, letzte Punkte, offene Tausche
 import { html } from '../vendor/preact-htm.js';
 import { NextDeadline } from './deadline.js';
-import { fmtDate, fmtPts, Loading, openRider, q, rpc, rpcAll, sb, useLoad } from '../lib.js';
+import { flag, fmtDate, fmtPts, Loading, openRider, q, rpc, rpcAll, sb, useLoad } from '../lib.js';
 import { labelText, RosterNote, SPORT } from '../sport/index.js';
 
 export function Overview({ c }) {
@@ -47,7 +47,7 @@ export function Overview({ c }) {
     ${c.me && mine.length > 0 && html`<section class="card">
       <div class="row between"><h3>Mein Kader</h3><a class="small" href=${href('team')}>Kader →</a></div>
       <ul class="list compact">${[...mine].sort((a, b) => (pts[b.athlete_id] || 0) - (pts[a.athlete_id] || 0)).map((r) => html`<li key=${r.id}>
-        <button class="linkish" onClick=${() => openRider(r.athlete_id)}>${name(r.athlete_id)}</button>
+        <button class="linkish" onClick=${() => openRider(r.athlete_id)}>${c.riderMap[r.athlete_id]?.nation ? `${flag(c.riderMap[r.athlete_id].nation)} ` : ''}${name(r.athlete_id)}</button>
         <${RosterNote} r=${c.riderMap[r.athlete_id]} pts=${pts[r.athlete_id]} year=${year} /></li>`)}</ul>
     </section>`}
 
