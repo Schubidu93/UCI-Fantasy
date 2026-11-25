@@ -78,6 +78,14 @@ export function translate(s, language, split = true) {
     }
   }
   if (out == null && split) {
+    // Trennzeichen am Rand („ · Vorlauf 2“ hinter einem eingesetzten Wert): Rest übersetzen
+    const m = /^([·,–+:]\s*)(.+)$/.exec(key) || /^(.+?)(\s*[·,–+:])$/.exec(key);
+    if (m) {
+      const [a, b] = /^[·,–+:]/.test(m[1]) ? [m[1], translate(m[2], language)] : [translate(m[1], language), m[2]];
+      if (a + b !== key) out = a + b;
+    }
+  }
+  if (out == null && split) {
     const m = /^(.*\D) (\d[\d.,:]*\.?)$/.exec(key) || /^(\d[\d.,:]*) (\D.*)$/.exec(key);
     if (m) {
       const [a, b] = /^\d/.test(m[1]) ? [m[1], translate(m[2], language)] : [translate(m[1], language), m[2]];
