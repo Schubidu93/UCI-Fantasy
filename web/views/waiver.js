@@ -12,7 +12,7 @@ export function Waiver({ c }) {
   const [pick, setPick] = useState(null);
   const a = useAction();
 
-  if (c.league.status !== 'active') return html`<p class="muted card">Waiver sind nach dem Draft möglich.</p>`;
+  if (c.league.status !== 'active') return html`<p class="muted card">${SPORT.waiver} sind nach dem Draft möglich.</p>`;
   if (!c.me) return html`<p class="muted card">Nur für Manager dieser Liga.</p>`;
 
   const reload = () => { claims.reload(); c.reload(); };
@@ -32,11 +32,11 @@ export function Waiver({ c }) {
     <${NextDeadline} c=${c} />
     <section class="card">
       <div class="row between">
-        <div><h2>Waiver</h2>
+        <div><h2>${SPORT.waiver}</h2>
           </div>
         <div class="right">
           <div class="big">${myPos ?? '–'}<span class="muted small"> / ${c.managers.length}</span></div>
-          <div class="muted small">deine Waiver-Position</div>
+          <div class="muted small">deine ${SPORT.waiver}-Position</div>
         </div>
       </div>
       <p class="muted small">${c.league.waiver_mode === 'faab'
@@ -137,7 +137,7 @@ function ClaimForm({ c, add, onDone, onCancel }) {
   });
 
   return html`<section class="card stack">
-    <h3>Waiver-Antrag</h3>
+    <h3>${SPORT.waiver}-Antrag</h3>
     <${Compare} c=${c} add=${add} drop=${drop} pts=${pts} />
     <label>Dafür abgeben
       <select value=${drop} onChange=${(e) => setDrop(e.target.value)}>${dropOptions}</select></label>
@@ -166,7 +166,7 @@ function HowTo({ c }) {
   const faab = c.league.waiver_mode === 'faab';
   return html`<details class="howto"><summary>So funktioniert's</summary><ol class="small">
     <li><strong>Antrag stellen:</strong> freien ${SPORT.oneAcc} wählen und einen eigenen zum Abgeben – der Kader bleibt voll. Mehrere Anträge sind möglich, in Wunschreihenfolge (↑↓).</li>
-    <li><strong>Auswertung</strong> ${two ? 'zur Waiver-Frist' : 'am Stichtag'}: ${faab
+    <li><strong>Auswertung</strong> ${two ? `zur ${SPORT.waiver}-Frist` : 'am Stichtag'}: ${faab
       ? 'das höchste verdeckte Gebot gewinnt (bezahlt aus deinem Restbudget), bei Gleichstand der schlechter Platzierte.'
       : `der Tabellenletzte zuerst, dann reihum – pro Runde ein ${SPORT.one} je Manager, bis keine gültigen Anträge mehr übrig sind.`}${' '}
       Ist ein ${SPORT.one} schon vergeben oder dein abzugebender ${SPORT.one} weg, rückt dein nächster Antrag nach.</li>

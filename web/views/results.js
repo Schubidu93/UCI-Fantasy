@@ -63,8 +63,8 @@ function Schedule({ c, current }) {
       <span class="md-what"><strong>${m.name}</strong>
         <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
         ${c.league.transfer_mode === 'waiver_free'
-          ? html`<small>Waiver bis ${fmtUntil(m.waiver_deadline || m.deadline)} · frei bis ${fmtUntil(m.deadline)}</small>`
-          : html`<small>Waiver${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''} bis ${fmtUntil(m.deadline)}</small>`}</span>
+          ? html`<small>${SPORT.waiver} bis ${fmtUntil(m.waiver_deadline || m.deadline)} · frei bis ${fmtUntil(m.deadline)}</small>`
+          : html`<small>${SPORT.waiver}${c.league.scoring_mode === 'lineup' ? ' & Aufstellung' : ''} bis ${fmtUntil(m.deadline)}</small>`}</span>
       ${tag(m)}</li>`)}</ul>
   </section>`;
 }

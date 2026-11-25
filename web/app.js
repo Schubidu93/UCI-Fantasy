@@ -83,7 +83,7 @@ function sections(c) {
     { key: 'liga', label: 'Liga', tabs: [['home', 'Übersicht'], ['table', 'Tabelle'], ['results', 'Spieltage']] },
     beforeDraft
       ? { key: 'draft', label: 'Draft', tabs: [['draft', 'Draft']] }
-      : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['points', 'Punkte'], ['waiver', 'Waiver']] : [])] },
+      : { key: 'team', label: 'Team', tabs: [['team', 'Kader'], ...(afterDraft ? [['points', 'Punkte'], ['waiver', SPORT.waiver]] : [])] },
     ...SPORT_SECTIONS,
     { key: 'more', label: 'Mehr', tabs: [['more', 'Menü'], ['rules', 'Regeln'],
       ...(!beforeDraft ? [['draft', 'Draft']] : []), ...(c.isAdmin ? [['admin', 'Admin']] : [])] },

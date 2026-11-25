@@ -25,7 +25,7 @@ begin
     raise exception 'Zu entlassende % müssen im eigenen Kader stehen.', _word('many');
   end if;
   if exists (select 1 from waiver_claims where manager_id = p_manager and status = 'pending' and drop_athlete = any (p_drop)) then
-    raise exception 'Ein % ist schon in einem offenen Waiver-Antrag zur Abgabe vorgesehen.', _word('one');
+    raise exception 'Ein % ist schon in einem offenen %-Antrag zur Abgabe vorgesehen.', _word('one'), _word('waiver');
   end if;
 end $$;
 

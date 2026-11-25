@@ -10,7 +10,7 @@ language sql immutable as $$
   select case p_key when 'one' then 'Fahrer' when 'oneAcc' then 'Fahrer' when 'many' then 'Fahrer'
                     when 'manyDat' then 'Fahrern' when 'team' then 'Profiteam' when 'teamGen' then 'Profiteams'
                     when 'pool' then 'im UCI-Ranking' when 'importHint' then 'Workflow "Fahrerliste importieren"'
-                    when 'emoji' then '🚴' end;
+                    when 'emoji' then '🚴' when 'waiver' then 'Waiver' end;
 $$;
 
 -- Punkte in Nachrichten wie in der App: ganze Punkte (UCI-Punkte)

@@ -23,7 +23,7 @@ begin
     -- Waiver-Runde (im zweiteiligen Modus vor dem Stichtag, danach beginnt die freie Phase)
     if not md.waivers_done and coalesce(md.waiver_deadline, md.deadline) <= now() then
       perform _process_waivers(md.id);
-      perform _notify(w.manager_id, '📋 Waiver-Ergebnis',
+      perform _notify(w.manager_id, '📋 ' || _word('waiver') || '-Ergebnis',
           coalesce('Zuschlag: ' || string_agg(_rname(w.add_athlete), ', ') filter (where w.status = 'won'), 'Kein Zuschlag')
           || coalesce(' · ohne Zuschlag: ' || string_agg(_rname(w.add_athlete), ', ') filter (where w.status = 'lost'), ''),
           '#/league/' || md.league_id || '/waiver')

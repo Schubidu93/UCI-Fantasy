@@ -9,7 +9,7 @@ declare l leagues; v_me uuid; v_id uuid; v_budget int;
 begin
   v_me := _require_member(p_league);
   select * into l from leagues where id = p_league;
-  if l.status <> 'active' then raise exception 'Waiver sind erst nach dem Draft möglich.'; end if;
+  if l.status <> 'active' then raise exception '% sind erst nach dem Draft möglich.', _word('waiver'); end if;
   if p_drop is null then
     if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen % zum Abgeben wählen.', _word('oneAcc'); end if;
   elsif not exists (select 1 from roster_entries where manager_id = v_me and athlete_id = p_drop and released_on is null) then
@@ -119,7 +119,7 @@ begin
   select * into l from leagues where id = p_league;
   if l.transfer_mode <> 'waiver_free' or l.status <> 'active' then raise exception 'In dieser Liga gibt es keine freie Phase.'; end if;
   select * into md from matchdays where league_id = p_league and deadline > now() order by deadline limit 1;
-  if not found or not md.waivers_done then raise exception 'Die freie Phase beginnt erst nach der Waiver-Runde.'; end if;
+  if not found or not md.waivers_done then raise exception 'Die freie Phase beginnt erst nach der %-Runde.', _word('waiver'); end if;
   if p_drop is null then
     if _open_roster_slots(v_me) <= 0 then raise exception 'Dein Kader ist voll – bitte einen % zum Abgeben wählen.', _word('oneAcc'); end if;
   else

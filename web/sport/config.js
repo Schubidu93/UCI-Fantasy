@@ -6,6 +6,7 @@
 export const SPORT = {
   app: 'UCI Fantasy', emoji: '🚴', source: 'UCI DataRide',
   // Begriffe in den gebrauchten Fällen: ein Fahrer, einen Fahrer, die Fahrer, den Fahrern (Dativ Plural), des Fahrers
+  waiver: 'Waiver',                          // Anträge auf freie Fahrer (Athletics Fantasy: „Wechsel“); der Waiver, die Waiver
   one: 'Fahrer', oneAcc: 'Fahrer', many: 'Fahrer', manyDat: 'Fahrern', oneGen: 'Fahrers',
   pointsWord: 'UCI-Punkten',                       // „Sortiert nach …“
   ptsFormat: { maximumFractionDigits: 1 },   // Anzeige der Punkte

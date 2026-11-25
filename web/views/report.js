@@ -12,7 +12,7 @@ const INTRO = {
   A: ['Ein Draft zum Einrahmen.', 'Hier hat jemand seine Hausaufgaben gemacht.', 'Die Konkurrenz darf sich warm anziehen.'],
   B: ['Solide Arbeit mit klarem Plan.', 'Ein Kader, mit dem man vorne mitfahren kann.', 'Kein Feuerwerk, aber viel Substanz.'],
   C: ['Licht und Schatten.', 'Ein Kader mit Luft nach oben.', 'Mittelfeld – mit etwas Glück geht mehr.'],
-  D: ['Das wird eine lange Saison.', 'Viele Fragezeichen im Kader.', 'Hier muss der Waiver-Draht glühen.'],
+  D: ['Das wird eine lange Saison.', 'Viele Fragezeichen im Kader.', 'Hier muss jetzt fleißig nachgebessert werden.'],
   F: ['Mutig. Sehr mutig.', 'Ein Draft für die Geschichtsbücher – leider nicht im guten Sinne.', 'Auf diesen Kader wettet niemand.'],
 };
 const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];

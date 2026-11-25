@@ -123,16 +123,16 @@ export function LeagueSettingsFields({ f, set, locked }) {
       <label>${f.draft_mode === 'blind' ? `Sekunden pro ${SPORT.one}` : 'Sekunden pro Gebot'}<input type="number" min="5" max="120" value=${f.bid_seconds} onInput=${set('bid_seconds')} disabled=${locked} /></label>`}
     <label>Transfers
       <select value=${f.transfer_mode || 'waiver_free'} onChange=${set('transfer_mode')}>
-        <option value="waiver_free">Waiver-Runde + freie Phase</option><option value="waiver">Nur Waiver (bis zum Stichtag)</option>
+        <option value="waiver_free">${SPORT.waiver}-Runde + freie Phase</option><option value="waiver">Nur ${SPORT.waiver} (bis zum Stichtag)</option>
       </select></label>
-    <label>Waiver-Modus
+    <label>${SPORT.waiver}-Modus
       <select value=${f.waiver_mode} onChange=${set('waiver_mode')}>
         <option value="priority">Priorität (Tabellenletzter zuerst)</option><option value="faab">FAAB (Bieten mit Restbudget)</option>
       </select></label>
     <label>Saisonstart<input type="date" value=${f.season_start} onInput=${set('season_start')} disabled=${locked} /></label>
     <label>Saisonende<input type="date" value=${f.season_end} onInput=${set('season_end')} /></label>
   </fieldset>
-  <p class="muted small">${f.draft_mode === 'snake' ? `Im Snake-Draft kosten ${SPORT.many} nichts; das Budget von 100 bleibt für FAAB-Waiver.` : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
+  <p class="muted small">${f.draft_mode === 'snake' ? `Im Snake-Draft kosten ${SPORT.many} nichts; das Budget von 100 bleibt für FAAB-${SPORT.waiver}.` : 'Budget 100 pro Manager, Mindestgebot 1 (fest).'}</p>`;
 }
 
 // Erklärung der Draft-Modi (aufklappbar), der gewählte ist markiert

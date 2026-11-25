@@ -62,7 +62,7 @@ function RosterFix({ c }) {
   if (c.league.status !== 'active') return null;
   return html`<section class="card stack">
     <h3>Kader korrigieren</h3>
-    <p class="muted small">Sofort wirksam (ab heute), ohne Waiver. Wird protokolliert.</p>
+    <p class="muted small">Sofort wirksam (ab heute), ohne ${SPORT.waiver}. Wird protokolliert.</p>
     <div class="grid2 compact">
       <label>Team<select value=${mgr} onChange=${(e) => { setMgr(e.target.value); setDrop(''); }}>${c.managers.map((m) => html`<option value=${m.id}>${m.team_name}</option>`)}</select></label>
       <label>Abgeben<select value=${drop} onChange=${(e) => setDrop(e.target.value)}><option value="">– niemand –</option>
@@ -80,7 +80,7 @@ function Inactive({ c }) {
   const owned = c.active.map((r) => c.riderMap[r.athlete_id]).filter(Boolean);
   return html`<section class="card stack">
     <h3>Karriereende / Sperre</h3>
-    <p class="muted small">Als inaktiv markierte ${SPORT.many} kann ihr Manager außer der Reihe sofort per Waiver ersetzen.</p>
+    <p class="muted small">Als inaktiv markierte ${SPORT.many} kann ihr Manager außer der Reihe sofort per ${SPORT.waiver} ersetzen.</p>
     <ul class="list compact">${owned.filter((r) => r.inactive).map((r) => html`<li key=${pid(r)}><span>${r.name}</span>
       <button class="small" onClick=${() => a.run(async () => { await rpc('admin_mark_inactive', { p_league: c.league.id, p_rider: pid(r), p_inactive: false }); c.reload(); })}>Wieder aktiv</button></li>`)}</ul>
     <${RiderPicker} people=${owned.filter((r) => !r.inactive)} limit=${6} action="Inaktiv setzen"
