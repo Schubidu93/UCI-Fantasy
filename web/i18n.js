@@ -38,8 +38,8 @@ function lookup(d, key, language) {
     for (const t of d.templates) {
       if (!key.includes(t.chunk)) continue;
       const m = t.re.exec(key);
-      // kurze Vorlagen („{} ab {}“) nicht auf lange Sätze anwenden
-      if (!m || m.slice(1).join('').length > Math.max(40, 3 * t.size)) continue;
+      // kurze, allgemeine Vorlagen („{} ab {}“) nicht auf lange Sätze anwenden
+      if (!m || (t.size < 12 && m.slice(1).join('').length > 40)) continue;
       const vals = m.slice(1).map((v) => translate(v, language));
       out = typeof t.out === 'function' ? t.out(...vals) : t.out.replace(/\{(\d)\}/g, (_, i) => vals[i]);
       break;

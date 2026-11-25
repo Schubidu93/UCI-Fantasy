@@ -49,7 +49,7 @@
   "tsconfig.json": "7eae5139019e7d40",
   "vitest.config.ts": "7d74c746dfe6eeac",
   "web/app.js": "48327ff673eaa840",
-  "web/i18n.js": "3106b5271bc80837",
+  "web/i18n.js": "d0abfcfc694b4a44",
   "web/lib.js": "ed554c7a05617ae2",
   "web/style.css": "1baccee6de4f886f",
   "web/vendor/preact-htm.js": "72284e8e9079c878",
