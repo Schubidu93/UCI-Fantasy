@@ -94,10 +94,10 @@ function Trades({ c }) {
   const myNeed = needDrop(take.length, give.length);
   const DropPicker = ({ exclude, need, sel, set }) => html`<div class="drop-pick">
     <h4>Zusätzlich entlassen (${sel.length}/${need})</h4>
-    <p class="muted small">Du bekommst mehr ${SPORT.many} als du abgibst – damit der Kader nicht zu groß wird. ${SPORT.many} aus offenen Waiver-Anträgen sind ausgenommen.</p>
+    <p class="muted small">Du bekommst mehr ${SPORT.many} als du abgibst – damit der Kader nicht zu groß wird. ${SPORT.many} aus offenen ${SPORT.waiver}-Anträgen sind ausgenommen.</p>
     ${mine.filter((r) => !exclude.includes(r.athlete_id)).map((r) => html`<label class="check" key=${r.id}>
       <input type="checkbox" disabled=${pendingDrops.has(r.athlete_id)} checked=${sel.includes(r.athlete_id)} onChange=${() => flip(sel, set, r.athlete_id)} />
-      ${name(r.athlete_id)}${pendingDrops.has(r.athlete_id) ? html` <span class="muted small">(Waiver-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r.athlete_id] || 0)}</span>`}</label>`)}
+      ${name(r.athlete_id)}${pendingDrops.has(r.athlete_id) ? html` <span class="muted small">(${SPORT.waiver}-Antrag)</span>` : html` <span class="muted small">${fmtPts(pts[r.athlete_id] || 0)}</span>`}</label>`)}
   </div>`;
 
   return html`<section class="card stack">

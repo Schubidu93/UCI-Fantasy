@@ -26,7 +26,7 @@ export function Settings({ c }) {
     <form class="stack" onSubmit=${save}>
       <label>Name der Liga<input value=${f.name} onInput=${set('name')} /></label>
       <${LeagueSettingsFields} f=${f} set=${set} locked=${locked} />
-      ${locked && html`<p class="muted small">Nach dem Draft sind nur noch Wertungsmodus (gilt ab dem nächsten Stichtag), Transfers, Waiver-Modus und Saisonende änderbar.
+      ${locked && html`<p class="muted small">Nach dem Draft sind nur noch Wertungsmodus (gilt ab dem nächsten Stichtag), Transfers, ${SPORT.waiver}-Modus und Saisonende änderbar.
         Beim Wechsel der Transfers werden die Standardfristen künftiger Spieltage neu gesetzt.</p>`}
       <div class="row"><button class="primary" disabled=${a.busy}>Speichern</button></div>
       <${Msg} msg=${a.msg} />

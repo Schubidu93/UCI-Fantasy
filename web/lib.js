@@ -79,7 +79,7 @@ export function normName(s) {
 export const draftCosts = (l) => l.draft_mode !== 'snake';
 export const budgetRelevant = (l) => draftCosts(l) || l.waiver_mode === 'faab';
 
-export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: 'Waiver', trade: 'Tausch', admin: 'Admin', free: 'Freie Phase' };
+export const SOURCE_LABEL = { draft: 'Draft', offline: 'Offline-Draft', waiver: SPORT.waiver, trade: 'Tausch', admin: 'Admin', free: 'Freie Phase' };
 
 // ---- Flaggen ---------------------------------------------------------------
 // Personen kommen mit IOC-Codes (SLO, GER, NED …), UCI-Rennen mit ISO-3-Codes (SVN, DEU …).

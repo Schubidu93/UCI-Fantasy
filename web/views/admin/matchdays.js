@@ -2,6 +2,7 @@
 import { html, useState } from '../../vendor/preact-htm.js';
 import { MatchdayProposals, EMPTY_HINT, NAME_PLACEHOLDER } from '../../sport/matchdays.js';
 import { fmtDate, fmtUntil, Msg, rpc, today, useAction } from '../../lib.js';
+import { SPORT } from '../../sport/index.js';
 
 export function Matchdays({ c }) {
   const empty = { id: null, name: '', starts_on: '', ends_on: '', deadline: '', waiver_deadline: '' };
@@ -34,7 +35,7 @@ export function Matchdays({ c }) {
       <label>Name<input required value=${f.name} onInput=${(e) => setF({ ...f, name: e.target.value })} placeholder=${NAME_PLACEHOLDER} /></label>
       <label>Start<input type="date" required value=${f.starts_on} onInput=${(e) => setF({ ...f, starts_on: e.target.value })} /></label>
       <label>Ende<input type="date" required value=${f.ends_on} onInput=${(e) => setF({ ...f, ends_on: e.target.value })} /></label>
-      ${two && html`<label>Waiver-Auswertung (optional)<input type="datetime-local" value=${f.waiver_deadline} onInput=${(e) => setF({ ...f, waiver_deadline: e.target.value })} /></label>`}
+      ${two && html`<label>${SPORT.waiver}-Auswertung (optional)<input type="datetime-local" value=${f.waiver_deadline} onInput=${(e) => setF({ ...f, waiver_deadline: e.target.value })} /></label>`}
       <label>Stichtag – Kader und Aufstellung fest (optional)<input type="datetime-local" value=${f.deadline} onInput=${(e) => setF({ ...f, deadline: e.target.value })} /></label>
       <div class="row"><button class="primary" disabled=${a.busy}>${f.id ? 'Änderung speichern' : 'Spieltag anlegen'}</button>
         ${f.id && html`<button type="button" class="ghost" onClick=${() => setF(empty)}>Abbrechen</button>`}</div>
@@ -45,16 +46,16 @@ export function Matchdays({ c }) {
     <ul class="small muted md-help">
       <li>Zeiträume dürfen unterschiedlich lang sein, aber sich nicht überlappen. Lücken sind erlaubt (Punkte darin verfallen).</li>
       <li>${two
-        ? 'Standard: Waiver bis eine Woche vor Start (Tagesende; ist der vorige Spieltag kürzer als 14 Tage: bis zu seiner Hälfte), danach freie Phase bis zum Vortag des Spieltags (Tagesende). Eigene Uhrzeiten sind möglich.'
-        : 'Standard-Stichtag für Waiver und Aufstellung: Vortag des Spieltags um 20:00 Uhr.'}</li>
+        ? `Standard: ${SPORT.waiver} bis eine Woche vor Start (Tagesende; ist der vorige Spieltag kürzer als 14 Tage: bis zu seiner Hälfte), danach freie Phase bis zum Vortag des Spieltags (Tagesende). Eigene Uhrzeiten sind möglich.`
+        : `Standard-Stichtag für ${SPORT.waiver} und Aufstellung: Vortag des Spieltags um 20:00 Uhr.`}</li>
       <li>Leere Felder = Standard. Laufende und abgeschlossene Spieltage sind gesperrt.</li>
     </ul>
     ${c.matchdays.length ? html`<ul class="list md-admin">${c.matchdays.map((m, i) => html`<li key=${m.id}>
       <span class="md-no">${i + 1}</span>
       <span class="md-what"><strong>${m.name}</strong>
         <small>${fmtDate(m.starts_on)} – ${fmtDate(m.ends_on)}</small>
-        ${two && html`<small>Waiver bis ${fmtUntil(m.waiver_deadline || m.deadline)}</small>`}
-        <small>${two ? 'Freie Phase' : 'Waiver & Aufstellung'} bis ${fmtUntil(m.deadline)}</small></span>
+        ${two && html`<small>${SPORT.waiver} bis ${fmtUntil(m.waiver_deadline || m.deadline)}</small>`}
+        <small>${two ? 'Freie Phase' : `${SPORT.waiver} & Aufstellung`} bis ${fmtUntil(m.deadline)}</small></span>
       <span class="md-actions">
         <span class="tag">${m.frozen ? 'eingefroren' : m.status === 'closed' ? 'abgeschlossen' : m.status === 'running' ? 'läuft' : locked(m) ? 'Frist vorbei' : 'geplant'}</span>
         ${!locked(m) && html`

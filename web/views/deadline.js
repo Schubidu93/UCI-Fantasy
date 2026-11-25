@@ -43,19 +43,19 @@ export function NextDeadline({ c, compact }) {
   const lineup = c.league.scoring_mode === 'lineup';
   const next = two && phase === 'waiver' ? wd : lock;
   const steps = two ? [
-    ['Waiver-Runde', `bis ${fmtDeadline(wd)}`, 'Anträge stellen – ausgewertet in Waiver-Reihenfolge', phase === 'waiver'],
+    [`${SPORT.waiver}-Runde`, `bis ${fmtDeadline(wd)}`, `Anträge stellen – ausgewertet in ${SPORT.waiver}-Reihenfolge`, phase === 'waiver'],
     ['Freie Phase', `bis ${fmtDeadline(lock)}`, `freie ${SPORT.many} sofort holen und abgeben, wer zuerst kommt`, phase === 'free'],
     ['Stichtag', `danach`, `Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
   ] : [
-    ['Waiver', `bis ${fmtDeadline(lock)}`, `Anträge stellen${lineup ? ', Aufstellung festlegen' : ''}`, true],
-    ['Stichtag', `danach`, `Waiver werden ausgewertet, Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
+    [SPORT.waiver, `bis ${fmtDeadline(lock)}`, `Anträge stellen${lineup ? ', Aufstellung festlegen' : ''}`, true],
+    ['Stichtag', `danach`, `${SPORT.waiver} werden ausgewertet, Kader${lineup ? ' und Aufstellung' : ''} für ${md.name} sind fest`, false],
   ];
   return html`<section class="card deadline">
     <div class="deadline-head">
       <span class="deadline-icon" aria-hidden="true">⏰</span>
       <div>
-        <div class="muted small">${two && phase === 'free' ? 'Freie Phase läuft' : two ? 'Waiver-Runde läuft' : 'Nächster Stichtag'} · für ${md.name} (${fmtDate(md.starts_on)} – ${fmtDate(md.ends_on)})</div>
-        <div class="deadline-time">${two && phase === 'waiver' ? 'Waiver bis ' : two ? 'Frei bis ' : 'bis '}${fmtDeadline(next)} <span class="tag warn">${untilText(next)}</span></div>
+        <div class="muted small">${two && phase === 'free' ? 'Freie Phase läuft' : two ? `${SPORT.waiver}-Runde läuft` : 'Nächster Stichtag'} · für ${md.name} (${fmtDate(md.starts_on)} – ${fmtDate(md.ends_on)})</div>
+        <div class="deadline-time">${two && phase === 'waiver' ? `${SPORT.waiver} bis ` : two ? 'Frei bis ' : 'bis '}${fmtDeadline(next)} <span class="tag warn">${untilText(next)}</span></div>
       </div>
     </div>
     ${!compact && html`<ol class="small phase-list">${steps.map(([t, when, what, active]) => html`<li class=${active ? 'active' : ''}>

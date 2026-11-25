@@ -44,7 +44,7 @@ begin
   perform _require_admin(p_league);
   v_deadline := coalesce(p_deadline, _default_deadline(p_league, p_start));
   v_wd := coalesce(p_waiver_deadline, _default_waiver_deadline(p_league, p_start, p_id));
-  if v_wd > v_deadline then raise exception 'Die Waiver-Auswertung muss vor dem Stichtag liegen.'; end if;
+  if v_wd > v_deadline then raise exception 'Die %-Auswertung muss vor dem Stichtag liegen.', _word('waiver'); end if;
   if p_end < p_start then raise exception 'Das Enddatum liegt vor dem Startdatum.'; end if;
   if p_id is null then
     insert into matchdays (league_id, name, starts_on, ends_on, deadline, waiver_deadline)
